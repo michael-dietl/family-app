@@ -1,0 +1,7 @@
+{
+  "name": "dietl.mobi",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue-vite"
+}
