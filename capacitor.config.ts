@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'io.ionic.starter',
+  appId: 'mobi.dietl.app',
   appName: 'dietl.mobi',
   webDir: 'dist'
 };
