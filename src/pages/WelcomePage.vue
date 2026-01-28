@@ -18,9 +18,9 @@
     <ion-content :fullscreen="true" class="ion-padding">
       <div class="welcome-container">
         <div class="welcome-header">
-          <ion-icon :icon="imagesOutline" size="large" color="primary" />
-          <h1>Willkommen bei dietl.mobi</h1>
-          <p>Verwalte deine Fotos, Videos und Weinkeller</p>
+          <img src="/logo.svg" alt="dietl.mobi Logo" class="logo" />
+          <h1>dietl.mobi</h1>
+          <p>Deine Mobile Verwaltung</p>
         </div>
 
         <ion-list class="feature-list">
@@ -68,31 +68,25 @@
             </ion-label>
             <ion-icon :icon="chevronForward" slot="end" />
           </ion-item>
-        </ion-list>
 
-        <div class="sync-status ion-margin-top">
-          <ion-card v-if="pocketbaseUrl">
-            <ion-card-content>
-              <div class="status-row">
-                <ion-icon 
-                  :icon="isConnected ? cloudDone : cloudOffline" 
-                  :color="isConnected ? 'success' : 'danger'"
-                />
-                <div>
-                  <p class="status-text">
-                    <strong>{{ isConnected ? 'Verbunden' : 'Offline' }}</strong>
-                  </p>
-                  <p class="status-url">{{ pocketbaseUrl }}</p>
-                </div>
-              </div>
-            </ion-card-content>
-          </ion-card>
-          
-          <ion-button v-else expand="block" fill="outline" @click="goToSettings">
-            <ion-icon :icon="cloudOffline" slot="start" />
-            Backend konfigurieren
-          </ion-button>
-        </div>
+          <ion-item button @click="navigateTo('/shopping')" lines="full">
+            <ion-icon :icon="cartOutline" slot="start" color="primary" />
+            <ion-label>
+              <h2>Einkaufslisten</h2>
+              <p>Einkäufe organisieren</p>
+            </ion-label>
+            <ion-icon :icon="chevronForward" slot="end" />
+          </ion-item>
+
+          <ion-item button @click="navigateTo('/todo')" lines="full">
+            <ion-icon :icon="checkboxOutline" slot="start" color="secondary" />
+            <ion-label>
+              <h2>ToDo</h2>
+              <p>Aufgaben verwalten</p>
+            </ion-label>
+            <ion-icon :icon="chevronForward" slot="end" />
+          </ion-item>
+        </ion-list>
       </div>
     </ion-content>
   </ion-page>
@@ -128,7 +122,9 @@ import {
   chevronForward,
   cloudDone,
   cloudOffline,
-  syncOutline
+  syncOutline,
+  cartOutline,
+  checkboxOutline
 } from 'ionicons/icons';
 import { Preferences } from '@capacitor/preferences';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
@@ -207,85 +203,61 @@ const manualSync = async () => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  padding-top: 1rem;
 }
 
 .welcome-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
-.welcome-header ion-icon {
-  font-size: 80px;
-  margin-bottom: 1rem;
+.welcome-header .logo {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 0.5rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .welcome-header h1 {
-  font-size: 2rem;
+  font-size: 1.8rem;
   font-weight: 700;
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.25rem 0;
   color: var(--ion-color-dark);
 }
 
 .welcome-header p {
   color: var(--ion-color-medium);
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   margin: 0;
 }
 
 .feature-list {
-  margin: 2rem 0;
+  margin: 0;
   border-radius: 12px;
   overflow: hidden;
+  flex: 1;
 }
 
 .feature-list ion-item {
   --padding-start: 1rem;
   --padding-end: 1rem;
-  --min-height: 70px;
+  --min-height: 60px;
 }
 
 .feature-list ion-icon[slot="start"] {
-  font-size: 32px;
-  margin-right: 1rem;
+  font-size: 30px;
+  margin-right: 0.75rem;
 }
 
 .feature-list h2 {
   font-weight: 600;
-  margin: 0 0 0.25rem 0;
+  margin: 0 0 0.2rem 0;
+  font-size: 1.05rem;
 }
 
 .feature-list p {
   color: var(--ion-color-medium);
   font-size: 0.9rem;
   margin: 0;
-}
-
-.sync-status {
-  margin-top: auto;
-  padding-bottom: 2rem;
-}
-
-.status-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.status-row ion-icon {
-  font-size: 32px;
-  flex-shrink: 0;
-}
-
-.status-text {
-  margin: 0 0 0.25rem 0;
-  font-size: 1rem;
-}
-
-.status-url {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--ion-color-medium);
-  word-break: break-all;
 }
 </style>

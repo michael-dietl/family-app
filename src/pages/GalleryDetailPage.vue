@@ -375,14 +375,22 @@ const handleAddPhoto = async (source: CameraSource) => {
     
     if (photo.webPath) {
       console.log('📸 Photo captured:', photo.webPath);
-      console.log('📋 Photo EXIF from Camera:', photo.exif);
+      console.log('📋 Photo EXIF from Camera API:', photo.exif);
       
-      // Prüfe ob GPS-Daten vorhanden sind
-      console.log('🔍 Extracting EXIF from photo...');
-      const exifData = await extractExifData(photo.webPath);
-      console.log('📊 Extracted EXIF data:', exifData);
-      const hasGPS = (exifData as any).latitude && (exifData as any).longitude;
-      console.log('📍 Has GPS:', hasGPS, 'Lat:', (exifData as any).latitude, 'Lng:', (exifData as any).longitude);
+      let hasGPS = false;
+      
+      // Prüfe zuerst ob Camera API GPS-Daten hat
+      if (photo.exif?.GPSLatitude && photo.exif?.GPSLongitude) {
+        console.log('✅ GPS-Daten in Camera API gefunden');
+        hasGPS = true;
+      } else {
+        // Fallback: Extrahiere EXIF aus Bild (für Fotos aus Galerie ohne Camera API EXIF)
+        console.log('🔍 Keine GPS in Camera API - extrahiere EXIF aus Bild...');
+        const exifData = await extractExifData(photo.webPath);
+        console.log('📊 Extracted EXIF data:', exifData);
+        hasGPS = !!(exifData as any).latitude && !!(exifData as any).longitude;
+        console.log('📍 Has GPS from image:', hasGPS, 'Lat:', (exifData as any).latitude, 'Lng:', (exifData as any).longitude);
+      }
       
       if (!hasGPS) {
         // Zeige Location Picker Dialog
@@ -395,9 +403,13 @@ const handleAddPhoto = async (source: CameraSource) => {
         showLocationPicker.value = true;
       } else {
         // GPS vorhanden, speichere direkt
+        console.log('✅ GPS vorhanden - speichere Foto direkt');
         await savePhoto(photo.webPath, galleryId, undefined, photo.exif);
-        await loadGallery(galleryId);
         console.log('Photo saved successfully with GPS');
+        
+        // WICHTIG: Galerie neu laden, damit das neue Foto sofort in der Liste erscheint
+        await loadGallery(galleryId);
+        cacheBuster.value = Date.now(); // Force re-render für Thumbnails
       }
     }
   } catch (error) {
@@ -432,7 +444,10 @@ const handleAddMultiplePhotos = async () => {
     });
     
     uploadProgress.value = { current: 0, total: 0 };
+    
+    // WICHTIG: Galerie neu laden, damit alle neuen Fotos sofort angezeigt werden
     await loadGallery(galleryId);
+    cacheBuster.value = Date.now(); // Force re-render für Thumbnails
     
     console.log('All photos uploaded successfully');
   } catch (error) {
@@ -552,8 +567,11 @@ const handleLocationConfirm = async (lat: number, lng: number) => {
       { latitude: lat, longitude: lng }
     );
     
-    await loadGallery(galleryId);
     console.log('Photo saved with manual location:', { lat, lng });
+    
+    // WICHTIG: Galerie neu laden, damit das neue Foto sofort erscheint
+    await loadGallery(galleryId);
+    cacheBuster.value = Date.now(); // Force re-render für Thumbnails
   } catch (error) {
     console.error('Error saving photo with manual location:', error);
   } finally {

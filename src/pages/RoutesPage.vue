@@ -64,7 +64,7 @@
       </ion-list>
 
       <!-- FAB Button -->
-      <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+      <ion-fab vertical="bottom" horizontal="end" slot="fixed" class="routes-fab">
         <ion-fab-button @click="startNewRoute" color="primary">
           <ion-icon :icon="addOutline" />
         </ion-fab-button>
@@ -92,7 +92,8 @@ import {
   IonFab,
   IonFabButton,
   IonBadge,
-  alertController
+  alertController,
+  onIonViewWillEnter
 } from '@ionic/vue';
 import {
   addOutline,
@@ -106,6 +107,11 @@ const routes = ref<Route[]>([]);
 const isLoading = ref(true);
 
 onMounted(async () => {
+  await loadRoutes();
+});
+
+// Reload routes when returning to this page
+onIonViewWillEnter(async () => {
   await loadRoutes();
 });
 
@@ -228,5 +234,10 @@ const formatDate = (dateString: string): string => {
 
 .route-info span:first-child::before {
   display: none;
+}
+
+.routes-fab {
+  margin-bottom: 60px;
+  margin-right: 4px;
 }
 </style>

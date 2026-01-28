@@ -75,8 +75,12 @@ const initEditor = () => {
       },
       menuBarPosition: 'bottom',
     },
-    cssMaxWidth: window.innerWidth,
-    cssMaxHeight: window.innerHeight - 120,
+    cssMaxWidth: document.documentElement.clientWidth,
+    cssMaxHeight: document.documentElement.clientHeight - 120,
+    selectionStyle: {
+      cornerSize: 50,
+      rotatingPointOffset: 100,
+    },
     usageStatistics: false,
   });
 };

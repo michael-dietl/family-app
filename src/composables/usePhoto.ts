@@ -99,92 +99,49 @@ export function usePhoto() {
         return {};
       }
       
-      // Versuche expanded mode
+      // EXIF-Daten extrahieren (expanded mode - wie im Weinmodul)
       const tagsExpanded = ExifReader.load(arrayBuffer, { expanded: true });
-      console.log('📸 ExifReader (expanded) loaded. Top-level keys:', Object.keys(tagsExpanded));
+      console.log('📸 EXIF Tags (expanded):', tagsExpanded);
       
       const gps = tagsExpanded.gps;
       const exif = tagsExpanded.exif;
       
-      console.log('📸 GPS (expanded):', {
+      console.log('📍 GPS (expanded):', {
         hasGPS: !!gps,
-        gpsKeys: gps ? Object.keys(gps) : [],
         Latitude: gps?.Latitude,
-        Longitude: gps?.Longitude,
-        fullGPS: gps
+        Longitude: gps?.Longitude
       });
       
-      // Versuche auch non-expanded mode als Fallback
-      const tagsRaw = ExifReader.load(arrayBuffer, { expanded: false });
-      console.log('📸 ExifReader (raw) loaded. GPS tags:', Object.keys(tagsRaw).filter(k => k.startsWith('GPS')));
-      
-      console.log('📸 GPS (raw):', {
-        GPSLatitude: tagsRaw.GPSLatitude,
-        GPSLongitude: tagsRaw.GPSLongitude,
-        GPSLatitudeRef: tagsRaw.GPSLatitudeRef,
-        GPSLongitudeRef: tagsRaw.GPSLongitudeRef
-      });
-      
-      // GPS Koordinaten extrahieren - versuche mehrere Formate
+      // GPS Koordinaten extrahieren - expanded mode gibt direkt Dezimalwerte
       let latitude: number | undefined;
       let longitude: number | undefined;
       
-      // Methode 1: Expanded mode (gibt direkt Dezimalwerte)
       if (gps?.Latitude && gps?.Longitude) {
         latitude = typeof gps.Latitude === 'number' ? gps.Latitude : undefined;
         longitude = typeof gps.Longitude === 'number' ? gps.Longitude : undefined;
-        console.log('✅ GPS aus expanded mode:', { latitude, longitude });
+        console.log('📍 GPS Coordinates:', { latitude, longitude });
       }
       
-      // Methode 2: Raw mode mit manueller Konvertierung
-      if ((!latitude || !longitude) && tagsRaw.GPSLatitude && tagsRaw.GPSLongitude) {
-        console.log('🔄 Trying raw mode GPS conversion...');
-        
-        const convertGPS = (coord: any, ref: any): number | undefined => {
-          try {
-            if (!coord?.value || !Array.isArray(coord.value)) return undefined;
-            
-            const values = coord.value;
-            console.log('🔍 Converting GPS:', { values, ref: ref?.value });
-            
-            // values ist [degrees, minutes, seconds] als Brüche [[num, den], [num, den], [num, den]]
-            const deg = Array.isArray(values[0]) ? values[0][0] / values[0][1] : values[0];
-            const min = Array.isArray(values[1]) ? values[1][0] / values[1][1] : values[1];
-            const sec = Array.isArray(values[2]) ? values[2][0] / values[2][1] : values[2];
-            
-            let decimal = deg + (min / 60) + (sec / 3600);
-            
-            const refStr = ref?.value?.[0] || ref?.value || ref;
-            if (refStr === 'S' || refStr === 'W') {
-              decimal = -decimal;
-            }
-            
-            console.log('✅ GPS converted:', { deg, min, sec, decimal, ref: refStr });
-            return decimal;
-          } catch (e) {
-            console.error('❌ GPS conversion error:', e);
-            return undefined;
-          }
-        };
-        
-        latitude = convertGPS(tagsRaw.GPSLatitude, tagsRaw.GPSLatitudeRef);
-        longitude = convertGPS(tagsRaw.GPSLongitude, tagsRaw.GPSLongitudeRef);
-        console.log('✅ GPS aus raw mode:', { latitude, longitude });
-      }
+      // GPS-Validierung
+      const isValidGPS = (lat?: number, lng?: number): boolean => {
+        if (lat === undefined || lng === undefined) return false;
+        if (isNaN(lat) || isNaN(lng)) return false;
+        // Latitude: -90 bis 90, Longitude: -180 bis 180
+        if (lat < -90 || lat > 90) return false;
+        if (lng < -180 || lng > 180) return false;
+        // Ignoriere ungültige 0,0 Koordinaten (Golf von Guinea)
+        if (lat === 0 && lng === 0) return false;
+        return true;
+      };
       
-      console.log('📍 GPS nach EXIF-Extraktion:', { latitude, longitude });
+      const validGPS = isValidGPS(latitude, longitude);
+      console.log('📍 GPS nach EXIF-Extraktion:', { latitude, longitude, valid: validGPS });
       
-      // Fallback auf aktuelle Position, wenn EXIF keine GPS-Daten hat
-      if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
-        console.log('ℹ️ Keine GPS-Daten in EXIF gefunden - versuche aktuelle Position zu ermitteln');
-        try {
-          const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000 });
-          latitude = position.coords.latitude;
-          longitude = position.coords.longitude;
-          console.log('✅ Aktuelle Position als Fallback verwendet:', { latitude, longitude });
-        } catch (gpsError) {
-          console.log('⚠️ Keine GPS-Daten in EXIF und aktuelle Position nicht verfügbar - Foto wird ohne Standort gespeichert');
-        }
+      // Setze ungültige GPS-Werte auf undefined
+      if (!validGPS) {
+        latitude = undefined;
+        longitude = undefined;
+        console.log('⚠️ Keine gültigen GPS-Daten in EXIF gefunden');
       } else {
         console.log('✅ GPS aus EXIF-Daten erfolgreich extrahiert:', { latitude, longitude });
       }
@@ -245,18 +202,9 @@ export function usePhoto() {
       if (error instanceof Error) {
         console.error('❌ Error details:', { name: error.name, message: error.message, stack: error.stack });
       }
-      // Bei Fehler trotzdem versuchen, aktuelle Position zu verwenden
-      try {
-        const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000 });
-        console.log('✅ Aktuelle Position nach EXIF-Fehler verwendet');
-        return {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        };
-      } catch (gpsError) {
-        console.log('⚠️ EXIF-Fehler und keine aktuelle Position - Foto wird ohne Metadaten gespeichert');
-        return {};
-      }
+      // Gebe leeres Objekt zurück - Fallback-Entscheidung erfolgt auf höherer Ebene
+      console.log('⚠️ EXIF-Extraktion fehlgeschlagen - Foto wird ohne EXIF-Metadaten verarbeitet');
+      return {};
     }
   };
 
@@ -430,18 +378,32 @@ export function usePhoto() {
           const parseGPSString = (gpsString: string, ref: string): number | undefined => {
             try {
               const parts = gpsString.split(',');
-              if (parts.length !== 3) return undefined;
+              if (parts.length !== 3) {
+                console.warn('⚠️ Invalid GPS string format:', gpsString);
+                return undefined;
+              }
               
-              const degrees = eval(parts[0]);  // 48/1 = 48
-              const minutes = eval(parts[1]);  // 3/1 = 3  
-              const seconds = eval(parts[2]);  // 25217640/1000000 = 25.21764
+              // Parse Brüche: "48/1" -> 48, "25217640/1000000" -> 25.21764
+              const parseFraction = (fraction: string): number => {
+                const [num, den] = fraction.split('/').map(s => parseFloat(s.trim()));
+                return den ? num / den : num;
+              };
               
+              const degrees = parseFraction(parts[0]);
+              const minutes = parseFraction(parts[1]);
+              const seconds = parseFraction(parts[2]);
+              
+              console.log('🔍 GPS DMS parsed:', { degrees, minutes, seconds, ref });
+              
+              // Konvertiere DMS zu Decimal
               let decimal = degrees + (minutes / 60) + (seconds / 3600);
               
+              // Süd und West sind negativ
               if (ref === 'S' || ref === 'W') {
                 decimal = -decimal;
               }
               
+              console.log('✅ GPS decimal:', decimal);
               return decimal;
             } catch (e) {
               console.error('❌ GPS parsing error:', e);
@@ -452,11 +414,24 @@ export function usePhoto() {
           const latitude = parseGPSString(cameraExifData.GPSLatitude, cameraExifData.GPSLatitudeRef || 'N');
           const longitude = parseGPSString(cameraExifData.GPSLongitude, cameraExifData.GPSLongitudeRef || 'E');
           
-          console.log('📍 Parsed GPS:', { latitude, longitude });
+          // Validiere GPS-Koordinaten
+          const isValidGPS = (lat?: number, lng?: number): boolean => {
+            if (lat === undefined || lng === undefined) return false;
+            if (isNaN(lat) || isNaN(lng)) return false;
+            // Latitude: -90 bis 90, Longitude: -180 bis 180
+            if (lat < -90 || lat > 90) return false;
+            if (lng < -180 || lng > 180) return false;
+            // Ignoriere ungültige 0,0 Koordinaten (Golf von Guinea)
+            if (lat === 0 && lng === 0) return false;
+            return true;
+          };
+          
+          const validGPS = isValidGPS(latitude, longitude);
+          console.log('📍 Parsed GPS:', { latitude, longitude, valid: validGPS });
           
           exifData = {
-            latitude,
-            longitude,
+            latitude: validGPS ? latitude : undefined,
+            longitude: validGPS ? longitude : undefined,
             dateTaken: cameraExifData.DateTime || cameraExifData.DateTimeOriginal,
             camera: cameraExifData.Make && cameraExifData.Model 
               ? `${cameraExifData.Make} ${cameraExifData.Model}`.trim()

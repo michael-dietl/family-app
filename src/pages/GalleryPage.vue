@@ -244,22 +244,19 @@ const handleCreateGallery = async () => {
   if (!newGalleryName.value) return;
 
   try {
-    isLoading.value = true;
-    
-    // Galerie erstellen
+    // Galerie erstellen (lädt automatisch die Galerie-Liste neu in useGallery)
     await createGallery(newGalleryName.value, newGalleryDescription.value, newGalleryColor.value);
     
-    // Dialog schließen und Felder zurücksetzen SOFORT
+    // Dialog schließen und Felder zurücksetzen
     showCreateDialog.value = false;
     newGalleryName.value = '';
     newGalleryDescription.value = '';
     newGalleryColor.value = '#3880ff';
     
-    // WICHTIG: Galerie-Liste neu laden, damit die neue Galerie sofort erscheint
-    await loadGalleries();
-    
-    // Photo counts NACH loadGalleries laden (braucht die aktuelle galleries-Liste)
+    // Photo counts laden (verwendet die aktualisierte galleries-Liste aus useGallery)
     await loadPhotoCounts();
+    
+    console.log('✅ Galerie erfolgreich erstellt und Liste aktualisiert');
   } catch (error) {
     console.error('Create gallery error:', error);
     const alert = await alertController.create({
@@ -268,8 +265,6 @@ const handleCreateGallery = async () => {
       buttons: ['OK']
     });
     await alert.present();
-  } finally {
-    isLoading.value = false;
   }
 };
 </script>

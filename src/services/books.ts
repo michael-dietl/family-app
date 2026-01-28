@@ -25,6 +25,10 @@ export interface BookLookupError {
 
 let GOOGLE_BOOKS_API_KEY: string | null = null;
 
+// Cache für ISBN-Lookups (verhindert doppelte Anfragen)
+const isbnCache = new Map<string, { data: GoogleBookInfo; timestamp: number }>();
+const CACHE_DURATION = 1000 * 60 * 60; // 1 Stunde
+
 export function setGoogleBooksApiKey(apiKey: string | null) {
   GOOGLE_BOOKS_API_KEY = apiKey;
   if (apiKey) {
@@ -38,7 +42,19 @@ export function getGoogleBooksApiKey(): string | null {
   return GOOGLE_BOOKS_API_KEY;
 }
 
-export async function lookupBookByISBN(isbn: string): Promise<{ data?: GoogleBookInfo; error?: BookLookupError }> {
+// Hilfsfunktion für exponential backoff retry
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export async function lookupBookByISBN(isbn: string, retryCount = 0): Promise<{ data?: GoogleBookInfo; error?: BookLookupError }> {
+  // Prüfe Cache
+  const cached = isbnCache.get(isbn);
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    console.log('📖 Book found in cache:', cached.data.title);
+    return { data: cached.data };
+  }
+
   try {
     // Google Books API endpoint mit optionalem API Key
     let apiUrl = `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`;
@@ -46,31 +62,61 @@ export async function lookupBookByISBN(isbn: string): Promise<{ data?: GoogleBoo
     if (GOOGLE_BOOKS_API_KEY) {
       apiUrl += `&key=${GOOGLE_BOOKS_API_KEY}`;
       console.log('📚 Looking up book with ISBN (mit API Key):', isbn);
+      console.log('🔑 API Key verwendet:', GOOGLE_BOOKS_API_KEY.substring(0, 10) + '...');
     } else {
       console.log('📚 Looking up book with ISBN (ohne API Key):', isbn);
     }
     
+    console.log('🌐 Request URL:', apiUrl.replace(GOOGLE_BOOKS_API_KEY || '', 'KEY_HIDDEN'));
+    
     const response = await fetch(apiUrl);
+    
+    console.log('📊 Response Status:', response.status, response.statusText);
     
     // Detaillierte Fehlerbehandlung basierend auf HTTP Status
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('❌ Response Error Body:', errorText);
+      
       let error: BookLookupError;
       
       switch (response.status) {
+        case 400:
+          // Ungültige Anfrage - möglicherweise ungültiger API Key
+          error = {
+            type: 'api_error',
+            message: 'Ungültige Anfrage',
+            details: `Die Anfrage war fehlerhaft. ${errorText.includes('API key') ? 'Der API Key könnte ungültig sein.' : ''}\n\nDetails: ${errorText}`
+          };
+          break;
         case 403:
+          // Bei 403 mit Retry versuchen (könnte temporär sein)
+          if (retryCount < 2) {
+            console.warn(`⚠️ 403 Fehler - Retry ${retryCount + 1}/2 nach 2 Sekunden...`);
+            await sleep(2000 * (retryCount + 1));
+            return lookupBookByISBN(isbn, retryCount + 1);
+          }
           error = {
             type: 'quota',
-            message: 'API Quota überschritten',
-            details: 'Die tägliche Anfragegrenze der Google Books API wurde erreicht.',
+            message: 'API Zugriff eingeschränkt',
+            details: GOOGLE_BOOKS_API_KEY 
+              ? `Die API-Key Quota wurde überschritten oder der Key ist ungültig.\n\nAPI Antwort: ${errorText}`
+              : 'Die tägliche Anfragegrenze der kostenlosen Google Books API wurde erreicht. Ein API-Key würde mehr Anfragen ermöglichen.',
             needsApiKey: !GOOGLE_BOOKS_API_KEY
           };
           break;
         case 429:
+          // Exponential Backoff bei Rate Limiting
+          if (retryCount < 3) {
+            const waitTime = 1000 * Math.pow(2, retryCount); // 1s, 2s, 4s
+            console.warn(`⏳ Rate Limit erreicht - Retry ${retryCount + 1}/3 nach ${waitTime}ms...`);
+            await sleep(waitTime);
+            return lookupBookByISBN(isbn, retryCount + 1);
+          }
           error = {
             type: 'quota',
             message: 'Zu viele Anfragen',
-            details: 'Bitte warten Sie einen Moment und versuchen Sie es erneut.',
+            details: 'Die Google Books API hat zu viele Anfragen in kurzer Zeit erkannt. Bitte warten Sie einen Moment.',
             needsApiKey: !GOOGLE_BOOKS_API_KEY
           };
           break;
@@ -121,6 +167,9 @@ export async function lookupBookByISBN(isbn: string): Promise<{ data?: GoogleBoo
       language: volumeInfo.language,
       imageLinks: volumeInfo.imageLinks
     };
+    
+    // Speichere im Cache
+    isbnCache.set(isbn, { data: bookInfo, timestamp: Date.now() });
     
     console.log('✅ Book found:', bookInfo.title);
     return { data: bookInfo };

@@ -110,6 +110,40 @@ export interface Wine {
   updated: string;
 }
 
+// Shopping List Types
+export interface ShoppingList {
+  id?: number;
+  name: string;
+  created: string;
+  updated: string;
+}
+
+export interface ShoppingItem {
+  id?: number;
+  listId: number;
+  name: string;
+  quantity?: number;
+  completed: boolean;
+  created: string;
+}
+
+// Todo List Types
+export interface TodoList {
+  id?: number;
+  name: string;
+  created: string;
+  updated: string;
+}
+
+export interface TodoItem {
+  id?: number;
+  listId: number;
+  title: string;
+  description?: string;
+  completed: boolean;
+  created: string;
+}
+
 // In-Memory Storage für Web-Development
 class InMemoryStorage {
   private galleries: Gallery[] = [];
@@ -441,6 +475,58 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_wines_year ON wines(year);
     `;
 
+    // Einkaufslisten Tabellen
+    const shoppingListsTable = `
+      CREATE TABLE IF NOT EXISTS shopping_lists (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        created TEXT NOT NULL,
+        updated TEXT NOT NULL
+      );
+    `;
+
+    const shoppingItemsTable = `
+      CREATE TABLE IF NOT EXISTS shopping_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        listId INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        quantity INTEGER,
+        completed INTEGER DEFAULT 0,
+        created TEXT NOT NULL,
+        FOREIGN KEY (listId) REFERENCES shopping_lists(id) ON DELETE CASCADE
+      );
+    `;
+
+    const shoppingIndexes = `
+      CREATE INDEX IF NOT EXISTS idx_shopping_items_list ON shopping_items(listId);
+    `;
+
+    // ToDo Listen Tabellen
+    const todoListsTable = `
+      CREATE TABLE IF NOT EXISTS todo_lists (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        created TEXT NOT NULL,
+        updated TEXT NOT NULL
+      );
+    `;
+
+    const todoItemsTable = `
+      CREATE TABLE IF NOT EXISTS todo_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        listId INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        completed INTEGER DEFAULT 0,
+        created TEXT NOT NULL,
+        FOREIGN KEY (listId) REFERENCES todo_lists(id) ON DELETE CASCADE
+      );
+    `;
+
+    const todoIndexes = `
+      CREATE INDEX IF NOT EXISTS idx_todo_items_list ON todo_items(listId);
+    `;
+
     await this.db.execute(galleriesTable);
     await this.db.execute(photosTable);
     await this.db.execute(indexes);
@@ -452,6 +538,12 @@ class DatabaseService {
     await this.db.execute(routeIndexes);
     await this.db.execute(winesTable);
     await this.db.execute(wineIndexes);
+    await this.db.execute(shoppingListsTable);
+    await this.db.execute(shoppingItemsTable);
+    await this.db.execute(shoppingIndexes);
+    await this.db.execute(todoListsTable);
+    await this.db.execute(todoItemsTable);
+    await this.db.execute(todoIndexes);
   }
 
   // Galerie CRUD Operationen
@@ -1145,6 +1237,276 @@ class DatabaseService {
     const result = await this.db.query(sql);
     
     return result.values?.[0]?.count || 0;
+  }
+
+  // Shopping List CRUD Operations
+  async createShoppingList(list: Omit<ShoppingList, 'id' | 'created' | 'updated'>): Promise<number> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return 0;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const sql = 'INSERT INTO shopping_lists (name, created, updated) VALUES (?, ?, ?);';
+    const result = await this.db.run(sql, [list.name, now, now]);
+    
+    return result.changes?.lastId || 0;
+  }
+
+  async getShoppingLists(): Promise<ShoppingList[]> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return [];
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'SELECT * FROM shopping_lists ORDER BY updated DESC;';
+    const result = await this.db.query(sql);
+    
+    return result.values || [];
+  }
+
+  async getShoppingList(id: number): Promise<ShoppingList | null> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return null;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'SELECT * FROM shopping_lists WHERE id = ?;';
+    const result = await this.db.query(sql, [id]);
+    
+    return result.values?.[0] || null;
+  }
+
+  async updateShoppingList(id: number, updates: Partial<ShoppingList>): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.name) {
+      fields.push('name = ?');
+      values.push(updates.name);
+    }
+
+    fields.push('updated = ?');
+    values.push(now);
+    values.push(id);
+
+    const sql = `UPDATE shopping_lists SET ${fields.join(', ')} WHERE id = ?;`;
+    await this.db.run(sql, values);
+  }
+
+  async deleteShoppingList(id: number): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'DELETE FROM shopping_lists WHERE id = ?;';
+    await this.db.run(sql, [id]);
+  }
+
+  async createShoppingItem(item: Omit<ShoppingItem, 'id' | 'created'>): Promise<number> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return 0;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const sql = 'INSERT INTO shopping_items (listId, name, quantity, completed, created) VALUES (?, ?, ?, ?, ?);';
+    const result = await this.db.run(sql, [
+      item.listId,
+      item.name,
+      item.quantity || null,
+      item.completed ? 1 : 0,
+      now
+    ]);
+    
+    return result.changes?.lastId || 0;
+  }
+
+  async getShoppingItems(listId: number): Promise<ShoppingItem[]> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return [];
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'SELECT * FROM shopping_items WHERE listId = ? ORDER BY completed ASC, created DESC;';
+    const result = await this.db.query(sql, [listId]);
+    
+    return (result.values || []).map(row => ({
+      ...row,
+      completed: row.completed === 1
+    }));
+  }
+
+  async updateShoppingItem(id: number, updates: Partial<ShoppingItem>): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.name !== undefined) {
+      fields.push('name = ?');
+      values.push(updates.name);
+    }
+    if (updates.quantity !== undefined) {
+      fields.push('quantity = ?');
+      values.push(updates.quantity);
+    }
+    if (updates.completed !== undefined) {
+      fields.push('completed = ?');
+      values.push(updates.completed ? 1 : 0);
+    }
+
+    if (fields.length === 0) return;
+
+    values.push(id);
+    const sql = `UPDATE shopping_items SET ${fields.join(', ')} WHERE id = ?;`;
+    await this.db.run(sql, values);
+  }
+
+  async deleteShoppingItem(id: number): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'DELETE FROM shopping_items WHERE id = ?;';
+    await this.db.run(sql, [id]);
+  }
+
+  // Todo List CRUD Operations
+  async createTodoList(list: Omit<TodoList, 'id' | 'created' | 'updated'>): Promise<number> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return 0;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const sql = 'INSERT INTO todo_lists (name, created, updated) VALUES (?, ?, ?);';
+    const result = await this.db.run(sql, [list.name, now, now]);
+    
+    return result.changes?.lastId || 0;
+  }
+
+  async getTodoLists(): Promise<TodoList[]> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return [];
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'SELECT * FROM todo_lists ORDER BY updated DESC;';
+    const result = await this.db.query(sql);
+    
+    return result.values || [];
+  }
+
+  async getTodoList(id: number): Promise<TodoList | null> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return null;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'SELECT * FROM todo_lists WHERE id = ?;';
+    const result = await this.db.query(sql, [id]);
+    
+    return result.values?.[0] || null;
+  }
+
+  async updateTodoList(id: number, updates: Partial<TodoList>): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.name) {
+      fields.push('name = ?');
+      values.push(updates.name);
+    }
+
+    fields.push('updated = ?');
+    values.push(now);
+    values.push(id);
+
+    const sql = `UPDATE todo_lists SET ${fields.join(', ')} WHERE id = ?;`;
+    await this.db.run(sql, values);
+  }
+
+  async deleteTodoList(id: number): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'DELETE FROM todo_lists WHERE id = ?;';
+    await this.db.run(sql, [id]);
+  }
+
+  async createTodoItem(item: Omit<TodoItem, 'id' | 'created'>): Promise<number> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return 0;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const sql = 'INSERT INTO todo_items (listId, title, description, completed, created) VALUES (?, ?, ?, ?, ?);';
+    const result = await this.db.run(sql, [
+      item.listId,
+      item.title,
+      item.description || null,
+      item.completed ? 1 : 0,
+      now
+    ]);
+    
+    return result.changes?.lastId || 0;
+  }
+
+  async getTodoItems(listId: number): Promise<TodoItem[]> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return [];
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'SELECT * FROM todo_items WHERE listId = ? ORDER BY completed ASC, created DESC;';
+    const result = await this.db.query(sql, [listId]);
+    
+    return (result.values || []).map(row => ({
+      ...row,
+      completed: row.completed === 1
+    }));
+  }
+
+  async updateTodoItem(id: number, updates: Partial<TodoItem>): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.title !== undefined) {
+      fields.push('title = ?');
+      values.push(updates.title);
+    }
+    if (updates.description !== undefined) {
+      fields.push('description = ?');
+      values.push(updates.description);
+    }
+    if (updates.completed !== undefined) {
+      fields.push('completed = ?');
+      values.push(updates.completed ? 1 : 0);
+    }
+
+    if (fields.length === 0) return;
+
+    values.push(id);
+    const sql = `UPDATE todo_items SET ${fields.join(', ')} WHERE id = ?;`;
+    await this.db.run(sql, values);
+  }
+
+  async deleteTodoItem(id: number): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'DELETE FROM todo_items WHERE id = ?;';
+    await this.db.run(sql, [id]);
   }
 }
 

@@ -324,6 +324,9 @@ const confirmDeleteBook = async (book: Book) => {
 };
 
 onMounted(async () => {
+  // Setze API Key beim App-Start
+  setGoogleBooksApiKey('AIzaSyDOZB6WI3oXu89DvsEl7TnEFFrWMLrOd_c');
+  
   await loadBooks();
   await loadCategories();
   await autoSyncIfEnabled();

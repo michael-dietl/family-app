@@ -12,6 +12,10 @@ import WineDetailPage from '@/pages/WineDetailPage.vue';
 import RoutesPage from '@/pages/RoutesPage.vue';
 import RouteRecordPage from '@/pages/RouteRecordPage.vue';
 import RouteDetailPage from '@/pages/RouteDetailPage.vue';
+import ShoppingListPage from '@/pages/ShoppingListPage.vue';
+import ShoppingListDetailPage from '@/pages/ShoppingListDetailPage.vue';
+import TodoPage from '@/pages/TodoPage.vue';
+import TodoDetailPage from '@/pages/TodoDetailPage.vue';
 
 
 const router = createRouter({
@@ -31,7 +35,11 @@ const router = createRouter({
     {path : '/wine/:id', component: WineDetailPage},
     {path : '/routes', component: RoutesPage},
     {path : '/routes/:id/record', component: RouteRecordPage},
-    {path : '/routes/:id', component: RouteDetailPage}
+    {path : '/routes/:id', component: RouteDetailPage},
+    {path : '/shopping', component: ShoppingListPage},
+    {path : '/shopping/:id', component: ShoppingListDetailPage},
+    {path : '/todo', component: TodoPage},
+    {path : '/todo/:id', component: TodoDetailPage}
     ]
 })
 

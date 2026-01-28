@@ -65,8 +65,8 @@ onMounted(() => {
         'common.backgroundColor': '#1e1e1e',
         'common.border': '0px'
       },
-      menu: ['crop', 'flip', 'rotate', 'draw', 'shape', 'icon', 'text', 'filter'],
-      initMenu: 'filter',
+      menu: ['crop', 'rotate', 'shape'],
+      initMenu: 'crop',
       uiSize: {
         width: `${containerWidth}px`,
         height: `${containerHeight}px`
