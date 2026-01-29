@@ -1,5 +1,5 @@
 <template>
-  <ion-modal :is-open="isOpen" @did-dismiss="handleClose" :initial-breakpoint="1" :breakpoints="[0, 1]">
+  <ion-modal :is-open="isOpen" @did-dismiss="handleClose" :initial-breakpoint="0.95" :breakpoints="[0.2, 0.5, 0.95]">
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
@@ -53,8 +53,12 @@ const initEditor = () => {
     editorInstance.destroy();
   }
 
-  // Berechne verfügbare Höhe (Header 56px + Navigation 50px + Padding 20px)
-  const availableHeight = window.innerHeight - 126;
+  // Berechne verfügbare Höhe basierend auf dem sichtbaren Editor-Container
+  // (berücksichtigt Safe-Areas / Navigation-Bar). Fallback zu window.innerHeight.
+  const containerEl = editorContainer.value as HTMLElement;
+  const availableHeight = (containerEl?.clientHeight && containerEl.clientHeight > 0)
+    ? containerEl.clientHeight
+    : Math.max(window.innerHeight - 126, 200);
 
   editorInstance = new ImageEditor(editorContainer.value, {
     includeUI: {
@@ -75,10 +79,10 @@ const initEditor = () => {
       initMenu: 'crop',
       uiSize: {
         width: '100%',
-        height: '100%',
+        height: `${availableHeight}px`,
       },
     },
-    cssMaxWidth: window.innerWidth,
+    cssMaxWidth: containerEl?.clientWidth || window.innerWidth,
     cssMaxHeight: availableHeight,
     selectionStyle: {
       cornerSize: 50,
@@ -133,9 +137,12 @@ onBeforeUnmount(() => {
 <style scoped>
 .image-editor-container {
   width: 100%;
-  /* Header (56px) + Navigation (50px) + Padding (20px) */
-  height: calc(100vh - 126px);
-  max-height: calc(100vh - 126px);
+  /* Reserve space for header (56px) and device safe area (nav bar)
+     Use env(safe-area-inset-bottom) when available to avoid overlap. */
+  box-sizing: border-box;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  height: calc(100vh - 56px - env(safe-area-inset-bottom, 16px));
+  max-height: calc(100vh - 56px - env(safe-area-inset-bottom, 16px));
   background: #1e1e1e;
   overflow: hidden;
   position: relative;
