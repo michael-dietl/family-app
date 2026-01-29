@@ -22,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonButton, IonIcon, IonSpinner, IonBackButton, toastController } from '@ionic/vue';
 import { checkmark } from 'ionicons/icons';
@@ -44,12 +44,27 @@ const coverPath = route.query.coverPath as string;
 
 let editorInstance: ImageEditor | null = null;
 
-onMounted(() => {
+onMounted(async () => {
   if (!editorContainer.value) return;
 
-  // Image Editor initialisieren mit responsive Einstellungen
-  const containerWidth = editorContainer.value.clientWidth;
-  const containerHeight = editorContainer.value.clientHeight;
+  // Warte bis DOM vollständig gerendert ist
+  await nextTick();
+  
+  // Verwende getBoundingClientRect für präzise Dimensionen
+  const rect = editorContainer.value.getBoundingClientRect();
+  const containerWidth = rect.width;
+  const containerHeight = rect.height;
+  
+  console.log('📐 Editor Container Dimensions:', {
+    width: containerWidth,
+    height: containerHeight,
+    rect,
+    clientWidth: editorContainer.value.clientWidth,
+    clientHeight: editorContainer.value.clientHeight,
+    offsetWidth: editorContainer.value.offsetWidth,
+    offsetHeight: editorContainer.value.offsetHeight,
+    windowHeight: window.innerHeight
+  });
 
   editorInstance = new ImageEditor(editorContainer.value, {
     includeUI: {
@@ -137,11 +152,15 @@ const saveImage = async () => {
 .image-editor-container {
   width: 100%;
   height: 100%;
+  position: relative;
+  overflow: hidden;
 }
 
 :deep(.tui-image-editor-container) {
   width: 100% !important;
   height: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
 }
 
 :deep(.tui-image-editor-canvas-container) {
@@ -150,5 +169,11 @@ const saveImage = async () => {
 
 :deep(.tui-image-editor-main-container) {
   height: 100% !important;
+  max-height: 100% !important;
+}
+
+/* Verhindere Überlagerung der unteren Navigation */
+:deep(.tui-image-editor-menu) {
+  max-height: calc(100vh - var(--ion-safe-area-bottom, 0px) - 56px) !important;
 }
 </style>

@@ -10,14 +10,8 @@
     </ion-header>
 
     <ion-content :fullscreen="true">
-      <ion-header collapse="condense">
-        <ion-toolbar>
-          <ion-title size="large">Einstellungen</ion-title>
-        </ion-toolbar>
-      </ion-header>
-
       <div class="settings-container ion-padding">
-        <!-- PocketBase Settings -->
+
         <div class="settings-section">
           <h2>PocketBase Backend</h2>
           <p class="section-description">
@@ -161,10 +155,12 @@
           <ion-icon v-else :icon="save" slot="start" />
           Einstellungen speichern
         </ion-button>
+
+        <ion-button @click="testGPSExtraction">Test GPS Extraction</ion-button>
       </div>
     </ion-content>
   </ion-page>
-</template>
+  </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
@@ -194,6 +190,7 @@ import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
 import PocketBase from 'pocketbase';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
+import { extractGPSFromSpecificPath } from '@/services/exif';
 
 const router = useRouter();
 
@@ -383,6 +380,12 @@ const formatSyncTime = (timestamp: string): string => {
   const days = Math.floor(hours / 24);
   return `vor ${days} Tag${days > 1 ? 'en' : ''}`;
 };
+
+// --- GPS Extraction Test Button ---
+const testGPSExtraction = async () => {
+  console.log(await extractGPSFromSpecificPath('/sdcard/SdCardBackUp/DCIM/Camera/20240331_132252.jpg'));
+  // Beispiel: await extractGPSFromSpecificPath('/sdcard/SdCardBackUp/DCIM/Camera/20240331_132252.jpg');
+};
 </script>
 
 <style scoped>
@@ -472,4 +475,10 @@ ion-item ion-label h3 {
   margin: 0.5rem 0 0 0;
   font-weight: 600;
 }
+
+ion-button {
+  margin-bottom: 0.5rem;
+}
 </style>
+
+

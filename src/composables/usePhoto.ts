@@ -1,10 +1,11 @@
 import { ref } from 'vue';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Geolocation } from '@capacitor/geolocation';
+import { Geolocation } from '@capacitor/geolocation'; // Retained for route tracker module
 import { Capacitor } from '@capacitor/core';
-import ExifReader from 'exifreader';
 import { db, type Photo } from '@/services/database';
+import { extractExifFromUri, extractGPSFromCameraExif, extractExifFromImage } from '@/services/exif';
+import { readContentUri } from '@/services/contentReader';
 
 export function usePhoto() {
   const isProcessing = ref(false);
@@ -13,10 +14,11 @@ export function usePhoto() {
   const takePhoto = async (source: CameraSource = CameraSource.Camera) => {
     try {
       const image = await Camera.getPhoto({
+        resultType: CameraResultType.Uri,
+        source: source,
         quality: 90,
         allowEditing: false,
-        resultType: CameraResultType.Uri,
-        source: source
+        saveToGallery: false  // Wichtig: Verhindert Verlust von EXIF-Daten
       });
 
       // Log EXIF data from Camera API if available
@@ -27,6 +29,8 @@ export function usePhoto() {
           GPSLongitude: image.exif.GPSLongitude,
           allExifKeys: Object.keys(image.exif)
         });
+      } else {
+        console.log('⚠️ Camera API returned NO EXIF data');
       }
 
       return image;
@@ -36,176 +40,70 @@ export function usePhoto() {
     }
   };
 
-  // Mehrere Fotos/Videos aus Galerie wählen (nur Web)
-  const pickMultiplePhotos = async (): Promise<File[]> => {
-    return new Promise((resolve) => {
-      // Erstelle temporären File-Input
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*,video/*';
-      input.multiple = true;
-      
-      input.onchange = (event: Event) => {
-        const target = event.target as HTMLInputElement;
-        const files = Array.from(target.files || []);
-        resolve(files);
-      };
-      
-      input.oncancel = () => {
-        resolve([]);
-      };
-      
-      input.click();
-    });
+  // Pick single photo from gallery using FilePicker
+  // Returns { path, data } where data is base64 (without prefix) when available
+  const pickSinglePhoto = async (): Promise<{ path: string | null; data?: string | null }> => {
+    try {
+      const pick = await import('@/services/photoPicker');
+      const uris = await pick.pickMedia({ multiple: false, allowVideos: true });
+      if (uris && uris.length > 0) {
+        const uri = uris[0];
+        console.log('📸 Picked native URI:', uri);
+        // Try to request base64 via native ContentReader (no UI) as a best-effort for EXIF preservation
+        try {
+          const cr = await import('@/services/contentReader');
+          const res = await cr.readContentUri(uri);
+          if (res && res.data) {
+            return { path: uri || null, data: res.data };
+          }
+        } catch (e) {
+          // ignore and return URI
+        }
+        return { path: uri || null, data: null };
+      }
+      return { path: null, data: null };
+    } catch (error) {
+      console.error('❌ Error picking photo:', error);
+      return { path: null, data: null };
+    }
   };
 
-  // EXIF-Daten aus Foto extrahieren
-  const extractExifData = async (photoUri: string) => {
-    console.log('🔍 Starting EXIF extraction for:', photoUri);
-    console.log('🔍 URI type:', photoUri.substring(0, 50));
-    
+  // Pick multiple photos from gallery using FilePicker
+  const pickMultiplePhotos = async (): Promise<Array<{ path: string | null; data?: string | null }>> => {
     try {
-      // Für Android content:// URIs müssen wir das Bild anders laden
-      let arrayBuffer: ArrayBuffer;
-      
-      if (photoUri.startsWith('content://') || photoUri.startsWith('file://')) {
-        console.log('📱 Native URI detected, loading via fetch...');
-        const response = await fetch(photoUri);
-        const blob = await response.blob();
-        console.log('📦 Blob loaded:', { type: blob.type, size: blob.size });
-        arrayBuffer = await blob.arrayBuffer();
-      } else if (photoUri.startsWith('data:')) {
-        console.log('🌐 Data URL detected, extracting base64...');
-        const base64 = photoUri.split(',')[1];
-        const binary = atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-          bytes[i] = binary.charCodeAt(i);
-        }
-        arrayBuffer = bytes.buffer;
-      } else {
-        console.log('🌐 Standard URL, loading via fetch...');
-        const response = await fetch(photoUri);
-        const blob = await response.blob();
-        console.log('📦 Blob loaded:', { type: blob.type, size: blob.size });
-        arrayBuffer = await blob.arrayBuffer();
-      }
-      
-      console.log('📦 ArrayBuffer size:', arrayBuffer.byteLength);
-      
-      // Prüfe ob ArrayBuffer groß genug ist
-      if (arrayBuffer.byteLength < 100) {
-        console.warn('⚠️ ArrayBuffer too small, probably not a valid image');
-        return {};
-      }
-      
-      // EXIF-Daten extrahieren (expanded mode - wie im Weinmodul)
-      const tagsExpanded = ExifReader.load(arrayBuffer, { expanded: true });
-      console.log('📸 EXIF Tags (expanded):', tagsExpanded);
-      
-      const gps = tagsExpanded.gps;
-      const exif = tagsExpanded.exif;
-      
-      console.log('📍 GPS (expanded):', {
-        hasGPS: !!gps,
-        Latitude: gps?.Latitude,
-        Longitude: gps?.Longitude
-      });
-      
-      // GPS Koordinaten extrahieren - expanded mode gibt direkt Dezimalwerte
-      let latitude: number | undefined;
-      let longitude: number | undefined;
-      
-      if (gps?.Latitude && gps?.Longitude) {
-        latitude = typeof gps.Latitude === 'number' ? gps.Latitude : undefined;
-        longitude = typeof gps.Longitude === 'number' ? gps.Longitude : undefined;
-        console.log('📍 GPS Coordinates:', { latitude, longitude });
-      }
-      
-      // GPS-Validierung
-      const isValidGPS = (lat?: number, lng?: number): boolean => {
-        if (lat === undefined || lng === undefined) return false;
-        if (isNaN(lat) || isNaN(lng)) return false;
-        // Latitude: -90 bis 90, Longitude: -180 bis 180
-        if (lat < -90 || lat > 90) return false;
-        if (lng < -180 || lng > 180) return false;
-        // Ignoriere ungültige 0,0 Koordinaten (Golf von Guinea)
-        if (lat === 0 && lng === 0) return false;
-        return true;
-      };
-      
-      const validGPS = isValidGPS(latitude, longitude);
-      console.log('📍 GPS nach EXIF-Extraktion:', { latitude, longitude, valid: validGPS });
-      
-      // Setze ungültige GPS-Werte auf undefined
-      if (!validGPS) {
-        latitude = undefined;
-        longitude = undefined;
-        console.log('⚠️ Keine gültigen GPS-Daten in EXIF gefunden');
-      } else {
-        console.log('✅ GPS aus EXIF-Daten erfolgreich extrahiert:', { latitude, longitude });
-      }
-      
-      // Helper für number conversion + EXIF value extraction
-      const toNumber = (value: any): number | undefined => {
-        if (typeof value === 'number') return value;
-        if (typeof value === 'string') {
-          const parsed = parseFloat(value);
-          return isNaN(parsed) ? undefined : parsed;
-        }
-        // EXIF Reader kann nested objects zurückgeben: { value: [num, den], description: "..." }
-        if (value && typeof value === 'object') {
-          if (Array.isArray(value.value)) {
-            // Rational: [numerator, denominator]
-            return value.value[0] / value.value[1];
+      const pick = await import('@/services/photoPicker');
+      const uris = await pick.pickMedia({ multiple: true, allowVideos: true });
+      if (uris && uris.length > 0) {
+        console.log(`📸 Picked ${uris.length} files from native picker`);
+        // Try to enrich with base64 data via native ContentReader for each URI (no UI)
+        try {
+          const cr = await import('@/services/contentReader');
+          const out: Array<{ path: string | null; data?: string | null }> = [];
+          for (const u of uris) {
+            try {
+              const res = await cr.readContentUri(u);
+              out.push({ path: u || null, data: res?.data || null });
+            } catch (e) {
+              out.push({ path: u || null, data: null });
+            }
           }
-          if (typeof value.value === 'number') return value.value;
-          if (typeof value.description === 'string') {
-            const parsed = parseFloat(value.description);
-            return isNaN(parsed) ? undefined : parsed;
-          }
+          return out;
+        } catch (e) {
+          // fallback to URIs
         }
-        return undefined;
-      };
-      
-      // Helper für string extraction
-      const toString = (value: any): string | undefined => {
-        if (typeof value === 'string') return value;
-        if (value && typeof value === 'object') {
-          if (typeof value.description === 'string') return value.description;
-          if (Array.isArray(value.value) && typeof value.value[0] === 'string') return value.value[0];
-          if (typeof value.value === 'string') return value.value;
-        }
-        return undefined;
-      };
-      
-      const result = {
-        latitude,
-        longitude,
-        dateTaken: toString(exif?.DateTimeOriginal) || toString(exif?.DateTime),
-        camera: exif?.Make && exif?.Model 
-          ? `${toString(exif.Make)} ${toString(exif.Model)}`.trim()
-          : undefined,
-        lens: toString(exif?.LensModel),
-        focalLength: exif?.FocalLength ? toNumber(exif.FocalLength) : undefined,
-        aperture: toString(exif?.FNumber),  // Als String speichern (z.B. "f/2.2")
-        shutterSpeed: toString(exif?.ExposureTime),  // Als String speichern (z.B. "1/50")
-        iso: exif?.ISOSpeedRatings ? toNumber(exif.ISOSpeedRatings) : undefined,
-        width: exif?.PixelXDimension ? toNumber(exif.PixelXDimension) : undefined,
-        height: exif?.PixelYDimension ? toNumber(exif.PixelYDimension) : undefined
-      };
-      
-      console.log('📊 Final EXIF result:', result);
-      return result;
+        return uris.map(u => ({ path: u || null }));
+      }
+      return [];
     } catch (error) {
-      console.error('❌ EXIF extraction error:', error);
-      if (error instanceof Error) {
-        console.error('❌ Error details:', { name: error.name, message: error.message, stack: error.stack });
-      }
-      // Gebe leeres Objekt zurück - Fallback-Entscheidung erfolgt auf höherer Ebene
-      console.log('⚠️ EXIF-Extraktion fehlgeschlagen - Foto wird ohne EXIF-Metadaten verarbeitet');
-      return {};
+      console.error('❌ Error picking photos:', error);
+      return [];
     }
+  };
+
+  // EXIF-Daten aus Foto extrahieren (delegiert an zentralen Service)
+  const extractExifData = async (photoUri: string) => {
+    console.log('🔍 Using centralized EXIF service for:', photoUri);
+    return await extractExifFromUri(photoUri);
   };
 
   // Hilfsfunktion: Blob zu Base64
@@ -234,12 +132,37 @@ export function usePhoto() {
     });
   };
 
+  // Hilfsfunktion: DataURL zu ArrayBuffer konvertieren
+  const dataUrlToArrayBuffer = (dataUrl: string): ArrayBuffer => {
+    const base64 = dataUrl.split(',')[1];
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const buffer = new ArrayBuffer(len);
+    const view = new Uint8Array(buffer);
+    for (let i = 0; i < len; i++) {
+      view[i] = binaryString.charCodeAt(i);
+    }
+    return buffer;
+  };
+
+  // Hilfsfunktion: base64 (raw) zu ArrayBuffer
+  const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const buffer = new ArrayBuffer(len);
+    const view = new Uint8Array(buffer);
+    for (let i = 0; i < len; i++) {
+      view[i] = binaryString.charCodeAt(i);
+    }
+    return buffer;
+  };
+
   // Foto-Thumbnail generieren (200x200px max)
-  const generatePhotoThumbnail = async (photoDataUrl: string): Promise<string> => {
+  const generatePhotoThumbnail = async (photoDataUrl: string): Promise<{ thumbnailBlob: Blob; exifData: any }> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.src = photoDataUrl;
-      
+
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -247,12 +170,12 @@ export function usePhoto() {
           reject(new Error('Could not get canvas context'));
           return;
         }
-        
+
         // Berechne Thumbnail-Größe (max 200x200, Aspect Ratio erhalten)
         const maxSize = 200;
         let width = img.width;
         let height = img.height;
-        
+
         if (width > height) {
           if (width > maxSize) {
             height = height * (maxSize / width);
@@ -264,16 +187,24 @@ export function usePhoto() {
             height = maxSize;
           }
         }
-        
+
         canvas.width = width;
         canvas.height = height;
         ctx.drawImage(img, 0, 0, width, height);
-        
-        // Niedrige Qualität für kleines Thumbnail
-        const thumbnailDataUrl = canvas.toDataURL('image/jpeg', 0.6);
-        resolve(thumbnailDataUrl);
+
+        // EXIF-Daten extrahieren
+        const exifData = extractExifFromImage(dataUrlToArrayBuffer(photoDataUrl));
+
+        // Blob statt DataURL verwenden
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve({ thumbnailBlob: blob, exifData });
+          } else {
+            reject(new Error('Could not generate thumbnail blob'));
+          }
+        }, 'image/jpeg', 0.6);
       };
-      
+
       img.onerror = () => {
         reject(new Error('Could not load image for thumbnail'));
       };
@@ -281,55 +212,54 @@ export function usePhoto() {
   };
 
   // Video-Thumbnail generieren (erster Frame als JPEG)
-  const generateVideoThumbnail = async (videoDataUrl: string): Promise<string | undefined> => {
+  const generateVideoThumbnail = async (videoDataUrl: string): Promise<{ thumbnailBlob: Blob | undefined; exifData: any }> => {
     return new Promise((resolve) => {
       const video = document.createElement('video');
       video.src = videoDataUrl;
       video.crossOrigin = 'anonymous';
       video.muted = true;
       video.playsInline = true;
-      
+
       video.onloadeddata = () => {
         // Springe zu 1 Sekunde oder 10% der Duration
         video.currentTime = Math.min(1, video.duration * 0.1);
       };
-      
+
       video.onseeked = () => {
         try {
           const canvas = document.createElement('canvas');
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
-          
+
           const ctx = canvas.getContext('2d');
           if (!ctx) {
             console.warn('Could not get canvas context for thumbnail');
-            resolve(undefined);
+            resolve({ thumbnailBlob: undefined, exifData: null });
             return;
           }
-          
+
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          
-          // Konvertiere zu JPEG mit 70% Qualität
-          const thumbnailDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-          console.log('✅ Video thumbnail generated');
-          
-          resolve(thumbnailDataUrl);
+
+          // EXIF-Daten extrahieren (falls vorhanden)
+          const exifData = extractExifFromImage(dataUrlToArrayBuffer(videoDataUrl));
+
+          // Blob statt DataURL verwenden
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve({ thumbnailBlob: blob, exifData });
+            } else {
+              resolve({ thumbnailBlob: undefined, exifData });
+            }
+          }, 'image/jpeg', 0.7);
         } catch (error) {
           console.error('Error generating thumbnail:', error);
-          resolve(undefined);
+          resolve({ thumbnailBlob: undefined, exifData: null });
         }
       };
-      
+
       video.onerror = () => {
-        console.warn('Could not load video for thumbnail generation');
-        resolve(undefined);
+        resolve({ thumbnailBlob: undefined, exifData: null });
       };
-      
-      // Timeout nach 5 Sekunden
-      setTimeout(() => {
-        console.warn('Thumbnail generation timed out');
-        resolve(undefined);
-      }, 5000);
     });
   };
 
@@ -348,109 +278,195 @@ export function usePhoto() {
   };
 
   // Foto speichern (Filesystem + Database)
+  // `base64Data` optional: raw base64 (without data: prefix) from FilePicker
   const savePhoto = async (
     photoUri: string, 
     galleryId: number, 
     filename?: string,
     cameraExifData?: any,  // EXIF-Daten von Camera API
-    manualLocation?: { latitude: number; longitude: number }  // Manuell gewählter Standort
+    manualLocation?: { latitude: number; longitude: number },  // Manuell gewählter Standort
+    base64Data?: string | null
   ): Promise<number> => {
     isProcessing.value = true;
     
     try {
       console.log('📸 Starting media save:', { photoUri, galleryId, filename, hasCameraExif: !!cameraExifData });
+      console.log('📸 Photo URI:', photoUri);
+      console.log('📸 Is content:// URI?', photoUri.startsWith('content://'));
       
-      // Lade Datei
-      const response = await fetch(photoUri);
-      const blob = await response.blob();
+      // 1. EXIF-Daten ZUERST extrahieren (bevor Blob, weil Blob EXIF entfernen kann!)
+      let exifData: any = {};
+      let arrayBufferForExif: ArrayBuffer | undefined;
+      
+      // Versuche EXIF aus URI zu extrahieren (funktioniert bei Android content:// URIs)
+      if (!cameraExifData && photoUri.startsWith('content://')) {
+        console.log('📸 Detected Android content:// URI, trying direct EXIF extraction...');
+        try {
+          exifData = await extractExifFromUri(photoUri);
+          console.log('   ✅ EXIF extracted from URI:', {
+            hasGPS: !!(exifData.latitude && exifData.longitude),
+            latitude: exifData.latitude,
+            longitude: exifData.longitude
+          });
+        } catch (error) {
+          console.warn('⚠️ Could not extract EXIF from URI:', error);
+        }
+      }
+      
+      // Lade Datei als Blob (oder verwende provided base64Data direkt)
+      let blob: Blob;
+
+      if (base64Data) {
+        // base64Data is raw base64 without data: prefix
+        console.log('📥 Using base64 data provided by FilePicker (preserves EXIF)');
+        const mime = 'image/jpeg';
+        const binary = atob(base64Data);
+        const len = binary.length;
+        const buffer = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          buffer[i] = binary.charCodeAt(i);
+        }
+        blob = new Blob([buffer.buffer], { type: mime });
+      } else {
+        if (photoUri.startsWith('content://') || photoUri.startsWith('file://')) {
+          // Native URI - Konvertiere zu WebView-kompatiblem Pfad
+          console.log('📱 Native URI detected, converting to WebView path...');
+          const webViewPath = Capacitor.convertFileSrc(photoUri);
+          console.log('   🔄 Converted to:', webViewPath);
+          const response = await fetch(webViewPath);
+          blob = await response.blob();
+          console.log('📦 Blob loaded:', { type: blob.type, size: blob.size });
+        } else {
+          // Data URL oder http:// URL - verwende fetch
+          const response = await fetch(photoUri);
+          blob = await response.blob();
+        }
+      }
+      
       const isVideo = blob.type.startsWith('video/');
       
       console.log('🖼️ Blob loaded:', { type: blob.type, size: blob.size, isVideo });
 
-      // 1. EXIF-Daten verarbeiten
-      let exifData: any = {};
+      // 2. Falls noch keine EXIF-Daten, versuche aus Blob
+      if (!isVideo && !exifData.latitude && !exifData.longitude) {
+        console.log('📸 No GPS from URI, trying to extract from blob...');
+        const arrayBuffer = await blob.arrayBuffer();
+        arrayBufferForExif = arrayBuffer;
+        const blobExifData = await extractExifFromImage(arrayBuffer);
+        // Merge EXIF-Daten (blob kann andere Infos haben wie Kamera, etc.)
+        exifData = { ...blobExifData, ...exifData };
+        console.log('   - Extracted EXIF from blob:', {
+          hasGPS: !!(exifData.latitude && exifData.longitude),
+          latitude: exifData.latitude,
+          longitude: exifData.longitude,
+          dateTaken: exifData.dateTaken,
+          camera: exifData.camera
+        });
+
+        // 2b. Fallback: Wenn noch immer keine GPS-Daten vorhanden sind und wir eine content:// URI haben,
+        // frage das native ContentReader Plugin per Capacitor an, das den ContentResolver nutzt und die
+        // Originalbytes als Base64 zurückliefert.
+        if (!exifData.latitude && photoUri.startsWith('content://')) {
+          try {
+            console.log('🔁 Trying native ContentReader fallback for original bytes...');
+            const res = await readContentUri(photoUri);
+            if (res && res.data) {
+              const ab = base64ToArrayBuffer(res.data);
+              const fallbackExif = await extractExifFromImage(ab);
+              exifData = { ...fallbackExif, ...exifData };
+              console.log('   - Extracted EXIF from native content bytes:', {
+                hasGPS: !!(exifData.latitude && exifData.longitude),
+                latitude: exifData.latitude,
+                longitude: exifData.longitude
+              });
+            }
+          } catch (nativeErr) {
+            console.warn('⚠️ Native ContentReader fallback failed:', nativeErr);
+          }
+        }
+      }
+
+      // 3. EXIF-Daten verarbeiten und Fallbacks
       if (!isVideo) {
-        // Prüfe zuerst ob Camera API EXIF-Daten mitgegeben hat
+        // Nur wenn KEINE GPS-Daten im Bild sind UND kein manueller Standort, versuche Fallback
+        const hasImageGPS = (exifData.latitude !== undefined && exifData.latitude !== null) && 
+                            (exifData.longitude !== undefined && exifData.longitude !== null);
+        
+        // DEAKTIVIERT: Kein automatischer Fallback auf aktuelle Position mehr
+        // if (!hasImageGPS && !manualLocation) {
+        //   console.log('⚠️ No GPS in image EXIF, requesting current position as fallback...');
+        //   try {
+        //     const position = await Geolocation.getCurrentPosition({
+        //       enableHighAccuracy: true,
+        //       timeout: 3000,
+        //       maximumAge: 30000
+        //     });
+        //     console.log('✅ GPS position obtained:', {
+        //       latitude: position.coords.latitude,
+        //       longitude: position.coords.longitude
+        //     });
+        //     exifData.latitude = position.coords.latitude;
+        //     exifData.longitude = position.coords.longitude;
+        //   } catch (geoError) {
+        //     console.warn('⚠️ Could not get GPS position:', geoError);
+        //   }
+        // }
+        
+        if (hasImageGPS) {
+          console.log('✅ Using GPS from image EXIF - no fallback needed');
+        } else if (!manualLocation) {
+          console.log('⚠️ No GPS in image and no manual location provided');
+        }
+
+        // Überschreibe mit Camera API EXIF falls vorhanden (für frische Fotos)
         if (cameraExifData && cameraExifData.GPSLatitude && cameraExifData.GPSLongitude) {
           console.log('📸 Using EXIF from Camera API:', cameraExifData);
+          console.log('🔍 Raw GPS from Camera:', {
+            GPSLatitude: cameraExifData.GPSLatitude,
+            GPSLongitude: cameraExifData.GPSLongitude,
+            GPSLatitudeRef: cameraExifData.GPSLatitudeRef,
+            GPSLongitudeRef: cameraExifData.GPSLongitudeRef
+          });
           
-          // Parse GPS aus Camera API Format: "48/1,3/1,25217640/1000000"
-          const parseGPSString = (gpsString: string, ref: string): number | undefined => {
-            try {
-              const parts = gpsString.split(',');
-              if (parts.length !== 3) {
-                console.warn('⚠️ Invalid GPS string format:', gpsString);
-                return undefined;
-              }
-              
-              // Parse Brüche: "48/1" -> 48, "25217640/1000000" -> 25.21764
-              const parseFraction = (fraction: string): number => {
-                const [num, den] = fraction.split('/').map(s => parseFloat(s.trim()));
-                return den ? num / den : num;
-              };
-              
-              const degrees = parseFraction(parts[0]);
-              const minutes = parseFraction(parts[1]);
-              const seconds = parseFraction(parts[2]);
-              
-              console.log('🔍 GPS DMS parsed:', { degrees, minutes, seconds, ref });
-              
-              // Konvertiere DMS zu Decimal
-              let decimal = degrees + (minutes / 60) + (seconds / 3600);
-              
-              // Süd und West sind negativ
-              if (ref === 'S' || ref === 'W') {
-                decimal = -decimal;
-              }
-              
-              console.log('✅ GPS decimal:', decimal);
-              return decimal;
-            } catch (e) {
-              console.error('❌ GPS parsing error:', e);
-              return undefined;
-            }
-          };
+          // Nutze zentralen Service für Camera API GPS-Parsing
+          const gpsCoords = extractGPSFromCameraExif(cameraExifData);
+          console.log('📍 Parsed GPS coordinates from service (override from Camera API):', gpsCoords);
           
-          const latitude = parseGPSString(cameraExifData.GPSLatitude, cameraExifData.GPSLatitudeRef || 'N');
-          const longitude = parseGPSString(cameraExifData.GPSLongitude, cameraExifData.GPSLongitudeRef || 'E');
+          if (gpsCoords) {
+            exifData.latitude = gpsCoords.latitude;
+            exifData.longitude = gpsCoords.longitude;
+          }
           
-          // Validiere GPS-Koordinaten
-          const isValidGPS = (lat?: number, lng?: number): boolean => {
-            if (lat === undefined || lng === undefined) return false;
-            if (isNaN(lat) || isNaN(lng)) return false;
-            // Latitude: -90 bis 90, Longitude: -180 bis 180
-            if (lat < -90 || lat > 90) return false;
-            if (lng < -180 || lng > 180) return false;
-            // Ignoriere ungültige 0,0 Koordinaten (Golf von Guinea)
-            if (lat === 0 && lng === 0) return false;
-            return true;
-          };
-          
-          const validGPS = isValidGPS(latitude, longitude);
-          console.log('📍 Parsed GPS:', { latitude, longitude, valid: validGPS });
-          
-          exifData = {
-            latitude: validGPS ? latitude : undefined,
-            longitude: validGPS ? longitude : undefined,
-            dateTaken: cameraExifData.DateTime || cameraExifData.DateTimeOriginal,
-            camera: cameraExifData.Make && cameraExifData.Model 
-              ? `${cameraExifData.Make} ${cameraExifData.Model}`.trim()
-              : undefined,
-            focalLength: cameraExifData.FocalLength ? parseFloat(cameraExifData.FocalLength) : undefined,
-            aperture: cameraExifData.FNumber,
-            shutterSpeed: cameraExifData.ExposureTime,
-            iso: cameraExifData.PhotographicSensitivity ? parseInt(cameraExifData.PhotographicSensitivity) : undefined,
-            width: cameraExifData.PixelXDimension || cameraExifData.ImageWidth,
-            height: cameraExifData.PixelYDimension || cameraExifData.ImageLength
-          };
-        } else {
-          // Fallback: Extrahiere EXIF aus Bild
-          exifData = await extractExifData(photoUri);
+          // Erweitere mit anderen Camera API EXIF-Daten
+          if (cameraExifData.DateTime || cameraExifData.DateTimeOriginal) {
+            exifData.dateTaken = cameraExifData.DateTime || cameraExifData.DateTimeOriginal;
+          }
+          if (cameraExifData.Make && cameraExifData.Model) {
+            exifData.camera = `${cameraExifData.Make} ${cameraExifData.Model}`.trim();
+          }
+          if (cameraExifData.FocalLength) {
+            exifData.focalLength = parseFloat(cameraExifData.FocalLength);
+          }
+          if (cameraExifData.FNumber) {
+            exifData.aperture = cameraExifData.FNumber;
+          }
+          if (cameraExifData.ExposureTime) {
+            exifData.shutterSpeed = cameraExifData.ExposureTime;
+          }
+          if (cameraExifData.PhotographicSensitivity) {
+            exifData.iso = parseInt(cameraExifData.PhotographicSensitivity);
+          }
+          if (cameraExifData.PixelXDimension || cameraExifData.ImageWidth) {
+            exifData.width = cameraExifData.PixelXDimension || cameraExifData.ImageWidth;
+          }
+          if (cameraExifData.PixelYDimension || cameraExifData.ImageLength) {
+            exifData.height = cameraExifData.PixelYDimension || cameraExifData.ImageLength;
+          }
         }
         
         // Überschreibe GPS mit manuellem Standort, falls vorhanden
         if (manualLocation) {
-          console.log('📍 Using manual location:', manualLocation);
+          console.log('📍 Using manual location (overrides all):', manualLocation);
           exifData.latitude = manualLocation.latitude;
           exifData.longitude = manualLocation.longitude;
         }
@@ -463,8 +479,9 @@ export function usePhoto() {
       const finalFilename = filename || `${isVideo ? 'video' : 'photo'}_${Date.now()}${extension}`;
 
       // 3. Foto/Video konvertieren
-      const base64Data = await blobToBase64(blob);
-      const dataUrl = `data:${blob.type};base64,${base64Data}`;
+      // If base64Data was passed in, reuse it (already raw base64); otherwise create it from blob
+      const finalBase64 = base64Data || await blobToBase64(blob);
+      const dataUrl = `data:${blob.type};base64,${finalBase64}`;
 
       // 4. Speichere Datei im Filesystem (nur auf nativen Plattformen)
       const isNative = Capacitor.getPlatform() !== 'web';
@@ -486,7 +503,7 @@ export function usePhoto() {
 
           const result = await Filesystem.writeFile({
             path: `galleries/${galleryId}/${finalFilename}`,
-            data: base64Data,
+            data: finalBase64,
             directory: Directory.Data
           });
           filePath = result.uri; // Nativer Dateipfad
@@ -513,7 +530,14 @@ export function usePhoto() {
       }
 
       // 5. In Datenbank speichern (OHNE Thumbnail - wird bei Bedarf aus Datei generiert)
-      console.log('💿 Saving to database...');
+      console.log('💿 Saving to database with EXIF data:');
+      console.log('   - Gallery ID:', galleryId);
+      console.log('   - Filename:', finalFilename);
+      console.log('   - GPS Latitude:', exifData.latitude);
+      console.log('   - GPS Longitude:', exifData.longitude);
+      console.log('   - Camera:', exifData.camera);
+      console.log('   - Date taken:', exifData.dateTaken);
+      
       const photoId = await db.createPhoto({
         galleryId,
         filename: finalFilename,
@@ -523,7 +547,7 @@ export function usePhoto() {
         ...exifData
       });
 
-      console.log('✅ Media saved successfully with ID:', photoId);
+      console.log('✅ Media saved successfully with ID:', photoId, '- GPS in DB:', !!exifData.latitude && !!exifData.longitude);
       return photoId;
     } catch (error) {
       console.error('❌ Error saving media:', error);
@@ -533,18 +557,18 @@ export function usePhoto() {
     }
   };
 
-  // Foto speichern aus File-Objekt (für Mehrfachauswahl)
-  const savePhotoFromFile = async (
-    file: File,
+  // Foto speichern aus content:// URI (für File Picker)
+  const savePhotoFromUri = async (
+    contentUri: string,
     galleryId: number
   ): Promise<number> => {
-    const dataUrl = await fileToDataUrl(file);
-    return savePhoto(dataUrl, galleryId, file.name);
+    // savePhoto kann direkt mit content:// URIs arbeiten
+    return savePhoto(contentUri, galleryId);
   };
 
-  // Mehrere Fotos speichern
+  // Mehrere Fotos speichern (aus content:// URIs)
   const saveMultiplePhotos = async (
-    files: File[],
+    contentUris: Array<string | { path: string | null; data?: string | null }>,
     galleryId: number,
     onProgress?: (current: number, total: number) => void
   ): Promise<number[]> => {
@@ -552,12 +576,23 @@ export function usePhoto() {
     const photoIds: number[] = [];
     
     try {
-      for (let i = 0; i < files.length; i++) {
-        const photoId = await savePhotoFromFile(files[i], galleryId);
+      for (let i = 0; i < contentUris.length; i++) {
+        const item = contentUris[i];
+        let uri: string;
+        let data: string | null | undefined = undefined;
+
+        if (typeof item === 'string') {
+          uri = item;
+        } else {
+          uri = item.path || '';
+          data = item.data;
+        }
+
+        const photoId = await savePhoto(uri, galleryId, undefined, undefined, undefined, data);
         photoIds.push(photoId);
-        
+
         if (onProgress) {
-          onProgress(i + 1, files.length);
+          onProgress(i + 1, contentUris.length);
         }
       }
       
@@ -594,16 +629,89 @@ export function usePhoto() {
     }
   };
 
+  // Sicherstellen, ob ein Verzeichnis existiert, und erstellt es bei Bedarf
+  const ensureDirectoryExists = async (path: string): Promise<void> => {
+    try {
+      await Filesystem.mkdir({
+        path,
+        directory: Directory.Data,
+        recursive: true
+      });
+      console.log('📂 Verzeichnis erstellt:', path);
+    } catch (error: any) {
+      if (error.code === 'EEXIST') {
+        console.log('📂 Verzeichnis existiert bereits:', path);
+      } else {
+        throw error;
+      }
+    }
+  };
+
+  // Kopiert ausgewählte Fotos in das App-Verzeichnis und extrahiert EXIF-Daten
+  const copyPhotoToAppDirectory = async (photoUri: string): Promise<{ savedPath: string; exifData: any } | null> => {
+    try {
+      console.log('📂 Kopiere Foto in das App-Verzeichnis:', photoUri);
+
+      // Sicherstellen, dass das Zielverzeichnis existiert
+      const targetDirectory = 'galleries/2'; // Beispielpfad, anpassen nach Bedarf
+      await ensureDirectoryExists(targetDirectory);
+
+      // Lese die Datei als Blob
+      const response = await fetch(photoUri);
+      const blob = await response.blob();
+
+      // Generiere einen eindeutigen Dateinamen
+      const fileName = `photo_${Date.now()}.jpg`;
+      const savedPath = `${targetDirectory}/${fileName}`;
+
+      // Schreibe die Datei in das App-Verzeichnis
+      await Filesystem.writeFile({
+        path: savedPath,
+        data: await blobToBase64(blob),
+        directory: Directory.Data
+      });
+
+      console.log('✅ Foto gespeichert unter:', savedPath);
+
+      // Extrahiere EXIF-Daten
+      const exifData = await extractExifFromUri(photoUri);
+      console.log('📸 EXIF-Daten extrahiert:', exifData);
+
+      return { savedPath, exifData };
+    } catch (error) {
+      console.error('❌ Fehler beim Kopieren des Fotos:', error);
+      return null;
+    }
+  };
+
   return {
     isProcessing,
     takePhoto,
+    pickSinglePhoto,
     pickMultiplePhotos,
     extractExifData,
     savePhoto,
-    savePhotoFromFile,
+    savePhotoFromUri,
     saveMultiplePhotos,
     deletePhoto,
     generatePhotoThumbnail,
-    generateVideoThumbnail
+    generateVideoThumbnail,
+    copyPhotoToAppDirectory
   };
 }
+
+async function ensureDirectoryExists(path: string) {
+  try {
+    await Filesystem.mkdir({
+      path,
+      directory: Directory.Data,
+      recursive: true,
+    });
+  } catch (error: any) {
+    if (error.code !== 'EEXIST' && error.code !== 'OS-PLUG-FILE-0010') {
+      throw error; // Re-throw if the error is not about the directory already existing
+    }
+  }
+}
+
+export { ensureDirectoryExists };

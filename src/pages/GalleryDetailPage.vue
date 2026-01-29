@@ -76,7 +76,7 @@
       <!-- Upload Progress -->
       <div v-else-if="isProcessing && uploadProgress.total > 0" class="upload-progress ion-padding">
         <ion-spinner />
-        <p>Lade Fotos hoch: {{ uploadProgress.current }} / {{ uploadProgress.total }}</p>
+        <p>Verarbeite Fotos: {{ uploadProgress.current }} / {{ uploadProgress.total }}</p>
       </div>
 
       <!-- Empty State -->
@@ -240,6 +240,7 @@ import { Capacitor } from '@capacitor/core';
 import { useGallery } from '@/composables/useGallery';
 import { usePhoto } from '@/composables/usePhoto';
 import { useLightbox } from '@/composables/useLightbox';
+import { extractExifFromUri } from '@/services/exif';
 import GalleryMap from '@/components/GalleryMap.vue';
 import LocationPickerModal from '@/components/LocationPickerModal.vue';
 import type { Photo } from '@/services/database';
@@ -247,7 +248,7 @@ import type { Photo } from '@/services/database';
 const route = useRoute();
 const router = useRouter();
 const { currentGallery, photos, isLoading, loadGallery, deleteGallery } = useGallery();
-const { takePhoto, pickMultiplePhotos, savePhoto, saveMultiplePhotos, deletePhoto: removePhoto, isProcessing, extractExifData } = usePhoto();
+const { takePhoto, pickSinglePhoto, pickMultiplePhotos, savePhoto, saveMultiplePhotos, deletePhoto: removePhoto, isProcessing, extractExifData } = usePhoto();
 const { initLightbox, openLightbox, destroyLightbox } = useLightbox();
 
 const uploadProgress = ref({ current: 0, total: 0 });
@@ -352,7 +353,7 @@ const showPhotoOptions = async () => {
       {
         text: 'Ein Foto auswählen',
         icon: images,
-        handler: () => handleAddPhoto(CameraSource.Photos)
+        handler: () => handleAddPhotoFromGallery()
       },
       {
         text: 'Mehrere Fotos auswählen',
@@ -373,8 +374,11 @@ const handleAddPhoto = async (source: CameraSource) => {
     const galleryId = parseInt(route.params.id as string);
     const photo = await takePhoto(source);
     
-    if (photo.webPath) {
-      console.log('📸 Photo captured:', photo.webPath);
+    // WICHTIG: Verwende photo.path statt webPath für Android Gallery (content:// URI)
+    const photoUri = photo.path || photo.webPath;
+    
+    if (photoUri) {
+      console.log('📸 Photo captured:', photoUri);
       console.log('📋 Photo EXIF from Camera API:', photo.exif);
       
       let hasGPS = false;
@@ -384,7 +388,66 @@ const handleAddPhoto = async (source: CameraSource) => {
         console.log('✅ GPS-Daten in Camera API gefunden');
         hasGPS = true;
       } else {
-        // Fallback: Extrahiere EXIF aus Bild (für Fotos aus Galerie ohne Camera API EXIF)
+        // Fallback: Für Galerie-Import einfach direkt speichern - GPS wird in savePhoto() extrahiert
+        console.log('🔍 Keine GPS in Camera API - speichere Foto, GPS wird in savePhoto() extrahiert');
+        // Keine EXIF-Prüfung hier - das macht savePhoto()
+        hasGPS = true; // Annahme dass Bild GPS hat oder User wählt manuell
+      }
+      
+      if (!hasGPS) {
+        // Zeige Location Picker Dialog
+        console.log('⚠️ Keine GPS-Daten gefunden - zeige Location Picker');
+        pendingPhotoData.value = {
+          photoUri: photoUri,
+          galleryId,
+          cameraExifData: photo.exif
+        };
+        showLocationPicker.value = true;
+      } else {
+        // GPS vorhanden, speichere direkt
+        console.log('✅ GPS vorhanden - speichere Foto direkt');
+        await savePhoto(photoUri, galleryId, undefined, photo.exif);
+        console.log('Photo saved successfully with GPS');
+        
+        // WICHTIG: Galerie neu laden, damit das neue Foto sofort in der Liste erscheint
+        await loadGallery(galleryId);
+        cacheBuster.value = Date.now(); // Force re-render für Thumbnails
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error adding photo:', error);
+    console.error('❌ Error details:', JSON.stringify(error, null, 2));
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const alert = await alertController.create({
+      header: 'Fehler',
+      message: `Das Foto konnte nicht hinzugefügt werden.\n\nDetails: ${errorMessage}`,
+      buttons: ['OK']
+    });
+    await alert.present();
+  }
+};
+
+// Handler für Einzelfoto (Kamera oder Galerie via Camera API)
+// Die Camera API gibt photo.exif mit GPS-Daten zurück!
+const handleAddPhotoFromGallery = async () => {
+  try {
+    const galleryId = parseInt(route.params.id as string);
+    
+    // Verwende Camera API mit Photos source - die gibt EXIF mit GPS zurück!
+    const photo = await takePhoto(CameraSource.Photos);
+    
+    if (photo.webPath) {
+      console.log('📸 Photo selected:', photo.webPath);
+      console.log('📋 Photo EXIF from Camera API:', photo.exif);
+      
+      let hasGPS = false;
+      
+      // Prüfe zuerst ob Camera API GPS-Daten hat
+      if (photo.exif?.GPSLatitude && photo.exif?.GPSLongitude) {
+        console.log('✅ GPS-Daten in Camera API gefunden');
+        hasGPS = true;
+      } else {
+        // Fallback: Extrahiere EXIF aus Bild (für Fotos ohne Camera API EXIF)
         console.log('🔍 Keine GPS in Camera API - extrahiere EXIF aus Bild...');
         const exifData = await extractExifData(photo.webPath);
         console.log('📊 Extracted EXIF data:', exifData);
@@ -428,17 +491,17 @@ const handleAddPhoto = async (source: CameraSource) => {
 const handleAddMultiplePhotos = async () => {
   try {
     const galleryId = parseInt(route.params.id as string);
-    const files = await pickMultiplePhotos();
+    const contentUris = await pickMultiplePhotos();
     
-    if (files.length === 0) {
+    if (contentUris.length === 0) {
       return; // Benutzer hat abgebrochen
     }
 
-    console.log(`Uploading ${files.length} files...`);
+    console.log(`Uploading ${contentUris.length} files...`);
     
-    // Speichere Fotos/Videos mit Progress-Tracking
+    // Speichere Fotos mit Progress-Tracking
     // TODO: GPS-Check für jedes Bild einzeln - aktuell keine GPS-Prüfung bei Mehrfachauswahl
-    await saveMultiplePhotos(files, galleryId, (current, total) => {
+    await saveMultiplePhotos(contentUris, galleryId, (current: number, total: number) => {
       uploadProgress.value = { current, total };
       console.log(`Upload progress: ${current}/${total}`);
     });

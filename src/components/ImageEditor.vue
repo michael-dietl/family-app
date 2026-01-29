@@ -53,8 +53,12 @@ const initEditor = () => {
     editorInstance.destroy();
   }
 
+  // Berechne verfügbare Höhe (Header 56px + Navigation 50px + Padding 20px)
+  const availableHeight = window.innerHeight - 126;
+
   editorInstance = new ImageEditor(editorContainer.value, {
     includeUI: {
+      menuBarPosition: 'top',
       loadImage: {
         path: props.imageSrc,
         name: 'EditImage',
@@ -68,15 +72,14 @@ const initEditor = () => {
         'common.border': '0px',
       },
       menu: ['crop', 'flip', 'rotate', 'draw', 'shape', 'icon', 'text', 'filter'],
-      initMenu: 'filter',
+      initMenu: 'crop',
       uiSize: {
         width: '100%',
         height: '100%',
       },
-      menuBarPosition: 'bottom',
     },
-    cssMaxWidth: document.documentElement.clientWidth,
-    cssMaxHeight: document.documentElement.clientHeight - 120,
+    cssMaxWidth: window.innerWidth,
+    cssMaxHeight: availableHeight,
     selectionStyle: {
       cornerSize: 50,
       rotatingPointOffset: 100,
@@ -130,8 +133,12 @@ onBeforeUnmount(() => {
 <style scoped>
 .image-editor-container {
   width: 100%;
-  height: calc(100vh - 156px);
+  /* Header (56px) + Navigation (50px) + Padding (20px) */
+  height: calc(100vh - 126px);
+  max-height: calc(100vh - 126px);
   background: #1e1e1e;
+  overflow: hidden;
+  position: relative;
 }
 </style>
 
@@ -152,5 +159,25 @@ onBeforeUnmount(() => {
 
 .tui-image-editor-item {
   color: var(--ion-text-color) !important;
+}
+
+/* Crop Grid Lines - Gitternetzwerk sichtbar machen */
+.tui-image-editor-canvas-container .tui-image-editor-grid-line {
+  stroke: rgba(255, 255, 255, 0.5) !important;
+  stroke-width: 1 !important;
+}
+
+.tui-image-editor-canvas-container .tui-image-editor-grid-visual {
+  stroke: rgba(255, 255, 255, 0.5) !important;
+  stroke-width: 1 !important;
+}
+
+/* Crop-Bereich hervorheben */
+.tui-image-editor-canvas-container .cropper-crop-box {
+  outline: 2px solid rgba(255, 255, 255, 0.8) !important;
+}
+
+.tui-image-editor-canvas-container .cropper-view-box {
+  outline: 1px solid rgba(255, 255, 255, 0.5) !important;
 }
 </style>

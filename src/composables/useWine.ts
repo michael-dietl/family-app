@@ -2,7 +2,7 @@ import { ref, computed } from 'vue';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { db, type Wine } from '@/services/database';
-import ExifReader from 'exifreader';
+import { extractGPSFromImage } from '@/services/exif';
 
 const wines = ref<Wine[]>([]);
 const isLoading = ref(false);
@@ -96,30 +96,10 @@ export function useWine() {
       console.log('📸 Blob size:', blob.size, 'type:', blob.type);
       const arrayBuffer = await blob.arrayBuffer();
 
-      let latitude: number | undefined;
-      let longitude: number | undefined;
-
-      try {
-        // Verwende expanded mode wie in usePhoto.ts - das funktioniert!
-        const tagsExpanded = ExifReader.load(arrayBuffer, { expanded: true });
-        console.log('📍 EXIF Tags (expanded):', tagsExpanded);
-
-        const gps = tagsExpanded.gps;
-        console.log('📍 GPS (expanded):', {
-          hasGPS: !!gps,
-          Latitude: gps?.Latitude,
-          Longitude: gps?.Longitude
-        });
-
-        // GPS Koordinaten extrahieren - expanded mode gibt direkt Dezimalwerte
-        if (gps?.Latitude && gps?.Longitude) {
-          latitude = typeof gps.Latitude === 'number' ? gps.Latitude : undefined;
-          longitude = typeof gps.Longitude === 'number' ? gps.Longitude : undefined;
-          console.log('📍 GPS Coordinates:', { latitude, longitude });
-        }
-      } catch (exifError) {
-        console.warn('⚠️ Could not extract EXIF data:', exifError);
-      }
+      // Nutze zentralen EXIF-Service für GPS-Extraktion
+      const gpsData = await extractGPSFromImage(new TextDecoder().decode(arrayBuffer));
+      const latitude = gpsData?.latitude ?? undefined;
+      const longitude = gpsData?.longitude ?? undefined;
 
       // Foto im Filesystem speichern
       const base64Data = await convertBlobToBase64(blob);

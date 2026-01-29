@@ -127,7 +127,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   IonPage,
@@ -247,16 +247,18 @@ const handleCreateGallery = async () => {
     // Galerie erstellen (lädt automatisch die Galerie-Liste neu in useGallery)
     await createGallery(newGalleryName.value, newGalleryDescription.value, newGalleryColor.value);
     
-    // Dialog schließen und Felder zurücksetzen
+    // Photo counts laden (verwendet die aktualisierte galleries-Liste aus useGallery)
+    await loadPhotoCounts();
+    
+    // Dialog schließen und Felder zurücksetzen (mit nextTick für proper state update)
     showCreateDialog.value = false;
+    await nextTick();
+    
     newGalleryName.value = '';
     newGalleryDescription.value = '';
     newGalleryColor.value = '#3880ff';
     
-    // Photo counts laden (verwendet die aktualisierte galleries-Liste aus useGallery)
-    await loadPhotoCounts();
-    
-    console.log('✅ Galerie erfolgreich erstellt und Liste aktualisiert');
+    console.log('✅ Galerie erfolgreich erstellt, Dialog geschlossen und Liste aktualisiert');
   } catch (error) {
     console.error('Create gallery error:', error);
     const alert = await alertController.create({

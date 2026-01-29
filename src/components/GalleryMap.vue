@@ -47,11 +47,27 @@ const galleryColors = ref<Map<number, string>>(new Map());
 const photosWithLocation = ref<Photo[]>([]);
 
 const updatePhotosWithLocation = async () => {
+  console.log('🗺️ updatePhotosWithLocation called');
+  console.log('🗺️ Total photos:', props.photos.length);
+  console.log('🗺️ All photos with GPS info:', props.photos.map(p => ({ 
+    id: p.id, 
+    filename: p.filename, 
+    isVideo: p.isVideo,
+    lat: p.latitude, 
+    lng: p.longitude,
+    hasGPS: p.latitude != null && p.longitude != null
+  })));
+  
   photosWithLocation.value = props.photos.filter(
     photo => !photo.isVideo && photo.latitude != null && photo.longitude != null
   );
   console.log('📍 Photos with location:', photosWithLocation.value.length);
-  console.log('Photos:', photosWithLocation.value.map(p => ({ lat: p.latitude, lng: p.longitude })));
+  console.log('Photos with GPS:', photosWithLocation.value.map(p => ({ 
+    id: p.id,
+    filename: p.filename,
+    lat: p.latitude, 
+    lng: p.longitude 
+  })));
 
   // Lade Galerie-Farben für alle Fotos
   const uniqueGalleryIds = [...new Set(props.photos.map(p => p.galleryId))];
