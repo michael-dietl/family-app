@@ -240,7 +240,7 @@ import { Capacitor } from '@capacitor/core';
 import { useGallery } from '@/composables/useGallery';
 import { usePhoto } from '@/composables/usePhoto';
 import { useLightbox } from '@/composables/useLightbox';
-import { extractExifFromUri } from '@/services/exif';
+import { extractExifFromUri, extractExifFromImage } from '@/services/exif';
 import GalleryMap from '@/components/GalleryMap.vue';
 import LocationPickerModal from '@/components/LocationPickerModal.vue';
 import type { Photo } from '@/services/database';
@@ -432,48 +432,66 @@ const handleAddPhoto = async (source: CameraSource) => {
 const handleAddPhotoFromGallery = async () => {
   try {
     const galleryId = parseInt(route.params.id as string);
-    
-    // Verwende Camera API mit Photos source - die gibt EXIF mit GPS zurück!
-    const photo = await takePhoto(CameraSource.Photos);
-    
-    if (photo.webPath) {
-      console.log('📸 Photo selected:', photo.webPath);
-      console.log('📋 Photo EXIF from Camera API:', photo.exif);
-      
-      let hasGPS = false;
-      
-      // Prüfe zuerst ob Camera API GPS-Daten hat
-      if (photo.exif?.GPSLatitude && photo.exif?.GPSLongitude) {
-        console.log('✅ GPS-Daten in Camera API gefunden');
-        hasGPS = true;
-      } else {
-        // Fallback: Extrahiere EXIF aus Bild (für Fotos ohne Camera API EXIF)
-        console.log('🔍 Keine GPS in Camera API - extrahiere EXIF aus Bild...');
-        const exifData = await extractExifData(photo.webPath);
-        console.log('📊 Extracted EXIF data:', exifData);
+
+    // Verwende unseren Picker (native PhotoPicker) statt Camera Photos source,
+    // damit nur die native Auswahl geöffnet wird (kein doppelter UI‑Flow).
+    const picked = await pickSinglePhoto();
+    const photoPath = picked.path || '';
+    const photoData = picked.data || null; // optional raw base64 (no prefix)
+
+    if (!photoPath && !photoData) {
+      return; // user cancelled
+    }
+
+    console.log('📸 Photo selected (picker):', photoPath || '[base64 data]');
+
+    let hasGPS = false;
+    let exifData: any = {};
+
+    // Wenn wir Base64 vom Picker haben, benutze die Bytes direkt
+    if (photoData) {
+      try {
+        const binaryString = atob(photoData);
+        const len = binaryString.length;
+        const buffer = new ArrayBuffer(len);
+        const view = new Uint8Array(buffer);
+        for (let i = 0; i < len; i++) view[i] = binaryString.charCodeAt(i);
+        exifData = await extractExifFromImage(buffer);
+        hasGPS = !!(exifData?.latitude && exifData?.longitude);
+        console.log('📊 Extracted EXIF from base64 data:', exifData);
+      } catch (e) {
+        console.warn('⚠️ Could not extract EXIF from base64 data:', e);
+      }
+    } else if (photoPath) {
+      // Fallback: versuche EXIF aus URI zu extrahieren
+      try {
+        exifData = await extractExifData(photoPath);
         hasGPS = !!(exifData as any).latitude && !!(exifData as any).longitude;
-        console.log('📍 Has GPS from image:', hasGPS, 'Lat:', (exifData as any).latitude, 'Lng:', (exifData as any).longitude);
+        console.log('📊 Extracted EXIF data from URI:', exifData);
+      } catch (e) {
+        console.warn('⚠️ Could not extract EXIF from URI:', e);
       }
-      
-      if (!hasGPS) {
-        // Zeige Location Picker Dialog
-        console.log('⚠️ Keine GPS-Daten gefunden - zeige Location Picker');
-        pendingPhotoData.value = {
-          photoUri: photo.webPath,
-          galleryId,
-          cameraExifData: photo.exif
-        };
-        showLocationPicker.value = true;
-      } else {
-        // GPS vorhanden, speichere direkt
-        console.log('✅ GPS vorhanden - speichere Foto direkt');
-        await savePhoto(photo.webPath, galleryId, undefined, photo.exif);
-        console.log('Photo saved successfully with GPS');
-        
-        // WICHTIG: Galerie neu laden, damit das neue Foto sofort in der Liste erscheint
-        await loadGallery(galleryId);
-        cacheBuster.value = Date.now(); // Force re-render für Thumbnails
-      }
+    }
+
+    if (!hasGPS) {
+      // Zeige Location Picker Dialog
+      console.log('⚠️ Keine GPS-Daten gefunden - zeige Location Picker');
+      pendingPhotoData.value = {
+        photoUri: photoPath || `data:image/jpeg;base64,${photoData}`,
+        galleryId,
+        cameraExifData: exifData
+      };
+      showLocationPicker.value = true;
+    } else {
+      // GPS vorhanden, speichere direkt
+      console.log('✅ GPS vorhanden - speichere Foto direkt');
+      // Wenn wir nur Base64 haben, übergebe sie als letzten Parameter an savePhoto
+      await savePhoto(photoPath || '', galleryId, undefined, exifData, undefined, photoData);
+      console.log('Photo saved successfully with GPS');
+
+      // WICHTIG: Galerie neu laden, damit das neue Foto sofort in der Liste erscheint
+      await loadGallery(galleryId);
+      cacheBuster.value = Date.now(); // Force re-render für Thumbnails
     }
   } catch (error) {
     console.error('❌ Error adding photo:', error);
