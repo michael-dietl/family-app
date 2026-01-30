@@ -623,7 +623,17 @@ const lookupAndSaveBook = async (isbn: string) => {
       return;
     }
 
-    // Save to database
+    // Map Google categories to existing local category if possible
+    let mappedCategoryId: number | undefined = selectedCategoryId.value || undefined;
+
+    if (!mappedCategoryId && bookInfo.categories && categories.value.length > 0) {
+      // Try to find a local category whose name matches any of the Google categories (case-insensitive)
+      const googleCats = bookInfo.categories.map(c => c.toLowerCase());
+      const found = categories.value.find(local => googleCats.includes(local.name.toLowerCase()));
+      if (found) mappedCategoryId = found.id;
+    }
+
+    // Save to database - prefer storing local category via categoryId. Do not persist raw Google categories by default to avoid showing incorrect defaults.
     const bookData: Omit<Book, 'id' | 'created'> = {
       isbn: bookInfo.isbn,
       title: bookInfo.title,
@@ -632,10 +642,10 @@ const lookupAndSaveBook = async (isbn: string) => {
       publishedDate: bookInfo.publishedDate,
       description: bookInfo.description,
       pageCount: bookInfo.pageCount,
-      categories: formatCategories(bookInfo.categories),
+      categories: null,
       language: bookInfo.language,
       coverImage: bookInfo.imageLinks?.thumbnail || bookInfo.imageLinks?.smallThumbnail,
-      categoryId: selectedCategoryId.value || undefined,
+      categoryId: mappedCategoryId || undefined,
       read: false,
       quantity: 1
     };

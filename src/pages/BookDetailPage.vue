@@ -111,15 +111,17 @@
               </ion-button>
             </h3>
 
-            <div v-if="book.categories" class="category-chips">
-              <ion-chip v-for="(cat, index) in getCategoryList(book.categories)" :key="index" outline>
-                <ion-label>{{ cat }}</ion-label>
+            <!-- Prefer our local category (categoryId) when present -->
+            <div v-if="getCategoryNameById(book.categoryId)" class="category-chips">
+              <ion-chip outline>
+                <ion-label>{{ getCategoryNameById(book.categoryId) }}</ion-label>
               </ion-chip>
             </div>
 
-            <div v-else-if="getCategoryNameById(book.categoryId)" class="category-chips">
-              <ion-chip outline>
-                <ion-label>{{ getCategoryNameById(book.categoryId) }}</ion-label>
+            <!-- Fallback to text categories (from Google) only if no local category assigned -->
+            <div v-else-if="book.categories" class="category-chips">
+              <ion-chip v-for="(cat, index) in getCategoryList(book.categories)" :key="index" outline>
+                <ion-label>{{ cat }}</ion-label>
               </ion-chip>
             </div>
 
