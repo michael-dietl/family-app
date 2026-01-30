@@ -2,12 +2,12 @@
   <ion-page>
     <ion-header :translucent="true">
       <ion-toolbar>
-        <ion-title>Routen</ion-title>
-        <ion-buttons slot="end">
-          <ion-button @click="startNewRoute">
-            <ion-icon :icon="addOutline" />
+        <ion-buttons slot="start">
+          <ion-button @click="router.back()">
+            <ion-icon :icon="arrowBackOutline" />
           </ion-button>
         </ion-buttons>
+        <ion-title>Routen</ion-title>
       </ion-toolbar>
     </ion-header>
 
@@ -99,6 +99,8 @@ import {
   addOutline,
   mapOutline,
   radioButtonOnOutline
+  ,
+  arrowBackOutline
 } from 'ionicons/icons';
 import { db, type Route } from '@/services/database';
 
