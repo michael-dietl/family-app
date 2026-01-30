@@ -30,13 +30,13 @@
         <ion-buttons slot="start">
           <ion-button @click="selectAllPhotos">
             <ion-icon slot="start" :icon="checkmarkCircle" />
-            Alle auswählen
+            {{ $t('auto.alle_auswählen') }}
           </ion-button>
         </ion-buttons>
         <ion-buttons slot="end">
           <ion-button @click="deleteSelectedPhotos" :disabled="selectedPhotos.size === 0">
             <ion-icon slot="start" :icon="trashOutline" />
-            Löschen
+            {{ $t('auto.löschen') }}
           </ion-button>
         </ion-buttons>
       </ion-toolbar>
@@ -59,11 +59,11 @@
         <ion-segment :value="currentView" @ionChange="handleViewChange">
           <ion-segment-button value="grid">
             <ion-icon :icon="gridOutline" />
-            <ion-label>Fotos</ion-label>
+            <ion-label>{{ $t('auto.fotos') }}</ion-label>
           </ion-segment-button>
           <ion-segment-button value="map">
             <ion-icon :icon="mapOutline" />
-            <ion-label>Karte</ion-label>
+            <ion-label>{{ $t('auto.karte') }}</ion-label>
           </ion-segment-button>
         </ion-segment>
       </div>
@@ -82,8 +82,8 @@
       <!-- Empty State -->
       <div v-else-if="photos.length === 0" class="empty-state">
         <ion-icon :icon="cameraOutline" size="large" />
-        <h2>Keine Fotos vorhanden</h2>
-        <p>Füge Fotos mit dem + Button hinzu</p>
+        <h2>{{ $t('auto.keine_fotos_vorhanden') }}</h2>
+        <p>{{ $t('auto.füge_fotos_mit_dem_button_hinzu') }}</p>
       </div>
 
       <!-- Photo Grid -->
@@ -93,7 +93,7 @@
           <ion-col size="12">
             <ion-button expand="block" fill="outline" @click="startSelectionMode">
               <ion-icon slot="start" :icon="checkmarkCircle" />
-              Mehrfachauswahl
+              {{ $t('auto.mehrfachauswahl') }}
             </ion-button>
           </ion-col>
         </ion-row>

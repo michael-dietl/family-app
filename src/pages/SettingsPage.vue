@@ -5,7 +5,7 @@
         <ion-buttons slot="start">
           <ion-back-button default-href="/" />
         </ion-buttons>
-        <ion-title>Einstellungen</ion-title>
+        <ion-title>{{ $t('auto.einstellungen') }}</ion-title>
       </ion-toolbar>
     </ion-header>
 
@@ -13,16 +13,35 @@
       <div class="settings-container ion-padding">
 
         <div class="settings-section">
-          <h2>PocketBase Backend</h2>
+          <h2>{{ $t('auto.sprache') }}</h2>
+          <ion-list>
+            <ion-item>
+              <ion-label position="stacked">
+                <strong>{{ t('settings.chooseLanguage') }}</strong>
+              </ion-label>
+              <ion-select v-model="selectedLocale" interface="popover" @ionChange="changeLocale">
+                <ion-select-option value="de">{{ t('languageNames.de') }}</ion-select-option>
+                <ion-select-option value="en">{{ t('languageNames.en') }}</ion-select-option>
+                <ion-select-option value="it">{{ t('languageNames.it') }}</ion-select-option>
+                <ion-select-option value="fr">{{ t('languageNames.fr') }}</ion-select-option>
+                <ion-select-option value="bar">{{ t('languageNames.bar') }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+          </ion-list>
+
+        </div>
+
+        <div class="settings-section">
+          <h2>{{ $t('auto.pocketbase_backend') }}</h2>
           <p class="section-description">
-            Konfiguriere die Verbindung zu deinem PocketBase Server für Cloud-Synchronisation
+            {{ $t('auto.konfiguriere_die_verbindung_zu_deinem_pocketbase_server_für_') }}
           </p>
 
           <ion-list>
             <ion-item>
               <ion-label position="stacked">
-                <strong>Server URL</strong>
-                <p>z.B. https://deine-domain.com oder http://localhost:8090</p>
+                <strong>{{ $t('auto.server_url') }}</strong>
+                <p>{{ $t('auto.z_b_https_deine_domain_com_oder_http_localhost_8090') }}</p>
               </ion-label>
               <ion-input
                 v-model="settings.pocketbaseUrl"
@@ -41,7 +60,7 @@
 
             <ion-item>
               <ion-label position="stacked">
-                <strong>Email (optional)</strong>
+                <strong>{{ $t('auto.email_optional') }}</strong>
               </ion-label>
               <ion-input
                 v-model="settings.email"
@@ -53,7 +72,7 @@
 
             <ion-item lines="none">
               <ion-label position="stacked">
-                <strong>Passwort (optional)</strong>
+                <strong>{{ $t('auto.passwort_optional') }}</strong>
               </ion-label>
               <ion-input
                 v-model="settings.password"
@@ -68,7 +87,7 @@
             <ion-button expand="block" @click="testConnection" :disabled="!settings.pocketbaseUrl || isTesting">
               <ion-spinner v-if="isTesting" slot="start" />
               <ion-icon v-else :icon="flash" slot="start" />
-              Verbindung testen
+              {{ $t('auto.verbindung_testen') }}
             </ion-button>
 
             <ion-button 
@@ -80,7 +99,7 @@
             >
               <ion-spinner v-if="isAuthenticating" slot="start" />
               <ion-icon v-else :icon="lockClosed" slot="start" />
-              Anmelden
+              {{ $t('auto.anmelden') }}
             </ion-button>
           </div>
 
@@ -110,11 +129,11 @@
 
         <!-- Storage Settings -->
         <div class="settings-section">
-          <h2>Speicher</h2>
+          <h2>{{ $t('auto.speicher') }}</h2>
           <ion-list>
             <ion-item>
               <ion-label>
-                <h3>Lokale Datenbank</h3>
+                <h3>{{ $t('auto.lokale_datenbank') }}</h3>
                 <p>SQLite ({{ isWebPlatform ? 'In-Memory' : 'Native' }})</p>
               </ion-label>
             </ion-item>
@@ -122,8 +141,8 @@
             <ion-item>
               <ion-toggle v-model="settings.autoSync" @ionChange="saveSettings">
                 <ion-label>
-                  <h3>Auto-Synchronisation</h3>
-                  <p>Automatisch mit PocketBase synchronisieren</p>
+                  <h3>{{ $t('auto.auto_synchronisation') }}</h3>
+                  <p>{{ $t('auto.automatisch_mit_pocketbase_synchronisieren') }}</p>
                 </ion-label>
               </ion-toggle>
             </ion-item>
@@ -132,17 +151,17 @@
 
         <!-- App Info -->
         <div class="settings-section">
-          <h2>App Info</h2>
+          <h2>{{ $t('auto.app_info') }}</h2>
           <ion-list>
             <ion-item>
               <ion-label>
-                <p>Version</p>
+                <p>{{ $t('auto.version') }}</p>
                 <h3>0.0.1</h3>
               </ion-label>
             </ion-item>
             <ion-item>
               <ion-label>
-                <p>Plattform</p>
+                <p>{{ $t('auto.plattform') }}</p>
                 <h3>{{ platform }}</h3>
               </ion-label>
             </ion-item>
@@ -150,13 +169,31 @@
         </div>
 
         <!-- Save Button -->
+        <div class="settings-section">
+          <h2>{{ $t('auto.sprache') }}</h2>
+          <ion-list>
+            <ion-item>
+              <ion-label position="stacked">
+                <strong>{{ t('settings.chooseLanguage') }}</strong>
+              </ion-label>
+              <ion-select v-model="selectedLocale" interface="popover" @ionChange="() => changeLocale(selectedLocale)">
+                <ion-select-option value="de">{{ t('languageNames.de') }}</ion-select-option>
+                <ion-select-option value="en">{{ t('languageNames.en') }}</ion-select-option>
+                <ion-select-option value="it">{{ t('languageNames.it') }}</ion-select-option>
+                <ion-select-option value="fr">{{ t('languageNames.fr') }}</ion-select-option>
+                <ion-select-option value="bar">{{ t('languageNames.bar') }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+          </ion-list>
+        </div>
+
         <ion-button expand="block" @click="saveSettings" :disabled="isSaving" class="save-button">
           <ion-spinner v-if="isSaving" slot="start" />
           <ion-icon v-else :icon="save" slot="start" />
-          Einstellungen speichern
+          {{ t('settings.save') }}
         </ion-button>
 
-        <ion-button @click="testGPSExtraction">Test GPS Extraction</ion-button>
+        <ion-button @click="testGPSExtraction">{{ $t('auto.test_gps_extraction') }}</ion-button>
       </div>
     </ion-content>
   </ion-page>
@@ -175,6 +212,8 @@ import {
   IonBackButton,
   IonList,
   IonItem,
+  IonSelect,
+  IonSelectOption,
   IonLabel,
   IonInput,
   IonButton,
@@ -188,6 +227,7 @@ import {
 import { save, flash, lockClosed, checkmarkCircle, closeCircle, warning, timeOutline } from 'ionicons/icons';
 import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
+import { useI18n } from 'vue-i18n';
 import PocketBase from 'pocketbase';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 import { extractGPSFromSpecificPath } from '@/services/exif';
@@ -216,9 +256,12 @@ const { lastSyncTime } = usePocketbaseSync();
 
 const platform = Capacitor.getPlatform();
 const isWebPlatform = platform === 'web';
+const { locale, t } = useI18n({ useScope: 'global' });
+const selectedLocale = ref<string>(locale.value ?? 'de');
 
 onMounted(async () => {
   await loadSettings();
+  selectedLocale.value = locale.value ?? 'de';
 });
 
 const loadSettings = async () => {
@@ -342,7 +385,7 @@ const saveSettings = async () => {
     ]);
 
     const toast = await toastController.create({
-      message: 'Einstellungen gespeichert',
+      message: t('settings.save'),
       duration: 2000,
       color: 'success',
       position: 'bottom'
@@ -362,6 +405,23 @@ const saveSettings = async () => {
     await toast.present();
   } finally {
     isSaving.value = false;
+  }
+};
+
+const changeLocale = async (eventOrValue: any) => {
+  try {
+    const value = eventOrValue && eventOrValue.detail ? eventOrValue.detail.value : eventOrValue;
+    if (!value) return;
+    locale.value = value;
+    await Preferences.set({ key: 'locale', value });
+    const toast = await toastController.create({
+      message: 'Sprache gespeichert',
+      duration: 1500,
+      position: 'bottom'
+    });
+    await toast.present();
+  } catch (e) {
+    console.error('Failed to change locale', e);
   }
 };
 

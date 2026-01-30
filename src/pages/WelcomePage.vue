@@ -2,7 +2,7 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title>dietl.mobi</ion-title>
+        <ion-title>{{ $t('auto.dietl_mobi') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button v-if="pocketbaseUrl" @click="manualSync" :disabled="isSyncing">
             <ion-spinner v-if="isSyncing" />
@@ -19,16 +19,16 @@
       <div class="welcome-container">
         <div class="welcome-header">
           <img src="/logo.svg" alt="dietl.mobi Logo" class="logo" />
-          <h1>dietl.mobi</h1>
-          <p>Deine Mobile Verwaltung</p>
+          <h1>{{ $t('auto.dietl_mobi') }}</h1>
+          <p>{{ $t('auto.deine_mobile_verwaltung') }}</p>
         </div>
 
         <ion-list class="feature-list">
           <ion-item button @click="navigateTo('/gallery')" lines="full">
             <ion-icon :icon="imagesOutline" slot="start" color="primary" />
             <ion-label>
-              <h2>Galerien</h2>
-              <p>Fotos und Videos verwalten</p>
+              <h2>{{ $t('auto.galerien') }}</h2>
+              <p>{{ $t('auto.fotos_und_videos_verwalten') }}</p>
             </ion-label>
             <ion-icon :icon="chevronForward" slot="end" />
           </ion-item>
@@ -36,8 +36,8 @@
           <ion-item button @click="navigateTo('/library')" lines="full">
             <ion-icon :icon="bookOutline" slot="start" color="secondary" />
             <ion-label>
-              <h2>Bibliothek</h2>
-              <p>Bücher per ISBN scannen und verwalten</p>
+              <h2>{{ $t('auto.bibliothek') }}</h2>
+              <p>{{ $t('auto.bücher_per_isbn_scannen_und_verwalten') }}</p>
             </ion-label>
             <ion-icon :icon="chevronForward" slot="end" />
           </ion-item>
@@ -45,8 +45,8 @@
           <ion-item button @click="navigateTo('/map')" lines="full">
             <ion-icon :icon="mapOutline" slot="start" color="success" />
             <ion-label>
-              <h2>Karte</h2>
-              <p>Fotos auf der Karte anzeigen</p>
+              <h2>{{ $t('auto.karte') }}</h2>
+              <p>{{ $t('auto.fotos_auf_der_karte_anzeigen') }}</p>
             </ion-label>
             <ion-icon :icon="chevronForward" slot="end" />
           </ion-item>
@@ -54,8 +54,8 @@
           <ion-item button @click="navigateTo('/routes')" lines="full">
             <ion-icon :icon="navigateOutline" slot="start" color="warning" />
             <ion-label>
-              <h2>Routen</h2>
-              <p>GPS-Routen aufzeichnen mit Wegpunkten</p>
+              <h2>{{ $t('auto.routen') }}</h2>
+              <p>{{ $t('auto.gps_routen_aufzeichnen_mit_wegpunkten') }}</p>
             </ion-label>
             <ion-icon :icon="chevronForward" slot="end" />
           </ion-item>
@@ -63,8 +63,8 @@
           <ion-item button @click="navigateTo('/wine')" lines="full">
             <ion-icon :icon="wineOutline" slot="start" color="tertiary" />
             <ion-label>
-              <h2>Weinkeller</h2>
-              <p>Wein-Sammlung verwalten</p>
+              <h2>{{ $t('auto.weinkeller') }}</h2>
+              <p>{{ $t('auto.wein_sammlung_verwalten') }}</p>
             </ion-label>
             <ion-icon :icon="chevronForward" slot="end" />
           </ion-item>
@@ -72,8 +72,8 @@
           <ion-item button @click="navigateTo('/shopping')" lines="full">
             <ion-icon :icon="cartOutline" slot="start" color="primary" />
             <ion-label>
-              <h2>Einkaufslisten</h2>
-              <p>Einkäufe organisieren</p>
+              <h2>{{ $t('auto.einkaufslisten') }}</h2>
+              <p>{{ $t('auto.einkäufe_organisieren') }}</p>
             </ion-label>
             <ion-icon :icon="chevronForward" slot="end" />
           </ion-item>
@@ -81,8 +81,8 @@
           <ion-item button @click="navigateTo('/todo')" lines="full">
             <ion-icon :icon="checkboxOutline" slot="start" color="secondary" />
             <ion-label>
-              <h2>ToDo</h2>
-              <p>Aufgaben verwalten</p>
+              <h2>{{ $t('auto.todo') }}</h2>
+              <p>{{ $t('auto.aufgaben_verwalten') }}</p>
             </ion-label>
             <ion-icon :icon="chevronForward" slot="end" />
           </ion-item>

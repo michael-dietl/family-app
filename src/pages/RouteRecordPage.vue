@@ -26,21 +26,21 @@
           <ion-icon :icon="navigateOutline" color="primary" />
           <div>
             <div class="stat-value">{{ formatDistance(distance) }}</div>
-            <div class="stat-label">Distanz</div>
+            <div class="stat-label">{{ $t('auto.distanz') }}</div>
           </div>
         </div>
         <div class="stat-card">
           <ion-icon :icon="timeOutline" color="success" />
           <div>
             <div class="stat-value">{{ formatDuration(duration) }}</div>
-            <div class="stat-label">Dauer</div>
+            <div class="stat-label">{{ $t('auto.dauer') }}</div>
           </div>
         </div>
         <div class="stat-card" v-if="currentPosition">
           <ion-icon :icon="speedometerOutline" color="warning" />
           <div>
             <div class="stat-value">{{ formatSpeed(currentPosition.coords.speed || 0) }}</div>
-            <div class="stat-label">Geschwindigkeit</div>
+            <div class="stat-label">{{ $t('auto.geschwindigkeit') }}</div>
           </div>
         </div>
       </div>
@@ -55,7 +55,7 @@
           size="large"
         >
           <ion-icon slot="start" :icon="playOutline" />
-          Aufzeichnung starten
+          {{ $t('auto.aufzeichnung_starten') }}
         </ion-button>
 
         <template v-else>
@@ -67,7 +67,7 @@
             size="large"
           >
             <ion-icon slot="start" :icon="pauseOutline" />
-            Pausieren
+            {{ $t('auto.pausieren') }}
           </ion-button>
 
           <ion-button
@@ -78,7 +78,7 @@
             size="large"
           >
             <ion-icon slot="start" :icon="playOutline" />
-            Fortsetzen
+            {{ $t('auto.fortsetzen') }}
           </ion-button>
 
           <ion-button
@@ -88,7 +88,7 @@
             size="large"
           >
             <ion-icon slot="start" :icon="stopOutline" />
-            Aufzeichnung beenden
+            {{ $t('auto.aufzeichnung_beenden') }}
           </ion-button>
         </template>
       </div>

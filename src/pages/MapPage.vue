@@ -5,7 +5,7 @@
         <ion-buttons slot="start">
           <ion-back-button default-href="/gallery" />
         </ion-buttons>
-        <ion-title>Karte</ion-title>
+        <ion-title>{{ $t('auto.karte') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button @click="showFilterOptions">
             <ion-icon slot="icon-only" :icon="filterOutline"></ion-icon>
@@ -23,8 +23,8 @@
       <!-- Empty State -->
       <div v-else-if="markers.length === 0" class="empty-state">
         <ion-icon :icon="mapOutline" size="large" />
-        <h2>Keine GPS-Daten vorhanden</h2>
-        <p>Fotos und Weine mit GPS-Koordinaten werden hier angezeigt</p>
+        <h2>{{ $t('auto.keine_gps_daten_vorhanden') }}</h2>
+        <p>{{ $t('auto.fotos_und_weine_mit_gps_koordinaten_werden_hier_angezeigt') }}</p>
       </div>
 
       <!-- Map View -->

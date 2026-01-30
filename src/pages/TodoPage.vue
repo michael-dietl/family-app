@@ -2,7 +2,7 @@
   <ion-page>
     <ion-header :translucent="true">
       <ion-toolbar>
-        <ion-title>ToDo</ion-title>
+        <ion-title>{{ $t('auto.todo') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button @click="showCreateModal = true">
             <ion-icon slot="icon-only" :icon="add" />
@@ -14,7 +14,7 @@
     <ion-content :fullscreen="true">
       <ion-header collapse="condense">
         <ion-toolbar>
-          <ion-title size="large">ToDo</ion-title>
+          <ion-title size="large">{{ $t('auto.todo') }}</ion-title>
         </ion-toolbar>
       </ion-header>
 
@@ -26,11 +26,11 @@
       <!-- Empty State -->
       <div v-else-if="lists.length === 0" class="empty-state">
         <ion-icon :icon="checkboxOutline" size="large" />
-        <h2>Keine ToDo-Listen</h2>
-        <p>Erstelle deine erste Aufgabenliste</p>
+        <h2>{{ $t('auto.keine_todo_listen') }}</h2>
+        <p>{{ $t('auto.erstelle_deine_erste_aufgabenliste') }}</p>
         <ion-button @click="showCreateModal = true">
           <ion-icon slot="start" :icon="add" />
-          Liste erstellen
+          {{ $t('auto.liste_erstellen') }}
         </ion-button>
       </div>
 
@@ -58,9 +58,9 @@
     <ion-modal :is-open="showCreateModal" @did-dismiss="showCreateModal = false">
       <ion-header>
         <ion-toolbar>
-          <ion-title>Neue Liste</ion-title>
+          <ion-title>{{ $t('auto.neue_liste') }}</ion-title>
           <ion-buttons slot="end">
-            <ion-button @click="showCreateModal = false">Abbrechen</ion-button>
+            <ion-button @click="showCreateModal = false">{{ $t('auto.abbrechen') }}</ion-button>
           </ion-buttons>
         </ion-toolbar>
       </ion-header>
@@ -74,7 +74,7 @@
           />
         </ion-item>
         <ion-button expand="block" @click="handleCreate" :disabled="!newListName.trim()">
-          Liste erstellen
+          {{ $t('auto.liste_erstellen') }}
         </ion-button>
       </ion-content>
     </ion-modal>

@@ -5,7 +5,7 @@
         <ion-buttons slot="start">
           <ion-back-button default-href="/" />
         </ion-buttons>
-        <ion-title>Bibliothek</ion-title>
+        <ion-title>{{ $t('auto.bibliothek') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button @click="scanBarcode">
             <ion-icon :icon="barcodeOutline" />
@@ -20,7 +20,7 @@
     <ion-content :fullscreen="true">
       <ion-header collapse="condense">
         <ion-toolbar>
-          <ion-title size="large">Bibliothek</ion-title>
+          <ion-title size="large">{{ $t('auto.bibliothek') }}</ion-title>
         </ion-toolbar>
       </ion-header>
 
@@ -36,7 +36,7 @@
       <div v-if="categories.length > 0" class="category-filter ion-padding-horizontal">
         <ion-segment :value="selectedCategoryId?.toString() || 'all'" @ionChange="handleCategoryChange">
           <ion-segment-button value="all">
-            <ion-label>Alle</ion-label>
+            <ion-label>{{ $t('auto.alle') }}</ion-label>
           </ion-segment-button>
           <ion-segment-button v-for="cat in categories" :key="cat.id" :value="cat.id?.toString()">
             <ion-label>{{ cat.name }}</ion-label>
@@ -52,11 +52,11 @@
       <!-- Empty State -->
       <div v-else-if="filteredBooks.length === 0" class="empty-state">
         <ion-icon :icon="bookOutline" size="large" />
-        <h2>Keine Bücher vorhanden</h2>
-        <p>Scanne einen ISBN-Barcode um ein Buch hinzuzufügen</p>
+        <h2>{{ $t('auto.keine_bücher_vorhanden') }}</h2>
+        <p>{{ $t('auto.scanne_einen_isbn_barcode_um_ein_buch_hinzuzufügen') }}</p>
         <ion-button @click="scanBarcode" expand="block" class="ion-margin-top">
           <ion-icon :icon="barcodeOutline" slot="start" />
-          Barcode scannen
+          {{ $t('auto.barcode_scannen') }}
         </ion-button>
       </div>
 
@@ -90,7 +90,7 @@
               <ion-badge v-if="book.quantity && book.quantity > 1" color="primary">
                 {{ book.quantity }}x
               </ion-badge>
-              <ion-badge v-if="book.read" color="success">Gelesen</ion-badge>
+              <ion-badge v-if="book.read" color="success">{{ $t('auto.gelesen') }}</ion-badge>
               <ion-badge v-if="book.rating">
                 <ion-icon :icon="star" /> {{ book.rating }}/5
               </ion-badge>
@@ -642,7 +642,7 @@ const lookupAndSaveBook = async (isbn: string) => {
       publishedDate: bookInfo.publishedDate,
       description: bookInfo.description,
       pageCount: bookInfo.pageCount,
-      categories: null,
+      categories: undefined,
       language: bookInfo.language,
       coverImage: bookInfo.imageLinks?.thumbnail || bookInfo.imageLinks?.smallThumbnail,
       categoryId: mappedCategoryId || undefined,

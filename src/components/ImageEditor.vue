@@ -7,7 +7,7 @@
             <ion-icon :icon="close" />
           </ion-button>
         </ion-buttons>
-        <ion-title>Bild bearbeiten</ion-title>
+        <ion-title>{{ $t('auto.bild_bearbeiten') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button @click="saveImage" color="primary" :disabled="isSaving">
             <ion-icon v-if="!isSaving" :icon="checkmark" />

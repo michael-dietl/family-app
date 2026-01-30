@@ -37,7 +37,7 @@
               <ion-icon :icon="navigateOutline" color="primary" />
               <div>
                 <div class="stat-value">{{ formatDistance(routeData.distance || 0) }}</div>
-                <div class="stat-label">Distanz</div>
+                <div class="stat-label">{{ $t('auto.distanz') }}</div>
               </div>
             </div>
 
@@ -45,7 +45,7 @@
               <ion-icon :icon="timeOutline" color="success" />
               <div>
                 <div class="stat-value">{{ formatDuration(routeData.duration || 0) }}</div>
-                <div class="stat-label">Dauer</div>
+                <div class="stat-label">{{ $t('auto.dauer') }}</div>
               </div>
             </div>
 
@@ -53,24 +53,24 @@
               <ion-icon :icon="flagOutline" color="warning" />
               <div>
                 <div class="stat-value">{{ waypoints.length }}</div>
-                <div class="stat-label">Wegpunkte</div>
+                <div class="stat-label">{{ $t('auto.wegpunkte') }}</div>
               </div>
             </div>
           </div>
 
           <div class="info-meta">
             <p>
-              <strong>Gestartet:</strong> {{ formatDateTime(routeData.startTime) }}
+              <strong>{{ $t('auto.gestartet') }}</strong> {{ formatDateTime(routeData.startTime) }}
             </p>
             <p v-if="routeData.endTime">
-              <strong>Beendet:</strong> {{ formatDateTime(routeData.endTime) }}
+              <strong>{{ $t('auto.beendet') }}</strong> {{ formatDateTime(routeData.endTime) }}
             </p>
           </div>
         </div>
 
         <!-- Waypoints List -->
         <div v-if="waypoints.length > 0" class="waypoints-section">
-          <h3>Wegpunkte</h3>
+          <h3>{{ $t('auto.wegpunkte') }}</h3>
           <ion-list>
             <ion-item
               v-for="(waypoint, index) in manualWaypoints"

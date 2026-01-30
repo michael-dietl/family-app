@@ -7,7 +7,7 @@
         <ion-buttons slot="start">
           <ion-back-button default-href="/" />
         </ion-buttons>
-        <ion-title>Gallerien</ion-title>
+        <ion-title>{{ $t('auto.gallerien') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button @click="showCreateDialog = true">
             <ion-icon :icon="add" />
@@ -19,7 +19,7 @@
     <ion-content :fullscreen="true">
       <ion-header collapse="condense">
         <ion-toolbar>
-          <ion-title size="large">Gallerien</ion-title>
+          <ion-title size="large">{{ $t('auto.gallerien') }}</ion-title>
         </ion-toolbar>
       </ion-header>
 
@@ -31,8 +31,8 @@
       <!-- Empty State -->
       <div v-else-if="galleries.length === 0" class="empty-state">
         <ion-icon :icon="imagesOutline" size="large" />
-        <h2>Keine Gallerien vorhanden</h2>
-        <p>Erstelle deine erste Gallerie mit dem + Button</p>
+        <h2>{{ $t('auto.keine_gallerien_vorhanden') }}</h2>
+        <p>{{ $t('auto.erstelle_deine_erste_gallerie_mit_dem_button') }}</p>
       </div>
 
       <!-- Gallery Grid -->
@@ -68,7 +68,7 @@
       <ion-modal :is-open="showCreateDialog" @did-dismiss="showCreateDialog = false">
         <ion-header>
           <ion-toolbar>
-            <ion-title>Neue Gallerie</ion-title>
+            <ion-title>{{ $t('auto.neue_gallerie') }}</ion-title>
             <ion-buttons slot="end">
               <ion-button @click="showCreateDialog = false">
                 <ion-icon :icon="close" />
@@ -97,7 +97,7 @@
           
           <!-- Farbauswahl -->
           <ion-item>
-            <ion-label position="stacked">Marker-Farbe</ion-label>
+            <ion-label position="stacked">{{ $t('auto.marker_farbe') }}</ion-label>
             <div class="color-picker-container">
               <div class="color-preview" :style="{ backgroundColor: newGalleryColor }"></div>
               <div class="preset-colors">
@@ -120,7 +120,7 @@
             :disabled="!newGalleryName"
             class="ion-margin-top"
           >
-            Erstellen
+            {{ $t('auto.erstellen') }}
           </ion-button>
         </ion-content>
       </ion-modal>

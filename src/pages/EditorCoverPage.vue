@@ -5,7 +5,7 @@
         <ion-buttons slot="start">
           <ion-back-button :default-href="`/library/book/${bookId}`" />
         </ion-buttons>
-        <ion-title>Cover bearbeiten</ion-title>
+        <ion-title>{{ $t('auto.cover_bearbeiten') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button @click="saveImage" color="primary" :disabled="isSaving">
             <ion-icon v-if="!isSaving" :icon="checkmark" />

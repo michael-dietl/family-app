@@ -54,7 +54,7 @@
         <!-- Empty State -->
         <div v-else class="empty-state">
           <ion-icon :icon="cartOutline" size="large" />
-          <p>Keine Artikel in der Liste</p>
+          <p>{{ $t('auto.keine_artikel_in_der_liste') }}</p>
         </div>
       </template>
     </ion-content>

@@ -5,7 +5,7 @@
         <ion-buttons slot="start">
           <ion-back-button default-href="/gallery"></ion-back-button>
         </ion-buttons>
-        <ion-title>Weinkeller</ion-title>
+        <ion-title>{{ $t('auto.weinkeller') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button v-if="!selectionMode" @click="toggleSelectionMode">
             <ion-icon slot="icon-only" :icon="checkmarkCircleOutline"></ion-icon>
@@ -14,7 +14,7 @@
             <ion-icon slot="icon-only" :icon="trashOutline"></ion-icon>
           </ion-button>
           <ion-button v-if="selectionMode" @click="cancelSelection">
-            Abbrechen
+            {{ $t('auto.abbrechen') }}
           </ion-button>
         </ion-buttons>
       </ion-toolbar>
@@ -23,7 +23,7 @@
     <ion-content :fullscreen="true">
       <ion-header collapse="condense">
         <ion-toolbar>
-          <ion-title size="large">Weinkeller</ion-title>
+          <ion-title size="large">{{ $t('auto.weinkeller') }}</ion-title>
         </ion-toolbar>
       </ion-header>
 
@@ -99,9 +99,9 @@
       <!-- Empty State -->
       <div v-else class="empty-state">
         <ion-icon :icon="wineOutline" size="large"></ion-icon>
-        <h2>Keine Weine gefunden</h2>
-        <p v-if="searchTerm">Versuche es mit einem anderen Suchbegriff</p>
-        <p v-else>Füge deinen ersten Wein hinzu</p>
+        <h2>{{ $t('auto.keine_weine_gefunden') }}</h2>
+        <p v-if="searchTerm">{{ $t('auto.versuche_es_mit_einem_anderen_suchbegriff') }}</p>
+        <p v-else>{{ $t('auto.füge_deinen_ersten_wein_hinzu') }}</p>
       </div>
 
       <!-- FAB Button -->
@@ -115,9 +115,9 @@
       <ion-modal :is-open="showCreateModal" @didDismiss="showCreateModal = false">
         <ion-header>
           <ion-toolbar>
-            <ion-title>Neuer Wein</ion-title>
+            <ion-title>{{ $t('auto.neuer_wein') }}</ion-title>
             <ion-buttons slot="end">
-              <ion-button @click="showCreateModal = false">Abbrechen</ion-button>
+              <ion-button @click="showCreateModal = false">{{ $t('auto.abbrechen') }}</ion-button>
             </ion-buttons>
           </ion-toolbar>
         </ion-header>
@@ -194,11 +194,11 @@
                 label-placement="stacked"
                 placeholder="Auswählen"
               >
-                <ion-select-option value="Rotwein">Rotwein</ion-select-option>
-                <ion-select-option value="Weißwein">Weißwein</ion-select-option>
-                <ion-select-option value="Rosé">Rosé</ion-select-option>
-                <ion-select-option value="Schaumwein">Schaumwein</ion-select-option>
-                <ion-select-option value="Dessertwein">Dessertwein</ion-select-option>
+                <ion-select-option value="Rotwein">{{ $t('auto.rotwein') }}</ion-select-option>
+                <ion-select-option value="Weißwein">{{ $t('auto.weißwein') }}</ion-select-option>
+                <ion-select-option value="Rosé">{{ $t('auto.ros') }}</ion-select-option>
+                <ion-select-option value="Schaumwein">{{ $t('auto.schaumwein') }}</ion-select-option>
+                <ion-select-option value="Dessertwein">{{ $t('auto.dessertwein') }}</ion-select-option>
               </ion-select>
             </ion-item>
 
@@ -236,7 +236,7 @@
 
             <!-- Bewertung -->
             <ion-item>
-              <ion-label>Bewertung</ion-label>
+              <ion-label>{{ $t('auto.bewertung') }}</ion-label>
               <div class="rating-selector">
                 <ion-icon
                   v-for="star in 5"
@@ -273,7 +273,7 @@
               <img :src="getImageSrc(photoPreview)" alt="Weinvorschau" />
               <ion-chip v-if="photoGPS" color="success">
                 <ion-icon :icon="locationOutline"></ion-icon>
-                <ion-label>GPS-Daten vorhanden</ion-label>
+                <ion-label>{{ $t('auto.gps_daten_vorhanden') }}</ion-label>
               </ion-chip>
             </div>
           </ion-list>

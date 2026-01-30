@@ -7,14 +7,14 @@
             <ion-icon :icon="arrowBackOutline" />
           </ion-button>
         </ion-buttons>
-        <ion-title>Routen</ion-title>
+        <ion-title>{{ $t('auto.routen') }}</ion-title>
       </ion-toolbar>
     </ion-header>
 
     <ion-content :fullscreen="true">
       <ion-header collapse="condense">
         <ion-toolbar>
-          <ion-title size="large">Routen</ion-title>
+          <ion-title size="large">{{ $t('auto.routen') }}</ion-title>
         </ion-toolbar>
       </ion-header>
 
@@ -26,11 +26,11 @@
       <!-- Empty State -->
       <div v-else-if="routes.length === 0" class="empty-state">
         <ion-icon :icon="mapOutline" class="empty-icon" />
-        <h2>Keine Routen</h2>
-        <p>Starte deine erste Routenaufzeichnung</p>
+        <h2>{{ $t('auto.keine_routen') }}</h2>
+        <p>{{ $t('auto.starte_deine_erste_routenaufzeichnung') }}</p>
         <ion-button @click="startNewRoute" expand="block">
           <ion-icon slot="start" :icon="addOutline" />
-          Route aufzeichnen
+          {{ $t('auto.route_aufzeichnen') }}
         </ion-button>
       </div>
 
@@ -58,7 +58,7 @@
             </p>
           </ion-label>
           <ion-badge v-if="route.isRecording" color="danger" slot="end">
-            Aufzeichnung läuft
+            {{ $t('auto.aufzeichnung_läuft') }}
           </ion-badge>
         </ion-item>
       </ion-list>

@@ -48,7 +48,7 @@
         <!-- Empty State -->
         <div v-else class="empty-state">
           <ion-icon :icon="checkboxOutline" size="large" />
-          <p>Keine Aufgaben in der Liste</p>
+          <p>{{ $t('auto.keine_aufgaben_in_der_liste') }}</p>
         </div>
       </template>
     </ion-content>

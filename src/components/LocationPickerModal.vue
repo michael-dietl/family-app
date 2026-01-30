@@ -2,9 +2,9 @@
   <ion-modal :is-open="isOpen" @didDismiss="emit('cancel')">
     <ion-header>
       <ion-toolbar>
-        <ion-title>Standort wählen</ion-title>
+        <ion-title>{{ $t('auto.standort_wählen') }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button @click="emit('cancel')">Abbrechen</ion-button>
+          <ion-button @click="emit('cancel')">{{ $t('auto.abbrechen') }}</ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -25,7 +25,7 @@
         <div class="action-buttons">
           <ion-button expand="block" @click="confirmLocation" color="primary">
             <ion-icon slot="start" :icon="checkmarkOutline"></ion-icon>
-            Standort übernehmen
+            {{ $t('auto.standort_übernehmen') }}
           </ion-button>
           
           <ion-button 

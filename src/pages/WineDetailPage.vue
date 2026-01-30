@@ -26,10 +26,10 @@
         <!-- Tabs -->
         <ion-segment v-model="selectedTab" class="wine-tabs">
           <ion-segment-button value="info">
-            <ion-label>Info</ion-label>
+            <ion-label>{{ $t('auto.info') }}</ion-label>
           </ion-segment-button>
           <ion-segment-button value="photo">
-            <ion-label>Foto</ion-label>
+            <ion-label>{{ $t('auto.foto') }}</ion-label>
           </ion-segment-button>
         </ion-segment>
 
@@ -40,7 +40,7 @@
           </div>
           <div v-else class="wine-photo-placeholder">
             <ion-icon :icon="wineOutline" size="large"></ion-icon>
-            <p>Kein Foto vorhanden</p>
+            <p>{{ $t('auto.kein_foto_vorhanden') }}</p>
           </div>
         </div>
 
@@ -66,7 +66,7 @@
           <ion-item v-if="wine.winery">
             <ion-icon :icon="business" slot="start"></ion-icon>
             <ion-label>
-              <p>Weingut</p>
+              <p>{{ $t('auto.weingut') }}</p>
               <h3>{{ wine.winery }}</h3>
             </ion-label>
           </ion-item>
@@ -75,7 +75,7 @@
           <ion-item v-if="wine.region || wine.country">
             <ion-icon :icon="locationOutline" slot="start"></ion-icon>
             <ion-label>
-              <p>Herkunft</p>
+              <p>{{ $t('auto.herkunft') }}</p>
               <h3>{{ [wine.region, wine.country].filter(Boolean).join(', ') }}</h3>
             </ion-label>
           </ion-item>
@@ -84,7 +84,7 @@
           <ion-item v-if="wine.year">
             <ion-icon :icon="calendar" slot="start"></ion-icon>
             <ion-label>
-              <p>Jahrgang</p>
+              <p>{{ $t('auto.jahrgang') }}</p>
               <h3>{{ wine.year }}</h3>
             </ion-label>
           </ion-item>
@@ -93,7 +93,7 @@
           <ion-item v-if="wine.grapeVariety">
             <ion-icon :icon="leaf" slot="start"></ion-icon>
             <ion-label>
-              <p>Rebsorte</p>
+              <p>{{ $t('auto.rebsorte') }}</p>
               <h3>{{ wine.grapeVariety }}</h3>
             </ion-label>
           </ion-item>
@@ -102,7 +102,7 @@
           <ion-item v-if="wine.type">
             <ion-icon :icon="wineOutline" slot="start"></ion-icon>
             <ion-label>
-              <p>Weintyp</p>
+              <p>{{ $t('auto.weintyp') }}</p>
               <h3>{{ wine.type }}</h3>
             </ion-label>
           </ion-item>
@@ -111,7 +111,7 @@
           <ion-item v-if="wine.price">
             <ion-icon :icon="cash" slot="start"></ion-icon>
             <ion-label>
-              <p>Preis</p>
+              <p>{{ $t('auto.preis') }}</p>
               <h3>{{ wine.price.toFixed(2) }} €</h3>
             </ion-label>
           </ion-item>
@@ -120,7 +120,7 @@
           <ion-item v-if="wine.quantity">
             <ion-icon :icon="layers" slot="start"></ion-icon>
             <ion-label>
-              <p>Anzahl Flaschen</p>
+              <p>{{ $t('auto.anzahl_flaschen') }}</p>
               <h3>{{ wine.quantity }}</h3>
             </ion-label>
           </ion-item>
@@ -129,7 +129,7 @@
           <ion-item v-if="wine.storageLocation">
             <ion-icon :icon="cube" slot="start"></ion-icon>
             <ion-label>
-              <p>Lagerort</p>
+              <p>{{ $t('auto.lagerort') }}</p>
               <h3>{{ wine.storageLocation }}</h3>
             </ion-label>
           </ion-item>
@@ -138,7 +138,7 @@
           <ion-item v-if="wine.purchaseDate">
             <ion-icon :icon="cartOutline" slot="start"></ion-icon>
             <ion-label>
-              <p>Kaufdatum</p>
+              <p>{{ $t('auto.kaufdatum') }}</p>
               <h3>{{ formatDate(wine.purchaseDate) }}</h3>
             </ion-label>
           </ion-item>
@@ -147,7 +147,7 @@
           <ion-item v-if="wine.latitude && wine.longitude" button @click="showOnMap">
             <ion-icon :icon="map" slot="start"></ion-icon>
             <ion-label>
-              <p>GPS Position</p>
+              <p>{{ $t('auto.gps_position') }}</p>
               <h3>{{ wine.latitude.toFixed(6) }}, {{ wine.longitude.toFixed(6) }}</h3>
             </ion-label>
             <ion-icon :icon="chevronForward" slot="end"></ion-icon>
@@ -156,7 +156,7 @@
           <!-- Notizen -->
           <ion-item v-if="wine.notes">
             <ion-label class="ion-text-wrap">
-              <p>Notizen</p>
+              <p>{{ $t('auto.notizen') }}</p>
               <ion-text>{{ wine.notes }}</ion-text>
             </ion-label>
           </ion-item>
@@ -174,7 +174,7 @@
 
       <div v-else class="empty-state">
         <ion-icon :icon="wineOutline" size="large"></ion-icon>
-        <h2>Wein nicht gefunden</h2>
+        <h2>{{ $t('auto.wein_nicht_gefunden') }}</h2>
       </div>
     </ion-content>
 
@@ -183,11 +183,11 @@
       <ion-header>
         <ion-toolbar>
           <ion-buttons slot="start">
-            <ion-button @click="closeEditModal">Abbrechen</ion-button>
+            <ion-button @click="closeEditModal">{{ $t('auto.abbrechen') }}</ion-button>
           </ion-buttons>
-          <ion-title>Wein bearbeiten</ion-title>
+          <ion-title>{{ $t('auto.wein_bearbeiten') }}</ion-title>
           <ion-buttons slot="end">
-            <ion-button :strong="true" @click="handleSaveEdit">Speichern</ion-button>
+            <ion-button :strong="true" @click="handleSaveEdit">{{ $t('auto.speichern') }}</ion-button>
           </ion-buttons>
         </ion-toolbar>
       </ion-header>
@@ -264,11 +264,11 @@
               label-placement="stacked"
               placeholder="Auswählen"
             >
-              <ion-select-option value="Rotwein">Rotwein</ion-select-option>
-              <ion-select-option value="Weißwein">Weißwein</ion-select-option>
-              <ion-select-option value="Rosé">Rosé</ion-select-option>
-              <ion-select-option value="Schaumwein">Schaumwein</ion-select-option>
-              <ion-select-option value="Dessertwein">Dessertwein</ion-select-option>
+              <ion-select-option value="Rotwein">{{ $t('auto.rotwein') }}</ion-select-option>
+              <ion-select-option value="Weißwein">{{ $t('auto.weißwein') }}</ion-select-option>
+              <ion-select-option value="Rosé">{{ $t('auto.ros') }}</ion-select-option>
+              <ion-select-option value="Schaumwein">{{ $t('auto.schaumwein') }}</ion-select-option>
+              <ion-select-option value="Dessertwein">{{ $t('auto.dessertwein') }}</ion-select-option>
             </ion-select>
           </ion-item>
 
@@ -316,7 +316,7 @@
 
           <!-- Bewertung -->
           <ion-item>
-            <ion-label>Bewertung</ion-label>
+            <ion-label>{{ $t('auto.bewertung') }}</ion-label>
             <div class="rating-selector">
               <ion-icon
                 v-for="star in 5"

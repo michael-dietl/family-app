@@ -2,8 +2,8 @@
   <div class="gallery-map-container">
     <div v-if="photosWithLocation.length === 0" class="no-location-state">
       <ion-icon :icon="locationOutline" />
-      <p>Keine Fotos mit GPS-Daten vorhanden</p>
-      <p class="hint">Videos werden nicht auf der Karte angezeigt</p>
+      <p>{{ $t('auto.keine_fotos_mit_gps_daten_vorhanden') }}</p>
+      <p class="hint">{{ $t('auto.videos_werden_nicht_auf_der_karte_angezeigt') }}</p>
     </div>
     <div v-else>
       <div ref="mapContainer" class="map"></div>

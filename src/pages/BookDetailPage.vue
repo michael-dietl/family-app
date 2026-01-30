@@ -5,7 +5,7 @@
         <ion-buttons slot="start">
           <ion-back-button default-href="/library" />
         </ion-buttons>
-        <ion-title>Buchdetails</ion-title>
+        <ion-title>{{ $t('auto.buchdetails') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button @click="showMenu">
             <ion-icon :icon="ellipsisVertical" />
@@ -42,7 +42,7 @@
             <ion-icon :icon="bookOutline" />
             <div class="camera-overlay">
               <ion-icon :icon="cameraOutline" />
-              <span>Cover fotografieren</span>
+              <span>{{ $t('auto.cover_fotografieren') }}</span>
             </div>
           </div>
         </div>
@@ -80,7 +80,7 @@
 
           <!-- Zusammenfassung -->
           <div v-if="book.description" class="description-section">
-            <h3>Zusammenfassung</h3>
+            <h3>{{ $t('auto.zusammenfassung') }}</h3>
             <p v-html="book.description"></p>
           </div>
 
@@ -105,7 +105,7 @@
           <!-- Categories -->
           <div class="categories-section">
             <h3>
-              Kategorien
+              {{ $t('auto.kategorien') }}
               <ion-button size="small" fill="clear" class="edit-category-btn" @click="editCategory">
                 <ion-icon :icon="createOutline" />
               </ion-button>
@@ -126,13 +126,13 @@
             </div>
 
             <div v-else class="no-category">
-              <p>Keine Kategorie zugewiesen.</p>
+              <p>{{ $t('auto.keine_kategorie_zugewiesen') }}</p>
             </div>
           </div>
 
           <!-- ISBN -->
           <div class="isbn-section">
-            <h3>ISBN</h3>
+            <h3>{{ $t('auto.isbn') }}</h3>
             <p>{{ book.isbn }}</p>
           </div>
         </div>
@@ -181,14 +181,13 @@ import {
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
-import { db, type Book } from '@/services/database';
-import { onIonViewWillEnter } from '@ionic/vue';
+import { db, type Book, type BookCategory } from '@/services/database';
 
 const route = useRoute();
 const router = useRouter();
 const book = ref<Book | null>(null);
 const isLoading = ref(false);
-const categories = ref<{id: number; name: string;}[]>([]);
+const categories = ref<BookCategory[]>([]);
 
 onMounted(async () => {
   await loadBook();
@@ -296,8 +295,12 @@ const editCategory = async () => {
         text: 'Speichern',
         handler: async (value: string) => {
           try {
-            const newCategoryId = value === '' ? null : parseInt(value);
-            await db.updateBook(book.value!.id!, { categoryId: newCategoryId || null });
+            if (value === '') {
+              // Clear category assignment
+              await db.updateBook(book.value!.id!, { categoryId: undefined });
+            } else {
+              await db.updateBook(book.value!.id!, { categoryId: parseInt(value) });
+            }
             await loadBook();
             const toast = await toastController.create({ message: 'Kategorie aktualisiert', duration: 1500, color: 'success' });
             await toast.present();

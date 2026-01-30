@@ -5,7 +5,7 @@
         <ion-buttons slot="start">
           <ion-back-button :default-href="`/gallery/${galleryId}`" />
         </ion-buttons>
-        <ion-title>Bild bearbeiten</ion-title>
+        <ion-title>{{ $t('auto.bild_bearbeiten') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button @click="downloadImage" :disabled="isSaving">
             <ion-icon :icon="downloadOutline" />

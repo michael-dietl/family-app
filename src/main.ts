@@ -42,12 +42,34 @@ import './theme/variables.css';
 import 'leaflet/dist/leaflet.css';
 
 import { StatusBar, Style } from '@capacitor/status-bar';
+import i18n from '@/i18n/i18n';
+import { Preferences } from '@capacitor/preferences';
 
 const app = createApp(App)
   .use(IonicVue)
   .use(router);
 
+const initializeLocale = async () => {
+  try {
+    const res = await Preferences.get({ key: 'locale' });
+    const saved = res.value;
+    if (saved) {
+      // @ts-ignore - global locale is a Ref
+      i18n.global.locale.value = saved;
+    } else if (typeof navigator !== 'undefined' && navigator.language) {
+      const nav = navigator.language.split('-')[0];
+      // @ts-ignore
+      i18n.global.locale.value = nav;
+    }
+  } catch (e) {
+    // ignore
+  }
+  app.use(i18n);
+};
+
+
 router.isReady().then(async () => {
+  await initializeLocale();
   // Set app status bar color to match the light orange theme (Android/iOS where supported)
   try {
     await StatusBar.setBackgroundColor({ color: '#FF7A18' });

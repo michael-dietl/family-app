@@ -5,7 +5,7 @@
         <ion-buttons slot="start">
           <ion-back-button :default-href="`/gallery/${galleryId}`" />
         </ion-buttons>
-        <ion-title>Video bearbeiten</ion-title>
+        <ion-title>{{ $t('auto.video_bearbeiten') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button @click="saveVideo" :disabled="isSaving">
             <ion-spinner v-if="isSaving" />
@@ -19,7 +19,7 @@
       <div class="video-editor-container">
         <div v-if="isLoading" class="loading-state">
           <ion-spinner />
-          <p>Lade Video...</p>
+          <p>{{ $t('auto.lade_video') }}</p>
         </div>
 
         <div v-else-if="videoPath" class="video-preview">
@@ -32,17 +32,17 @@
           ></video>
 
           <div class="editor-controls ion-padding">
-            <h3>Video bearbeiten</h3>
+            <h3>{{ $t('auto.video_bearbeiten') }}</h3>
             
             <!-- Trim Controls -->
             <div class="control-group">
               <ion-label>
-                <h4>Trimmen</h4>
-                <p>Schneide den Anfang und das Ende des Videos</p>
+                <h4>{{ $t('auto.trimmen') }}</h4>
+                <p>{{ $t('auto.schneide_den_anfang_und_das_ende_des_videos') }}</p>
               </ion-label>
               <div class="trim-controls">
                 <div class="trim-input">
-                  <ion-label>Start (Sek.)</ion-label>
+                  <ion-label>{{ $t('auto.start_sek') }}</ion-label>
                   <ion-input 
                     v-model.number="trimStart" 
                     type="number" 
@@ -52,7 +52,7 @@
                   />
                 </div>
                 <div class="trim-input">
-                  <ion-label>Ende (Sek.)</ion-label>
+                  <ion-label>{{ $t('auto.ende_sek') }}</ion-label>
                   <ion-input 
                     v-model.number="trimEnd" 
                     type="number" 
@@ -67,20 +67,20 @@
             <!-- Quality Settings -->
             <div class="control-group">
               <ion-label>
-                <h4>Qualität</h4>
+                <h4>{{ $t('auto.qualität') }}</h4>
               </ion-label>
               <ion-select v-model="quality" interface="action-sheet">
-                <ion-select-option value="high">Hoch</ion-select-option>
-                <ion-select-option value="medium">Mittel</ion-select-option>
-                <ion-select-option value="low">Niedrig</ion-select-option>
+                <ion-select-option value="high">{{ $t('auto.hoch') }}</ion-select-option>
+                <ion-select-option value="medium">{{ $t('auto.mittel') }}</ion-select-option>
+                <ion-select-option value="low">{{ $t('auto.niedrig') }}</ion-select-option>
               </ion-select>
             </div>
 
             <!-- Video Info -->
             <div class="video-info">
               <p><strong>Dauer:</strong> {{ formatDuration(duration) }}</p>
-              <p v-if="trimStart > 0 || trimEnd < duration">
-                <strong>Neue Dauer:</strong> {{ formatDuration(Math.max(0, trimEnd - trimStart)) }}
+              <p v-if="trimStart > {{ $t('auto.0_trimend') }} < duration">
+                <strong>{{ $t('auto.neue_dauer') }}</strong> {{ formatDuration(Math.max(0, trimEnd - trimStart)) }}
               </p>
             </div>
           </div>
