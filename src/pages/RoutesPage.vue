@@ -7,6 +7,11 @@
             <ion-icon :icon="arrowBackOutline" />
           </ion-button>
         </ion-buttons>
+        <ion-buttons slot="end">
+          <ion-button @click="startNewRoute()">
+            <ion-icon :icon="addOutline" />
+          </ion-button>
+        </ion-buttons>
         <ion-title>{{ $t('auto.routen') }}</ion-title>
       </ion-toolbar>
     </ion-header>
