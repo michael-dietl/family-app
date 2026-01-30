@@ -2,7 +2,6 @@ import { ref } from 'vue';
 import { pocketbase } from '@/services/pocketbase';
 import { db, type Gallery, type Photo, type Book } from '@/services/database';
 import { Preferences } from '@capacitor/preferences';
-import { Network } from '@capacitor/network';
 
 export function usePocketbaseSync() {
   const isSyncing = ref(false);
@@ -292,11 +291,19 @@ export function usePocketbaseSync() {
 
     // If wifi-only is set, check current network status
     try {
+      // Dynamic import to avoid bundling '@capacitor/network' for web builds
+      const spec = '@capacitor/network';
+      const mod = await import(/* @vite-ignore */ spec);
+      const Network = (mod as any).Network;
+      if (!Network || !Network.getStatus) {
+        console.warn('Network plugin not available at runtime');
+        return false;
+      }
       const status = await Network.getStatus();
       return status.connected && status.connectionType === 'wifi';
     } catch (e) {
       // If network plugin unavailable, be conservative: do not auto-sync
-      console.warn('Network plugin unavailable, skipping auto-sync due to wifi-only setting');
+      console.warn('Network plugin unavailable, skipping auto-sync due to wifi-only setting', e);
       return false;
     }
   };

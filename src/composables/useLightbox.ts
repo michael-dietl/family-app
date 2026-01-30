@@ -46,10 +46,25 @@ export function useLightbox() {
           };
         }
         
+        // Berücksichtige EXIF-Orientation: bei 90°/270° rotierter Bilder sind Breite/Höhe vertauscht
+        const orientation = (photo as any).orientation as number | undefined;
+        let width = photo.width || undefined;
+        let height = photo.height || undefined;
+
+        if (orientation && (orientation === 5 || orientation === 6 || orientation === 7 || orientation === 8)) {
+          // swap if both exist
+          if (width !== undefined && height !== undefined) {
+            const tmp = width;
+            width = height;
+            height = tmp;
+            console.log('useLightbox: swapped width/height due to orientation', orientation, width, height);
+          }
+        }
+
         return {
           src: photo.filepath,
-          width: photo.width || undefined,
-          height: photo.height || undefined,
+          width: width,
+          height: height,
           alt: photo.filename,
         };
       }),

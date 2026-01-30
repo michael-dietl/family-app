@@ -34,6 +34,7 @@ export interface ExifData {
   iso?: number;
   width?: number;
   height?: number;
+  orientation?: number; // 1..8 according to EXIF spec
 }
 
 /**
@@ -213,6 +214,26 @@ export async function extractExifFromImage(arrayBuffer: ArrayBuffer): Promise<Ex
     if (tags.file?.['Image Width'] && tags.file?.['Image Height']) {
       exifData.width = tags.file['Image Width'].value;
       exifData.height = tags.file['Image Height'].value;
+    }
+
+    // Orientation (falls vorhanden) - Werte 1..8
+    if (tags.exif && tags.exif.Orientation) {
+      const ori = tags.exif.Orientation.description || tags.exif.Orientation.value?.[0] || tags.exif.Orientation.value;
+      const orientationNum = typeof ori === 'number' ? ori : parseInt(String(ori), 10);
+      if (!isNaN(orientationNum)) {
+        exifData.orientation = orientationNum;
+        console.log('   - EXIF orientation detected:', orientationNum);
+      }
+    }
+
+    // If orientation indicates a 90/270 degree rotation, swap width/height
+    if (exifData.orientation && (exifData.orientation === 5 || exifData.orientation === 6 || exifData.orientation === 7 || exifData.orientation === 8)) {
+      if (exifData.width && exifData.height) {
+        const w = exifData.width;
+        exifData.width = exifData.height;
+        exifData.height = w;
+        console.log('   - Swapped width/height due to EXIF orientation:', exifData.width, exifData.height);
+      }
     }
 
     console.log('✅ EXIF data extracted:', exifData);

@@ -18,6 +18,7 @@ export interface Photo {
   thumbnail?: string;
   width?: number;
   height?: number;
+  orientation?: number;
   filesize?: number;
   mimeType?: string;
   isVideo?: boolean;
