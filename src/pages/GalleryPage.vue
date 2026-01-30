@@ -49,8 +49,11 @@
               <div class="gallery-cover">
                 <ion-icon v-if="!galleryCoverPhotos[gallery.id!]" :icon="imagesOutline" />
                 <img v-else :src="getImageSrc(galleryCoverPhotos[gallery.id!])" alt="Cover" />
-                <!-- Gallery name overlay on the cover -->
-                <div class="gallery-label">{{ gallery.name }}</div>
+                <!-- Gallery name (max 2 Zeilen) and photo count badge -->
+                <div class="gallery-label">
+                  <div class="gallery-label-text">{{ gallery.name }}</div>
+                  <div class="gallery-label-count">{{ photoCount(gallery.id!) }} Fotos</div>
+                </div>
               </div>
               <ion-card-header>
                 <ion-card-title>{{ gallery.name }}</ion-card-title>
@@ -335,12 +338,31 @@ const handleCreateGallery = async () => {
   padding: 6px 10px;
   background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 100%);
   color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 6px;
+  z-index: 2;
+}
+
+.gallery-label-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-weight: 600;
   font-size: 14px;
-  border-radius: 6px;
-  text-overflow: ellipsis;
+}
+
+.gallery-label-count {
+  background: rgba(255,255,255,0.12);
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
   white-space: nowrap;
-  overflow: hidden;
 }
 
 ion-card {
