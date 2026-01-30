@@ -218,8 +218,15 @@ export async function extractExifFromImage(arrayBuffer: ArrayBuffer): Promise<Ex
 
     // Orientation (falls vorhanden) - Werte 1..8
     if (tags.exif && tags.exif.Orientation) {
-      const ori = tags.exif.Orientation.description || tags.exif.Orientation.value?.[0] || tags.exif.Orientation.value;
-      const orientationNum = typeof ori === 'number' ? ori : parseInt(String(ori), 10);
+      // tags.exif.Orientation.value can be a number or an array; handle both safely for TS
+      let oriCandidate: any = undefined;
+      if (tags.exif.Orientation.description) oriCandidate = tags.exif.Orientation.description;
+      if (oriCandidate === undefined) {
+        const val = (tags.exif.Orientation as any).value;
+        if (Array.isArray(val)) oriCandidate = val[0];
+        else if (val !== undefined) oriCandidate = val;
+      }
+      const orientationNum = typeof oriCandidate === 'number' ? oriCandidate : parseInt(String(oriCandidate), 10);
       if (!isNaN(orientationNum)) {
         exifData.orientation = orientationNum;
         console.log('   - EXIF orientation detected:', orientationNum);

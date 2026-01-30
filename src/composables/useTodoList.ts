@@ -64,11 +64,18 @@ export function useTodoList() {
     itemId: number,
     files: Array<{ path: string | null; data?: string | null }>
   ) => {
+    if (!itemId || itemId <= 0) {
+      console.error('attachFilesToItem called with invalid itemId:', itemId);
+      return [];
+    }
+
     // Ensure directory
     try {
+      console.log('Creating directory for todo item', itemId);
       await Filesystem.mkdir({ path: `todos/${itemId}`, directory: Directory.Data, recursive: true });
     } catch (e) {
       // ignore
+      console.warn('Could not create directory (may already exist):', e);
     }
 
     const savedIds: number[] = [];

@@ -120,14 +120,24 @@ onMounted(async () => {
 
 const handleAddItem = async () => {
   if (!newItemTitle.value.trim()) return;
-  const id = await createItem(listId, newItemTitle.value.trim());
+  try {
+    const id = await createItem(listId, newItemTitle.value.trim());
+    if (!id || id <= 0) {
+      console.error('Failed to create todo item, invalid id returned:', id);
+      // keep temp photos so user doesn't lose them
+      return;
+    }
 
-  if (tempPhotos.value.length > 0) {
-    await attachFilesToItem(id, tempPhotos.value.map(p => ({ path: p.path || null, data: p.data || null })));
+    if (tempPhotos.value.length > 0) {
+      console.log('Attaching', tempPhotos.value.length, 'photos to new item', id);
+      await attachFilesToItem(id, tempPhotos.value.map(p => ({ path: p.path || null, data: p.data || null })));
+    }
+
+    newItemTitle.value = '';
+    tempPhotos.value = [];
+  } catch (err) {
+    console.error('Error creating todo item:', err);
   }
-
-  newItemTitle.value = '';
-  tempPhotos.value = [];
 };
 
 const handleTakePhoto = async () => {
