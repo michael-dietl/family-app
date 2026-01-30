@@ -2,6 +2,9 @@
   <ion-page>
     <ion-header :translucent="true">
       <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-back-button default-href="/" />
+        </ion-buttons>
         <ion-title>{{ $t('auto.einkaufslisten') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button @click="showCreateModal = true">
