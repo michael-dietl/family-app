@@ -206,4 +206,21 @@ onBeforeUnmount(() => {
   stroke: rgba(255,255,255,0.45) !important;
   stroke-width: 1 !important;
 }
+
+/* 3x3 crop grid overlay inside the crop box (visible when cropper is active) */
+.tui-image-editor-canvas-container .cropper-view-box {
+  position: relative !important;
+}
+.tui-image-editor-canvas-container .cropper-view-box::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.35) 1px, transparent 1px);
+  background-size: calc(100% / 3) calc(100% / 3), calc(100% / 3) calc(100% / 3);
+  opacity: 0.95;
+  mix-blend-mode: overlay;
+}
 </style>
