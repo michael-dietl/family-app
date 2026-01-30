@@ -239,7 +239,8 @@ watch(() => props.photos, async () => {
 <style scoped>
 .gallery-map-container {
   width: 100%;
-  height: 500px;
+  /* Responsive height: min/max to fit mobile screens without overflow */
+  height: clamp(220px, 35vh, 420px);
   position: relative;
   background: var(--ion-color-light);
   border-radius: 8px;

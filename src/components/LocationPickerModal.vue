@@ -162,7 +162,8 @@ const confirmLocation = () => {
 .map-container {
   flex: 1;
   width: 100%;
-  min-height: 400px;
+  /* Reduce modal map minimum height to fit smaller screens */
+  min-height: clamp(220px, 40vh, 360px);
 }
 
 .coordinates-info {
