@@ -59,13 +59,14 @@ export function useTodoList() {
     await loadLists();
   };
 
-  const createItem = async (listId: number, title: string, description?: string): Promise<number> => {
+  const createItem = async (listId: number, title: string, description?: string, photoPath?: string): Promise<number> => {
     const id = await db.createTodoItem({
       listId,
       title,
       description,
-      completed: false
-    });
+      completed: false,
+      photoPath: photoPath || null
+    } as any);
     await loadItems(listId);
     return id;
   };

@@ -141,6 +141,7 @@ export interface TodoItem {
   title: string;
   description?: string;
   completed: boolean;
+  photoPath?: string;
   created: string;
 }
 
@@ -518,6 +519,7 @@ class DatabaseService {
         title TEXT NOT NULL,
         description TEXT,
         completed INTEGER DEFAULT 0,
+        photoPath TEXT,
         created TEXT NOT NULL,
         FOREIGN KEY (listId) REFERENCES todo_lists(id) ON DELETE CASCADE
       );
@@ -1446,12 +1448,14 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
-    const sql = 'INSERT INTO todo_items (listId, title, description, completed, created) VALUES (?, ?, ?, ?, ?);';
+    const sql = 'INSERT INTO todo_items (listId, title, description, completed, photoPath, created) VALUES (?, ?, ?, ?, ?, ?);';
     const result = await this.db.run(sql, [
       item.listId,
       item.title,
       item.description || null,
       item.completed ? 1 : 0,
+      // photoPath may be undefined/null
+      (item as any).photoPath || null,
       now
     ]);
     
@@ -1491,6 +1495,10 @@ class DatabaseService {
     if (updates.completed !== undefined) {
       fields.push('completed = ?');
       values.push(updates.completed ? 1 : 0);
+    }
+    if ((updates as any).photoPath !== undefined) {
+      fields.push('photoPath = ?');
+      values.push((updates as any).photoPath ?? null);
     }
 
     if (fields.length === 0) return;

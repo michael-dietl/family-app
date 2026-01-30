@@ -16,16 +16,24 @@
 
       <template v-else>
         <!-- Add Item -->
-        <ion-item>
-          <ion-input
-            v-model="newItemTitle"
-            placeholder="Aufgabe hinzufügen..."
-            @keyup.enter="handleAddItem"
-          />
-          <ion-button slot="end" @click="handleAddItem" :disabled="!newItemTitle.trim()">
-            <ion-icon slot="icon-only" :icon="add" />
-          </ion-button>
-        </ion-item>
+            <ion-item>
+              <ion-input
+                v-model="newItemTitle"
+                placeholder="Aufgabe hinzufügen..."
+                @keyup.enter="handleAddItem"
+              />
+              <ion-button slot="end" fill="clear" @click="handleTakePhoto">
+                <ion-icon slot="icon-only" :icon="camera" />
+              </ion-button>
+              <ion-button slot="end" @click="handleAddItem" :disabled="!newItemTitle.trim()">
+                <ion-icon slot="icon-only" :icon="add" />
+              </ion-button>
+            </ion-item>
+
+            <div v-if="tempPhotoPath" class="photo-preview">
+              <img :src="getImageSrc(tempPhotoPath)" alt="Vorschau" />
+              <ion-button fill="clear" color="danger" @click="removeTempPhoto">Entfernen</ion-button>
+            </div>
 
         <!-- Items List -->
         <ion-list v-if="items.length > 0">
@@ -63,7 +71,10 @@ import {
   IonBackButton, IonList, IonItem, IonLabel, IonCheckbox, IonInput,
   IonButton, IonIcon, IonSpinner
 } from '@ionic/vue';
-import { add, checkboxOutline, trashOutline } from 'ionicons/icons';
+import { add, checkboxOutline, trashOutline, camera } from 'ionicons/icons';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
 import { useTodoList } from '@/composables/useTodoList';
 
 const route = useRoute();
@@ -81,6 +92,7 @@ const {
 } = useTodoList();
 
 const newItemTitle = ref('');
+const tempPhotoPath = ref<string | null>(null);
 
 onMounted(async () => {
   await loadList(listId);
@@ -90,8 +102,57 @@ onMounted(async () => {
 const handleAddItem = async () => {
   if (!newItemTitle.value.trim()) return;
   
-  await createItem(listId, newItemTitle.value.trim());
+  await createItem(listId, newItemTitle.value.trim(), undefined, tempPhotoPath.value || undefined);
   newItemTitle.value = '';
+  tempPhotoPath.value = null;
+};
+
+const handleTakePhoto = async () => {
+  try {
+    const photo = await Camera.getPhoto({
+      resultType: CameraResultType.Uri,
+      source: CameraSource.Camera,
+      quality: 85,
+      allowEditing: false,
+      saveToGallery: false
+    });
+
+    if (!photo || !photo.webPath) return;
+
+    // fetch blob, convert to base64 and save to Filesystem
+    const response = await fetch(photo.webPath);
+    const blob = await response.blob();
+    const reader = new FileReader();
+    const base64Data: string = await new Promise((resolve, reject) => {
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        resolve(dataUrl.split(',')[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    const fileName = `todo_${Date.now()}.jpg`;
+    try {
+      await Filesystem.mkdir({ path: 'todos', directory: Directory.Data, recursive: true });
+    } catch (e) {
+      // ignore if exists
+    }
+
+    const saved = await Filesystem.writeFile({ path: `todos/${fileName}`, data: base64Data, directory: Directory.Data });
+    tempPhotoPath.value = saved.uri;
+  } catch (error) {
+    console.error('Error taking todo photo:', error);
+  }
+};
+
+const removeTempPhoto = () => {
+  tempPhotoPath.value = null;
+};
+
+const getImageSrc = (path: string | null | undefined) => {
+  if (!path) return '';
+  return Capacitor.convertFileSrc(path);
 };
 </script>
 
