@@ -25,7 +25,7 @@
           <ion-input
             v-model.number="newItemQuantity"
             type="number"
-            placeholder="{{ $t('auto.anzahl') }}"
+            placeholder="Anzahl"
             style="max-width: 80px"
           />
           <ion-button slot="end" @click="handleAddItem" :disabled="!newItemName.trim()">
@@ -43,7 +43,7 @@
             />
             <ion-label :class="{ 'completed-item': item.completed }">
               <h3>{{ item.name }}</h3>
-              <p v-if="item.quantity">{{ $t('auto.anzahl') }}: {{ item.quantity }}</p>
+              <p v-if="item.quantity">Anzahl: {{ item.quantity }}</p>
             </ion-label>
             <ion-button slot="end" fill="clear" @click="deleteItem(item.id!, listId)">
               <ion-icon slot="icon-only" :icon="trashOutline" color="danger" />

@@ -1,0 +1,1316 @@
+{
+  "100%": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "Eine Routenaufzeichnung läuft. Möchtest du die App beenden oder im Hintergrund weiterlaufen lassen?": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/App.vue"
+  ],
+  "Im Hintergrund weiterlaufen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/App.vue"
+  ],
+  "Die App läuft weiter. Drücke Home, um sie zu minimieren.": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/App.vue"
+  ],
+  "Beenden": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/App.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue"
+  ],
+  "destructive": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/App.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "();\nconst emit = defineEmits": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue"
+  ],
+  "();\n\nconst mapContainer = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue"
+  ],
+  "(null);\nlet map: L.Map | null = null;\nconst markers: L.Marker[] = [];\nconst galleryColors = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue"
+  ],
+  "(new Map());\n\n// Filtere Fotos mit GPS-Daten\nconst photosWithLocation = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue"
+  ],
+  "` : '';\n  \n  return `": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue"
+  ],
+  "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue"
+  ],
+  "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue"
+  ],
+  "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue"
+  ],
+  "photoClick": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue"
+  ],
+  "© OpenStreetMap contributors": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue"
+  ],
+  "custom-marker": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue"
+  ],
+  "top": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/views/HomePage.vue"
+  ],
+  "();\n\nconst editorContainer = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue"
+  ],
+  "close": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "save": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "EditImage": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue"
+  ],
+  "0px": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/views/HomePage.vue"
+  ],
+  "none": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/views/HomePage.vue"
+  ],
+  "#1e1e1e": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue"
+  ],
+  "crop": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue"
+  ],
+  "${availableHeight}px": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue"
+  ],
+  "zoom": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue"
+  ],
+  "video": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue"
+  ],
+  "pswp__video-wrapper": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "contain": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/views/HomePage.vue"
+  ],
+  "image/jpeg": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  ".jpg": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "web": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue"
+  ],
+  "galleries/${galleryId}": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue"
+  ],
+  "string": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "photo_${Date.now()}.jpg": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue"
+  ],
+  "true": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/App.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/views/HomePage.vue"
+  ],
+  "granted": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "position": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/App.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/views/HomePage.vue"
+  ],
+  "manual": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue"
+  ],
+  "photo": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "): Promise": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "number": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "wines": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "wines/${fileName}": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "Galerie": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue"
+  ],
+  "Gallery": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue"
+  ],
+  "Map": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue"
+  ],
+  "Routes": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/App.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue"
+  ],
+  "Settings": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue"
+  ],
+  "Cancel": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "de": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/App.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/views/HomePage.vue"
+  ],
+  "Englisch": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "Französisch": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "Spanisch": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "radio": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue"
+  ],
+  "Keine": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue"
+  ],
+  "Kategorie wählen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "Kategorie aktualisiert": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "Fehler beim Aktualisieren der Kategorie": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "Als ungelesen markiert": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "Wie hat dir das Buch gefallen?": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "⭐ 1 Stern": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "⭐⭐ 2 Sterne": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "⭐⭐⭐ 3 Sterne": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "⭐⭐⭐⭐ 4 Sterne": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "⭐⭐⭐⭐⭐ 5 Sterne": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "Keine Bewertung": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "OK": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "Bewertung gespeichert": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "Wie viele Exemplare hast du?": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "quantity": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "Anzahl muss mindestens 1 sein": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "Anzahl aktualisiert": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "Optionen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue"
+  ],
+  "Buch löschen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "/editor-cover": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "Foto-Funktion nur auf mobilen Geräten verfügbar": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "book_cover_${book.value.id}_${Date.now()}.jpg": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "books/${fileName}": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Foto aufgenommen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "Möchtest du das Bild vor dem Speichern bearbeiten?": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "Nein": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "Cover-Foto gespeichert": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Bearbeiten": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue"
+  ],
+  "User cancelled photos app": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "${containerWidth}px": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue"
+  ],
+  "book_cover_${bookId}_${Date.now()}.jpg": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Cover gespeichert": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue"
+  ],
+  "Fehler beim Speichern": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue"
+  ],
+  "filter": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "bottom": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/App.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "auto": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/views/HomePage.vue"
+  ],
+  "edited.jpg": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "galleries/${galleryId}/${fileName}": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue"
+  ],
+  "Bild gespeichert": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue"
+  ],
+  "success": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/App.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "danger": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "edited_${Date.now()}.jpg": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue"
+  ],
+  "Foto hinzufügen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "Ein Foto auswählen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "Mehrere Fotos auswählen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "Fehler": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "Die Fotos konnten nicht hinzugefügt werden.": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "Gallerie-Optionen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "Gallerie löschen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "Alle Fotos in dieser Gallerie werden ebenfalls gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "/gallery/${galleryId}/editor": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "/gallery/${galleryId}/video-editor": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "Fotos löschen?": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "Möchtest du ${selectedPhotos.value.size} Foto(s) wirklich löschen?": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "Fehler beim Löschen der Fotos.": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "#3880ff": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue"
+  ],
+  "Die Gallerie konnte nicht erstellt werden.": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue"
+  ],
+  "= 8 && isbn.length": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Buch gelöscht": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Fehler beim Löschen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "ISBN eingeben": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Barcode-Scanning wird nur auf nativen Plattformen unterstützt": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "text": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/App.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/views/HomePage.vue"
+  ],
+  "Suchen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Kamera-Berechtigung verweigert": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Scanner-Modul benötigt": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Das Google Barcode Scanner Modul muss installiert werden. Dies ist ein einmaliger Download (ca. 10 MB).": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Installieren": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Ungültiger ISBN Barcode (${isbn?.length} Zeichen)": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Buch bereits vorhanden": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Anzahl erhöhen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Anzahl auf ${newQuantity} erhöht": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Fehler beim Aktualisieren der Anzahl": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "quota": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "API-Key eingeben": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Später": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "network": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "not_found": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Manuell eingeben": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "📚 API Fehler": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Buch nicht gefunden": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Kein Cover gefunden": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Foto machen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Kategorie erstellen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Kategorien verwalten": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "API-Key einrichten": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "🔑 Google Books API Key": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "apiKey": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "AIza...": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Entfernen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "API-Key entfernt": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "API-Key gespeichert": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "Neue Kategorie": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "name": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "description": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoDetailPage.vue"
+  ],
+  "textarea": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "Kategorie erstellt": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "📷": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue"
+  ],
+  "Zur Galerie": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue"
+  ],
+  "Details anzeigen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue"
+  ],
+  "wine": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "Anzeigen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue"
+  ],
+  "waypoint-marker waypoint-photo": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue"
+  ],
+  "waypoint-marker waypoint-video": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue"
+  ],
+  "Route nicht gefunden": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue"
+  ],
+  "waypoint-marker waypoint-manual": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue"
+  ],
+  "Route Optionen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue"
+  ],
+  "Route bearbeiten": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue"
+  ],
+  "Route aktualisiert": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue"
+  ],
+  "Route löschen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue"
+  ],
+  "Möchtest du diese Route wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue"
+  ],
+  "Route gelöscht": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue"
+  ],
+  "2-digit": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue"
+  ],
+  "numeric": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue"
+  ],
+  "current-position-marker": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue"
+  ],
+  "waypoint-marker waypoint-${wp.type}": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue"
+  ],
+  "Aufzeichnung gestartet": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue"
+  ],
+  "Fehler beim Starten der Aufzeichnung": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue"
+  ],
+  "Möchtest du die Aufzeichnung wirklich beenden?": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue"
+  ],
+  "confirm": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue"
+  ],
+  "Aufzeichnung beendet": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue"
+  ],
+  "Wegpunkt hinzufügen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue"
+  ],
+  "Hinzufügen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue"
+  ],
+  "Wegpunkt hinzugefügt": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue"
+  ],
+  "Die Aufzeichnung läuft noch. Möchtest du sie wirklich verlassen?": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue"
+  ],
+  "Verlassen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue"
+  ],
+  "Neue Route": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue"
+  ],
+  "Möchtest du eine neue Routenaufzeichnung starten?": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue"
+  ],
+  "Routenname": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue"
+  ],
+  "Starten": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue"
+  ],
+  "URL muss mit http:// oder https:// beginnen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue"
+  ],
+  "Ungültige URL": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue"
+  ],
+  "Verbindung erfolgreich": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue"
+  ],
+  "Server ist erreichbar (Code: ${health.code})": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue"
+  ],
+  "Verbindung fehlgeschlagen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue"
+  ],
+  "Server nicht erreichbar": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue"
+  ],
+  "pocketbase_token": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue"
+  ],
+  "Anmeldung erfolgreich": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue"
+  ],
+  "Angemeldet als ${settings.value.email}": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue"
+  ],
+  "Erfolgreich angemeldet": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue"
+  ],
+  "Anmeldung fehlgeschlagen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue"
+  ],
+  "Falsche Anmeldedaten": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue"
+  ],
+  "pocketbase_url": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue"
+  ],
+  "pocketbase_email": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue"
+  ],
+  "auto_sync": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue"
+  ],
+  "locale": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue"
+  ],
+  "Sprache gespeichert": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue"
+  ],
+  "Liste löschen?": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue"
+  ],
+  "Alle Einträge dieser Liste werden ebenfalls gelöscht.": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue"
+  ],
+  "Alle Aufgaben dieser Liste werden ebenfalls gelöscht.": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue"
+  ],
+  "Keine Video-Quelle angegeben": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue"
+  ],
+  "Videobearbeitung wird nur auf nativen Plattformen unterstützt": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue"
+  ],
+  "temp_video_${Date.now()}.mp4": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue"
+  ],
+  "edited_video_${Date.now()}.mp4": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue"
+  ],
+  "galleries/${galleryId}/${outputFileName}": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue"
+  ],
+  "Video gespeichert": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue"
+  ],
+  "GET": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue"
+  ],
+  "Synchronisation abgeschlossen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue"
+  ],
+  "Synchronisation fehlgeschlagen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue"
+  ],
+  "Bitte gib einen Namen ein.": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue"
+  ],
+  "Wein konnte nicht aktualisiert werden.": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue"
+  ],
+  "Wein löschen?": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue"
+  ],
+  "Möchtest du diesen Wein wirklich löschen?": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue"
+  ],
+  "Wein konnte nicht gelöscht werden.": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue"
+  ],
+  "wine_${Date.now()}_edited.jpg": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "Bearbeitetes Bild konnte nicht gespeichert werden.": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "Wein konnte nicht gespeichert werden.": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "Weine löschen?": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "Weine konnten nicht gelöscht werden.": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "/library": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue"
+  ],
+  "/shopping": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue"
+  ],
+  "function": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue"
+  ],
+  "color": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/LocationPickerModal.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/SettingsPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/TodoPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/views/HomePage.vue"
+  ],
+  "created": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/GalleryMap.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "read": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/views/HomePage.vue"
+  ],
+  "isRecording": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/App.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue"
+  ],
+  "undefined": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "(null);\nconst isLoading = ref(false);\nconst categories = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue"
+  ],
+  "('grid');\nconst cacheBuster = ref(Date.now());\nconst selectedPhoto = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "(null);\n\n// Mehrfachselektion\nconst selectionMode = ref(false);\nconst selectedPhotos = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "(new Set());\n\n// Manuelle GPS-Eingabe\nconst showLocationPicker = ref(false);\nconst pendingPhotoData = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "(null);\n\nlet longPressTimer: ReturnType": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryDetailPage.vue"
+  ],
+  "([]);\nconst categories = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "([]);\nconst isLoading = ref(false);\nconst isLookingUp = ref(false);\nconst selectedCategoryId = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue"
+  ],
+  "([]);\nconst showPhotos = ref(true);\nconst showWines = ref(true);\nconst galleryColors = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue"
+  ],
+  "(null);\nconst waypoints = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue"
+  ],
+  "([]);\nconst isLoading = ref(true);\n\nlet map: L.Map | null = null;\nlet routeLine: L.Polyline | null = null;\nconst waypointMarkers: Map": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue"
+  ],
+  "';\n        className = 'waypoint-marker waypoint-photo';\n        break;\n      case 'video':\n        iconHtml = '": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue"
+  ],
+  "';\n        className = 'waypoint-marker waypoint-video';\n        break;\n      case 'manual':\n        iconHtml = '": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue"
+  ],
+  "(null);\nconst duration = ref(0);\nconst trimStart = ref(0);\nconst trimEnd = ref(0);\nconst quality = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue"
+  ],
+  "(null);\nconst isLoading = ref(true);\nconst selectedTab = ref('info');\nconst showEditModal = ref(false);\nconst editWine = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue"
+  ],
+  "(null);\nconst photoGPS = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "(null);\nconst showImageEditor = ref(false);\nconst tempPhotoForEdit = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "('');\n\n// Mehrfachauswahl\nconst selectionMode = ref(false);\nconst selectedWineIds = ref(new Set": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "());\n\nconst newWine = ref": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "beenden": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/App.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "deutsch": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "anzahl": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "nein": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/ShoppingListPage.vue"
+  ],
+  "bearbeiten": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/components/ImageEditor.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/BookDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorCoverPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/EditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteDetailPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/VideoEditorPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WineDetailPage.vue"
+  ],
+  "foto_aufnehmen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "suchen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/LibraryPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WinePage.vue"
+  ],
+  "anzeigen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/MapPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/WelcomePage.vue"
+  ],
+  "beschreibung": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/GalleryPage.vue"
+  ],
+  "verlassen": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue"
+  ],
+  "starten": [
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RouteRecordPage.vue",
+    "/home/mtj/Data/09-Private_Development/dietl.mobi/src/pages/RoutesPage.vue"
+  ]
+}

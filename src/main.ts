@@ -50,6 +50,8 @@ const app = createApp(App)
   .use(router);
 
 const initializeLocale = async () => {
+  // install i18n into the app first, then set the locale so the saved value is not overwritten
+  app.use(i18n);
   try {
     const res = await Preferences.get({ key: 'locale' });
     const saved = res.value;
@@ -64,7 +66,6 @@ const initializeLocale = async () => {
   } catch (e) {
     // ignore
   }
-  app.use(i18n);
 };
 
 

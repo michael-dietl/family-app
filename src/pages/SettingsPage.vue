@@ -176,7 +176,7 @@
               <ion-label position="stacked">
                 <strong>{{ t('settings.chooseLanguage') }}</strong>
               </ion-label>
-              <ion-select v-model="selectedLocale" interface="popover" @ionChange="() => changeLocale(selectedLocale)">
+              <ion-select v-model="selectedLocale" interface="popover" @ionChange="changeLocale">
                 <ion-select-option value="de">{{ t('languageNames.de') }}</ion-select-option>
                 <ion-select-option value="en">{{ t('languageNames.en') }}</ion-select-option>
                 <ion-select-option value="it">{{ t('languageNames.it') }}</ion-select-option>
@@ -228,6 +228,7 @@ import { save, flash, lockClosed, checkmarkCircle, closeCircle, warning, timeOut
 import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
 import { useI18n } from 'vue-i18n';
+import i18n from '@/i18n/i18n';
 import PocketBase from 'pocketbase';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 import { extractGPSFromSpecificPath } from '@/services/exif';
@@ -256,7 +257,7 @@ const { lastSyncTime } = usePocketbaseSync();
 
 const platform = Capacitor.getPlatform();
 const isWebPlatform = platform === 'web';
-const { locale, t } = useI18n({ useScope: 'global' });
+  const { locale, t } = useI18n({ useScope: 'global' });
 const selectedLocale = ref<string>(locale.value ?? 'de');
 
 onMounted(async () => {
@@ -410,9 +411,17 @@ const saveSettings = async () => {
 
 const changeLocale = async (eventOrValue: any) => {
   try {
-    const value = eventOrValue && eventOrValue.detail ? eventOrValue.detail.value : eventOrValue;
+    // support: IonChange event (event.detail.value), plain string, or a Ref ({ value: 'de' })
+    let value: string | undefined;
+    if (eventOrValue && eventOrValue.detail && eventOrValue.detail.value !== undefined) value = eventOrValue.detail.value;
+    else if (typeof eventOrValue === 'string') value = eventOrValue;
+    else if (eventOrValue && eventOrValue.value !== undefined) value = eventOrValue.value;
     if (!value) return;
+    // update both the local `useI18n` ref and the global i18n instance
     locale.value = value;
+    // @ts-ignore - global locale is a Ref
+    i18n.global.locale.value = value;
+    selectedLocale.value = value;
     await Preferences.set({ key: 'locale', value });
     const toast = await toastController.create({
       message: 'Sprache gespeichert',

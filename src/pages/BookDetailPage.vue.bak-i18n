@@ -88,7 +88,7 @@
           <div class="status-badges">
             <ion-chip @click="showQuantityPicker">
               <ion-icon :icon="cubeOutline" />
-              <ion-label>{{ $t('auto.anzahl') }}: {{ book.quantity || 1 }}</ion-label>
+              <ion-label>Anzahl: {{ book.quantity || 1 }}</ion-label>
             </ion-chip>
             
             <ion-chip :color="book.read ? 'success' : 'medium'" @click="toggleRead">

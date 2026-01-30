@@ -79,7 +79,7 @@
             <!-- Video Info -->
             <div class="video-info">
               <p><strong>Dauer:</strong> {{ formatDuration(duration) }}</p>
-              <p v-if="trimStart > {{ $t('auto.0_trimend') }} < duration">
+              <p v-if="trimStart > 0 || trimEnd < duration">
                 <strong>{{ $t('auto.neue_dauer') }}</strong> {{ formatDuration(Math.max(0, trimEnd - trimStart)) }}
               </p>
             </div>

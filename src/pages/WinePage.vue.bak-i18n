@@ -161,7 +161,7 @@
                 v-model="newWine.country"
                 label="Land"
                 label-placement="stacked"
-                placeholder="z.B. Frankreich, {{ $t('auto.deutsch') }}land"
+                placeholder="z.B. Frankreich, Deutschland"
               ></ion-input>
             </ion-item>
 
@@ -213,12 +213,12 @@
               ></ion-input>
             </ion-item>
 
-            <!-- {{ $t('auto.anzahl') }} -->
+            <!-- Anzahl -->
             <ion-item>
               <ion-input
                 v-model.number="newWine.quantity"
                 type="number"
-                label="{{ $t('auto.anzahl') }} Flaschen"
+                label="Anzahl Flaschen"
                 label-placement="stacked"
                 placeholder="1"
               ></ion-input>
@@ -264,7 +264,7 @@
             <ion-item button @click="handleTakePhoto">
               <ion-icon :icon="camera" slot="start"></ion-icon>
               <ion-label>
-                {{ photoPreview ? 'Foto ersetzen' : $t('auto.foto_aufnehmen') }}
+                {{ photoPreview ? 'Foto ersetzen' : 'Foto aufnehmen' }}
               </ion-label>
             </ion-item>
 

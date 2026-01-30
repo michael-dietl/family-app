@@ -1,0 +1,34 @@
+export default {
+  app: {
+    gallery: 'Galleria',
+    map: 'Mappa',
+    routes: 'Percorsi',
+    books: 'Libri'
+  },
+  settings: {
+    title: 'Impostazioni',
+    chooseLanguage: 'Scegli la lingua',
+    save: 'Salva impostazioni'
+  },
+  languageNames: {
+    de: 'Deutsch',
+    en: 'English',
+    it: 'Italiano',
+    fr: 'Français',
+    bar: 'Boarisch'
+  },
+  buttons: {
+    cancel: 'Annulla',
+    ok: 'OK'
+  }
+,
+  auto: {
+    "100": "100%",
+    "aufzeichnung_läuft": "Aufzeichnung läuft",
+    "eine_routenaufzeichnung_läuft_möchtest_du_die_app_beenden_od": "Eine Routenaufzeichnung läuft. Möchtest du die App beenden oder im Hintergrund weiterlaufen lassen?",
+    "abbrechen": "Abbrechen",
+    "im_hintergrund_weiterlaufen": "Im Hintergrund weiterlaufen",
+    "die_app_läuft_weiter_drücke_home_um_sie_zu_minimieren": "Die App läuft weiter. Drücke Home, um sie zu minimieren.",
+    // ... rest omitted for backup brevity
+  }
+};

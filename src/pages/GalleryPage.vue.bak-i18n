@@ -88,7 +88,7 @@
           <ion-item>
             <ion-textarea 
               v-model="newGalleryDescription" 
-              label="{{ $t('auto.beschreibung') }} (optional)"
+              label="Beschreibung (optional)"
               label-placement="stacked"
               :rows="4"
               placeholder="Beschreibe deine Gallerie..."

@@ -1,0 +1,2 @@
+// Backup of fr.ts before regenerating from rootlanguage.txt
+export const ORIGINAL_FR_TS_BACKUP = true;

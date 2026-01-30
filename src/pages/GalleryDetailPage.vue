@@ -765,6 +765,10 @@ const deleteSelectedPhotos = async () => {
 .map-view {
   height: calc(100vh - 200px);
   min-height: 400px;
+  /* Let the child map fill this container via CSS variable */
+  --gallery-map-height: 100%;
+  display: flex;
+  align-items: stretch;
 }
 
 .loading-container {

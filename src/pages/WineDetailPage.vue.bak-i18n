@@ -116,7 +116,7 @@
             </ion-label>
           </ion-item>
 
-          <!-- {{ $t('auto.anzahl') }} -->
+          <!-- Anzahl -->
           <ion-item v-if="wine.quantity">
             <ion-icon :icon="layers" slot="start"></ion-icon>
             <ion-label>
@@ -231,7 +231,7 @@
               v-model="editWine.country"
               label="Land"
               label-placement="stacked"
-              placeholder="z.B. Frankreich, {{ $t('auto.deutsch') }}land"
+              placeholder="z.B. Frankreich, Deutschland"
             ></ion-input>
           </ion-item>
 
@@ -283,12 +283,12 @@
             ></ion-input>
           </ion-item>
 
-          <!-- {{ $t('auto.anzahl') }} -->
+          <!-- Anzahl -->
           <ion-item>
             <ion-input
               v-model.number="editWine.quantity"
               type="number"
-              label="{{ $t('auto.anzahl') }} Flaschen"
+              label="Anzahl Flaschen"
               label-placement="stacked"
               placeholder="z.B. 6"
             ></ion-input>

@@ -239,12 +239,14 @@ watch(() => props.photos, async () => {
 <style scoped>
 .gallery-map-container {
   width: 100%;
-  /* Responsive height: min/max to fit mobile screens without overflow */
-  height: clamp(220px, 35vh, 420px);
+  /* Use parent-controlled height by default; fallback to a sensible clamp when not provided */
+  height: var(--gallery-map-height, clamp(220px, 35vh, 420px));
   position: relative;
   background: var(--ion-color-light);
   border-radius: 8px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .map {
