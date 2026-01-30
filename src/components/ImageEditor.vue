@@ -187,4 +187,23 @@ onBeforeUnmount(() => {
 .tui-image-editor-canvas-container .cropper-view-box {
   outline: 1px solid rgba(255, 255, 255, 0.5) !important;
 }
+
+/* Additional selectors to catch cropperjs/tui variants where grid lines are rendered differently */
+.tui-image-editor-canvas-container .cropper-line,
+.tui-image-editor-canvas-container .cropper-dashed,
+.tui-image-editor-canvas-container .cropper-face,
+.tui-image-editor-canvas-container .cropper-center {
+  background: rgba(255,255,255,0.35) !important;
+}
+
+.tui-image-editor-canvas-container .cropper-line {
+  height: 1px !important;
+}
+
+/* If the grid is SVG-based with .grid-line or .grid-visual classes */
+.tui-image-editor-canvas-container .grid-line,
+.tui-image-editor-canvas-container .grid-visual {
+  stroke: rgba(255,255,255,0.45) !important;
+  stroke-width: 1 !important;
+}
 </style>
