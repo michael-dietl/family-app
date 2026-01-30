@@ -45,20 +45,23 @@ const editorContainer = ref<HTMLElement | null>(null);
 const isSaving = ref(false);
 let editorInstance: ImageEditor | null = null;
 
+let windowResizeHandler: (() => void) | null = null;
+
 const initEditor = () => {
   if (!editorContainer.value || !props.imageSrc) return;
 
   // Zerstöre vorhandene Instanz
   if (editorInstance) {
-    editorInstance.destroy();
+    try { editorInstance.destroy(); } catch (e) { /* ignore */ }
+    editorInstance = null;
   }
 
-  // Berechne verfügbare Höhe basierend auf dem sichtbaren Editor-Container
-  // (berücksichtigt Safe-Areas / Navigation-Bar). Fallback zu window.innerHeight.
   const containerEl = editorContainer.value as HTMLElement;
-  const availableHeight = (containerEl?.clientHeight && containerEl.clientHeight > 0)
-    ? containerEl.clientHeight
-    : Math.max(window.innerHeight - 126, 200);
+
+  // Verwende das BoundingClientRect für zuverlässige Werte (Modal/Layout kann 0 haben)
+  const rect = containerEl.getBoundingClientRect();
+  const width = rect.width > 0 ? Math.round(rect.width) : Math.max(window.innerWidth, 300);
+  const height = rect.height > 0 ? Math.round(rect.height) : Math.max(window.innerHeight - 126, 300);
 
   editorInstance = new ImageEditor(editorContainer.value, {
     includeUI: {
@@ -78,18 +81,54 @@ const initEditor = () => {
       menu: ['crop', 'flip', 'rotate', 'draw', 'shape', 'icon', 'text', 'filter'],
       initMenu: 'crop',
       uiSize: {
-        width: '100%',
-        height: `${availableHeight}px`,
+        width: `${width}px`,
+        height: `${height}px`,
       },
     },
-    cssMaxWidth: containerEl?.clientWidth || window.innerWidth,
-    cssMaxHeight: availableHeight,
+    cssMaxWidth: width,
+    cssMaxHeight: height,
     selectionStyle: {
-      cornerSize: 50,
-      rotatingPointOffset: 100,
+      cornerSize: 20,
+      rotatingPointOffset: 40,
     },
     usageStatistics: false,
   });
+
+  // Force resize of the internal UI to ensure canvas/controls match container
+  try {
+    // editorInstance.ui.resizeEditor exists in TUI versions with UI API
+    // @ts-ignore
+    if (editorInstance && editorInstance.ui && typeof editorInstance.ui.resizeEditor === 'function') {
+      // @ts-ignore
+      editorInstance.ui.resizeEditor({ width, height });
+    }
+  } catch (e) {
+    console.warn('Could not call resizeEditor on TUI Image Editor UI', e);
+  }
+
+  // Install a window resize handler to keep the editor in sync
+  if (windowResizeHandler) {
+    window.removeEventListener('resize', windowResizeHandler);
+    windowResizeHandler = null;
+  }
+
+  windowResizeHandler = () => {
+    if (!editorInstance || !editorContainer.value) return;
+    const r = editorContainer.value.getBoundingClientRect();
+    const w = r.width > 0 ? Math.round(r.width) : Math.max(window.innerWidth, 300);
+    const h = r.height > 0 ? Math.round(r.height) : Math.max(window.innerHeight - 126, 300);
+    try {
+      // @ts-ignore
+      if (editorInstance.ui && typeof editorInstance.ui.resizeEditor === 'function') {
+        // @ts-ignore
+        editorInstance.ui.resizeEditor({ width: w, height: h });
+      }
+    } catch (err) {
+      // ignore
+    }
+  };
+
+  window.addEventListener('resize', windowResizeHandler);
 };
 
 watch(() => props.isOpen, (newVal) => {
@@ -121,15 +160,24 @@ const saveImage = async () => {
 
 const handleClose = () => {
   if (editorInstance) {
-    editorInstance.destroy();
+    try { editorInstance.destroy(); } catch (e) { /* ignore */ }
     editorInstance = null;
+  }
+  if (windowResizeHandler) {
+    window.removeEventListener('resize', windowResizeHandler);
+    windowResizeHandler = null;
   }
   emit('close');
 };
 
 onBeforeUnmount(() => {
   if (editorInstance) {
-    editorInstance.destroy();
+    try { editorInstance.destroy(); } catch (e) { /* ignore */ }
+    editorInstance = null;
+  }
+  if (windowResizeHandler) {
+    window.removeEventListener('resize', windowResizeHandler);
+    windowResizeHandler = null;
   }
 });
 </script>
@@ -222,5 +270,12 @@ onBeforeUnmount(() => {
   background-size: calc(100% / 3) calc(100% / 3), calc(100% / 3) calc(100% / 3);
   opacity: 0.95;
   mix-blend-mode: overlay;
+}
+
+/* Touch gestures: allow pinch/drag handling inside the editor canvas */
+.tui-image-editor-canvas-container,
+.tui-image-editor-canvas-container canvas {
+  touch-action: none !important;
+  -ms-touch-action: none !important;
 }
 </style>
