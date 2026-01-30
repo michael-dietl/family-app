@@ -41,10 +41,20 @@ import './theme/variables.css';
 /* Leaflet CSS for map component */
 import 'leaflet/dist/leaflet.css';
 
+import { StatusBar, Style } from '@capacitor/status-bar';
+
 const app = createApp(App)
   .use(IonicVue)
   .use(router);
 
-router.isReady().then(() => {
+router.isReady().then(async () => {
+  // Set app status bar color to match the light orange theme (Android/iOS where supported)
+  try {
+    await StatusBar.setBackgroundColor({ color: '#FF7A18' });
+    await StatusBar.setStyle({ style: Style.Dark });
+  } catch (e) {
+    // ignore if not supported in current environment
+    // console.debug('StatusBar not available', e);
+  }
   app.mount('#app');
 });

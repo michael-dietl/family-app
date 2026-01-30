@@ -16,7 +16,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content :fullscreen="true">
+    <ion-content>
       <!-- Map Container -->
       <div id="route-map" class="map-container"></div>
 
@@ -415,12 +415,18 @@ const formatSpeed = (metersPerSecond: number): string => {
 </script>
 
 <style scoped>
+ion-content {
+  display: flex;
+  flex-direction: column;
+}
+
 .map-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+  box-sizing: border-box;
+  position: relative;
   z-index: 1;
 }
 
