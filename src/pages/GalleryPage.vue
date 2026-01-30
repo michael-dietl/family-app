@@ -49,6 +49,8 @@
               <div class="gallery-cover">
                 <ion-icon v-if="!galleryCoverPhotos[gallery.id!]" :icon="imagesOutline" />
                 <img v-else :src="getImageSrc(galleryCoverPhotos[gallery.id!])" alt="Cover" />
+                <!-- Gallery name overlay on the cover -->
+                <div class="gallery-label">{{ gallery.name }}</div>
               </div>
               <ion-card-header>
                 <ion-card-title>{{ gallery.name }}</ion-card-title>
@@ -323,6 +325,22 @@ const handleCreateGallery = async () => {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.gallery-label {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  padding: 6px 10px;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 ion-card {
