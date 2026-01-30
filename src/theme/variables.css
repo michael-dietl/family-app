@@ -198,3 +198,23 @@ http://ionicframework.com/docs/theming/ */
     --ion-color-primary-tint: #1aa1cd;
   }
 }
+
+/* Global FAB positioning to avoid overlap with system navigation bars
+   - Use env(safe-area-inset-bottom) so FAB sits above gesture/navigation area
+   - Increase bottom offset for consistency across pages
+*/
+ion-fab.app-fab.fab-vertical-bottom {
+  right: calc(16px + env(--ion-safe-area-right, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom) + 56px) !important;
+}
+
+/* Small tweak for RTL support */
+ion-fab.app-fab.fab-vertical-bottom:dir(rtl) {
+  left: calc(16px + env(--ion-safe-area-left, 0px));
+  right: unset;
+}
+
+/* Provide a class alias for pages that previously used specific fab classes */
+.app-fab {
+  /* no-op: marker class for global FAB styling */
+}

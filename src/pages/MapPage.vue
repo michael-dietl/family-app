@@ -79,6 +79,7 @@ interface MapMarker {
 const markers = ref<MapMarker[]>([]);
 const showPhotos = ref(true);
 const showWines = ref(true);
+const galleryColors = ref<Map<number, string>>(new Map());
 
 const getImageSrc = (path: string | undefined) => {
   if (!path) return '';
@@ -113,6 +114,11 @@ const loadMarkers = async () => {
     // Lade Fotos
     if (showPhotos.value) {
       const galleries = await db.getGalleries();
+      // Build quick lookup for gallery colors so markers can use the gallery's color
+      galleryColors.value.clear();
+      galleries.forEach(g => {
+        if (g.id) galleryColors.value.set(g.id, g.color || '#3880ff');
+      });
       const photoPromises = galleries.map(g => db.getPhotosByGallery(g.id!));
       const photoArrays = await Promise.all(photoPromises);
       const photos = photoArrays.flat();
@@ -205,12 +211,12 @@ const initMap = async (centerLat?: number, centerLng?: number, zoomLevel = 6) =>
 
 const addPhotoMarker = (photo: Photo, bounds: L.LatLngTuple[]) => {
   if (!map || !photo.latitude || !photo.longitude) return;
-
-  // Standard Camera Icon
+  // Use gallery color when available
+  const galleryColor = galleryColors.value.get(photo.galleryId) || '#3880ff';
   const photoIcon = L.divIcon({
     className: 'custom-marker',
     html: `<div style="
-      background-color: #3880ff;
+      background-color: ${galleryColor};
       width: 24px;
       height: 24px;
       border-radius: 50% 50% 50% 0;
@@ -246,7 +252,7 @@ const addPhotoMarker = (photo: Photo, bounds: L.LatLngTuple[]) => {
       <button onclick="window.openPhoto(${photo.galleryId})" style="
         margin-top: 8px;
         padding: 6px 12px;
-        background: #3880ff;
+        background: ${galleryColors.value.get(photo.galleryId) || '#3880ff'};
         color: white;
         border: none;
         border-radius: 4px;
@@ -398,6 +404,9 @@ const showFilterOptions = async () => {
 
 .map-container {
   width: 100%;
-  height: 100%;
+  /* Reserve the device safe-area at the bottom so system navigation is visible */
+  height: calc(100% - env(safe-area-inset-bottom));
+  padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+  box-sizing: border-box;
 }
 </style>

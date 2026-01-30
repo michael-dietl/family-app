@@ -64,7 +64,7 @@
       </ion-list>
 
       <!-- FAB Button -->
-      <ion-fab vertical="bottom" horizontal="end" slot="fixed" class="routes-fab">
+      <ion-fab vertical="bottom" horizontal="end" slot="fixed" class="routes-fab app-fab">
         <ion-fab-button @click="startNewRoute" color="primary">
           <ion-icon :icon="addOutline" />
         </ion-fab-button>
@@ -236,8 +236,4 @@ const formatDate = (dateString: string): string => {
   display: none;
 }
 
-.routes-fab {
-  margin-bottom: 60px;
-  margin-right: 4px;
-}
 </style>

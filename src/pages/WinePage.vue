@@ -105,7 +105,7 @@
       </div>
 
       <!-- FAB Button -->
-      <ion-fab vertical="bottom" horizontal="end" slot="fixed" class="wine-fab">
+      <ion-fab vertical="bottom" horizontal="end" slot="fixed" class="wine-fab app-fab">
         <ion-fab-button @click="openCreateModal">
           <ion-icon :icon="add"></ion-icon>
         </ion-fab-button>
