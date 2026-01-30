@@ -103,12 +103,28 @@
           </div>
 
           <!-- Categories -->
-          <div v-if="book.categories" class="categories-section">
-            <h3>Kategorien</h3>
-            <div class="category-chips">
+          <div class="categories-section">
+            <h3>
+              Kategorien
+              <ion-button size="small" fill="clear" class="edit-category-btn" @click="editCategory">
+                <ion-icon :icon="createOutline" />
+              </ion-button>
+            </h3>
+
+            <div v-if="book.categories" class="category-chips">
               <ion-chip v-for="(cat, index) in getCategoryList(book.categories)" :key="index" outline>
                 <ion-label>{{ cat }}</ion-label>
               </ion-chip>
+            </div>
+
+            <div v-else-if="getCategoryNameById(book.categoryId)" class="category-chips">
+              <ion-chip outline>
+                <ion-label>{{ getCategoryNameById(book.categoryId) }}</ion-label>
+              </ion-chip>
+            </div>
+
+            <div v-else class="no-category">
+              <p>Keine Kategorie zugewiesen.</p>
             </div>
           </div>
 
@@ -143,6 +159,7 @@ import {
   alertController,
   toastController
 } from '@ionic/vue';
+import { onIonViewWillEnter } from '@ionic/vue';
 import {
   ellipsisVertical,
   bookOutline,
@@ -169,6 +186,7 @@ const route = useRoute();
 const router = useRouter();
 const book = ref<Book | null>(null);
 const isLoading = ref(false);
+const categories = ref<{id: number; name: string;}[]>([]);
 
 onMounted(async () => {
   await loadBook();
@@ -177,7 +195,16 @@ onMounted(async () => {
 // Refresh beim Zurückkehren (z.B. nach Cover-Edit)
 onIonViewWillEnter(async () => {
   await loadBook();
+  await loadCategories();
 });
+
+const loadCategories = async () => {
+  try {
+    categories.value = await db.getBookCategories();
+  } catch (e) {
+    console.error('Error loading categories:', e);
+  }
+};
 
 const loadBook = async () => {
   isLoading.value = true;
@@ -238,6 +265,51 @@ const getLanguageName = (code?: string): string => {
 const getCategoryList = (categories?: string): string[] => {
   if (!categories) return [];
   return categories.split(',').map(c => c.trim());
+};
+
+const getCategoryNameById = (id?: number | null) => {
+  if (!id) return null;
+  const c = categories.value.find(x => x.id === id);
+  return c ? c.name : null;
+};
+
+const editCategory = async () => {
+  if (!book.value || !book.value.id) return;
+
+  // Prepare radio inputs
+  const inputs: any[] = [
+    { type: 'radio', label: 'Keine', value: '', checked: book.value.categoryId == null }
+  ];
+
+  categories.value.forEach(cat => {
+    inputs.push({ type: 'radio', label: cat.name, value: String(cat.id), checked: book.value?.categoryId === cat.id });
+  });
+
+  const alert = await alertController.create({
+    header: 'Kategorie wählen',
+    inputs,
+    buttons: [
+      { text: 'Abbrechen', role: 'cancel' },
+      {
+        text: 'Speichern',
+        handler: async (value: string) => {
+          try {
+            const newCategoryId = value === '' ? null : parseInt(value);
+            await db.updateBook(book.value!.id!, { categoryId: newCategoryId || null });
+            await loadBook();
+            const toast = await toastController.create({ message: 'Kategorie aktualisiert', duration: 1500, color: 'success' });
+            await toast.present();
+          } catch (e) {
+            console.error('Error updating category:', e);
+            const toast = await toastController.create({ message: 'Fehler beim Aktualisieren der Kategorie', duration: 2000, color: 'danger' });
+            await toast.present();
+          }
+        }
+      }
+    ]
+  });
+
+  await alert.present();
 };
 
 const toggleRead = async () => {
