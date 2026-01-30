@@ -9,6 +9,9 @@ export default {
     title: 'Settings',
     chooseLanguage: 'Choose language',
     save: 'Save settings'
+    ,
+    sync_only_on_wifi: 'Sync only on Wi‑Fi',
+    sync_only_on_wifi_desc: 'Only perform synchronization when connected to Wi‑Fi'
   },
   languageNames: {
     de: 'Deutsch',

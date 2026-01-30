@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import { pocketbase } from '@/services/pocketbase';
 import { db, type Gallery, type Photo, type Book } from '@/services/database';
 import { Preferences } from '@capacitor/preferences';
+import { Network } from '@capacitor/network';
 
 export function usePocketbaseSync() {
   const isSyncing = ref(false);
@@ -277,8 +278,27 @@ export function usePocketbaseSync() {
 
   // Check if auto-sync is enabled
   const shouldAutoSync = async (): Promise<boolean> => {
-    const { value } = await Preferences.get({ key: 'auto_sync' });
-    return value === 'true';
+    const [{ value: autoValue }, { value: wifiOnlyValue }] = await Promise.all([
+      Preferences.get({ key: 'auto_sync' }),
+      Preferences.get({ key: 'sync_only_on_wifi' })
+    ]);
+
+    const auto = autoValue === 'true';
+    const wifiOnly = wifiOnlyValue === 'true';
+
+    if (!auto) return false;
+
+    if (!wifiOnly) return true;
+
+    // If wifi-only is set, check current network status
+    try {
+      const status = await Network.getStatus();
+      return status.connected && status.connectionType === 'wifi';
+    } catch (e) {
+      // If network plugin unavailable, be conservative: do not auto-sync
+      console.warn('Network plugin unavailable, skipping auto-sync due to wifi-only setting');
+      return false;
+    }
   };
 
   // Trigger sync if auto-sync is enabled

@@ -146,6 +146,14 @@
                 </ion-label>
               </ion-toggle>
             </ion-item>
+            <ion-item>
+              <ion-toggle v-model="settings.syncOnlyOnWifi" @ionChange="saveSettings">
+                <ion-label>
+                  <h3>{{ $t('settings.sync_only_on_wifi') }}</h3>
+                  <p>{{ $t('settings.sync_only_on_wifi_desc') }}</p>
+                </ion-label>
+              </ion-toggle>
+            </ion-item>
           </ion-list>
         </div>
 
@@ -239,7 +247,8 @@ const settings = ref({
   pocketbaseUrl: '',
   email: '',
   password: '',
-  autoSync: false
+  autoSync: false,
+  syncOnlyOnWifi: false
 });
 
 const urlError = ref('');
@@ -267,15 +276,17 @@ onMounted(async () => {
 
 const loadSettings = async () => {
   try {
-    const [url, email, autoSync] = await Promise.all([
-      Preferences.get({ key: 'pocketbase_url' }),
-      Preferences.get({ key: 'pocketbase_email' }),
-      Preferences.get({ key: 'auto_sync' })
-    ]);
+    const [url, email, autoSync, syncOnlyOnWifi] = await Promise.all([
+        Preferences.get({ key: 'pocketbase_url' }),
+        Preferences.get({ key: 'pocketbase_email' }),
+        Preferences.get({ key: 'auto_sync' }),
+        Preferences.get({ key: 'sync_only_on_wifi' })
+      ]);
 
     if (url.value) settings.value.pocketbaseUrl = url.value;
     if (email.value) settings.value.email = email.value;
     if (autoSync.value) settings.value.autoSync = autoSync.value === 'true';
+    if (syncOnlyOnWifi.value) settings.value.syncOnlyOnWifi = syncOnlyOnWifi.value === 'true';
   } catch (error) {
     console.error('Error loading settings:', error);
   }
@@ -382,7 +393,8 @@ const saveSettings = async () => {
     await Promise.all([
       Preferences.set({ key: 'pocketbase_url', value: settings.value.pocketbaseUrl }),
       Preferences.set({ key: 'pocketbase_email', value: settings.value.email }),
-      Preferences.set({ key: 'auto_sync', value: settings.value.autoSync.toString() })
+      Preferences.set({ key: 'auto_sync', value: settings.value.autoSync.toString() }),
+      Preferences.set({ key: 'sync_only_on_wifi', value: settings.value.syncOnlyOnWifi.toString() })
     ]);
 
     const toast = await toastController.create({
