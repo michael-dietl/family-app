@@ -14,7 +14,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content :fullscreen="true">
+    <ion-content>
       <!-- Loading State -->
       <div v-if="isLoading" class="loading-container">
         <ion-spinner />
@@ -402,11 +402,26 @@ const showFilterOptions = async () => {
   margin-top: 0.5rem;
 }
 
+/* Make ion-content a flex container so the map can size to the available client area */
+ion-content {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ensure loading/empty states fill the content area for centering */
+.loading-container,
+.empty-state {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .map-container {
   width: 100%;
-  /* Reserve the device safe-area at the bottom so system navigation is visible */
-  height: calc(100% - env(safe-area-inset-bottom));
+  /* Fill the available content area and reserve bottom safe-area so system navigation remains visible */
+  flex: 1 1 auto;
+  min-height: 0;
   padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
   box-sizing: border-box;
+  position: relative;
 }
 </style>

@@ -27,9 +27,13 @@ import '@ionic/vue/css/display.css';
  * https://ionicframework.com/docs/theming/dark-mode
  */
 
+/* Uncomment one of the dark mode palette imports below to enable dark mode.
+  Default: do not import `dark.system.css` so the app does not automatically follow
+  the device's color-scheme preference. This keeps the app in the light theme unless
+  a `dark` class or `data-theme` is applied explicitly. */
 /* @import '@ionic/vue/css/palettes/dark.always.css'; */
 /* @import '@ionic/vue/css/palettes/dark.class.css'; */
-import '@ionic/vue/css/palettes/dark.system.css';
+// intentionally not importing dark.system.css to prevent auto dark-mode
 
 /* Theme variables */
 import './theme/variables.css';

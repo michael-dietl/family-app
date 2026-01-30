@@ -50,13 +50,10 @@
                 <ion-icon v-if="!galleryCoverPhotos[gallery.id!]" :icon="imagesOutline" />
                 <img v-else :src="getImageSrc(galleryCoverPhotos[gallery.id!])" alt="Cover" />
                 <!-- Gallery name (max 2 Zeilen) and photo count badge -->
-                <div class="gallery-label">
-                  <div class="gallery-label-text">{{ gallery.name }}</div>
-                  <div class="gallery-label-count">{{ photoCount(gallery.id!) }} Fotos</div>
-                </div>
               </div>
               <ion-card-header>
                 <ion-card-title>{{ gallery.name }}</ion-card-title>
+                <br/>
                 <ion-card-subtitle>
                   <ion-icon :icon="imageOutline" />
                   {{ photoCount(gallery.id!) }} Fotos
