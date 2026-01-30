@@ -16,6 +16,9 @@
           <ion-button v-if="selectionMode" @click="cancelSelection">
             {{ $t('auto.abbrechen') }}
           </ion-button>
+          <ion-button v-if="!selectionMode" @click="openCreateModal">
+            <ion-icon slot="icon-only" :icon="add"></ion-icon>
+          </ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -104,12 +107,7 @@
         <p v-else>{{ $t('auto.füge_deinen_ersten_wein_hinzu') }}</p>
       </div>
 
-      <!-- FAB Button -->
-      <ion-fab vertical="bottom" horizontal="end" slot="fixed" class="wine-fab app-fab">
-        <ion-fab-button @click="openCreateModal">
-          <ion-icon :icon="add"></ion-icon>
-        </ion-fab-button>
-      </ion-fab>
+      <!-- Create button moved to header for consistent UI -->
 
       <!-- Create Wine Modal -->
       <ion-modal :is-open="showCreateModal" @didDismiss="showCreateModal = false">
