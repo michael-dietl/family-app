@@ -63,12 +63,7 @@
         </ion-item>
       </ion-list>
 
-      <!-- FAB Button -->
-      <ion-fab vertical="bottom" horizontal="end" slot="fixed" class="routes-fab app-fab">
-        <ion-fab-button @click="startNewRoute" color="primary">
-          <ion-icon :icon="addOutline" />
-        </ion-fab-button>
-      </ion-fab>
+      <!-- FAB removed: use empty-state button to start a new route -->
     </ion-content>
   </ion-page>
 </template>
