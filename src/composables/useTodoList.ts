@@ -1,5 +1,8 @@
 import { ref } from 'vue';
-import { db, type TodoList, type TodoItem } from '@/services/database';
+import { db, type TodoList, type TodoItem, type TodoPhoto } from '@/services/database';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
+import { usePhoto } from '@/composables/usePhoto';
 
 export function useTodoList() {
   const lists = ref<TodoList[]>([]);
@@ -33,10 +36,114 @@ export function useTodoList() {
     isLoading.value = true;
     try {
       items.value = await db.getTodoItems(listId);
+      // load photos for each item
+      for (const it of items.value) {
+        await loadPhotosForItem(it.id!);
+      }
     } catch (error) {
       console.error('Error loading todo items:', error);
     } finally {
       isLoading.value = false;
+    }
+  };
+
+  const photosMap = ref<Record<number, TodoPhoto[]>>({});
+
+  const loadPhotosForItem = async (itemId: number) => {
+    try {
+      const photos = await db.getTodoPhotosByItem(itemId);
+      photosMap.value[itemId] = photos as TodoPhoto[];
+    } catch (error) {
+      console.error('Error loading photos for item', itemId, error);
+      photosMap.value[itemId] = [];
+    }
+  };
+
+  // Attach files (from pickMultiplePhotos or camera results) to an existing item
+  const attachFilesToItem = async (
+    itemId: number,
+    files: Array<{ path: string | null; data?: string | null }>
+  ) => {
+    // Ensure directory
+    try {
+      await Filesystem.mkdir({ path: `todos/${itemId}`, directory: Directory.Data, recursive: true });
+    } catch (e) {
+      // ignore
+    }
+
+    const savedIds: number[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      try {
+        let base64Data: string | null = null;
+        let mime = 'image/jpeg';
+        if (f.data) {
+          base64Data = f.data;
+        } else if (f.path) {
+          // Try fetch via webview path
+          try {
+            const web = Capacitor.convertFileSrc(f.path);
+            const res = await fetch(web);
+            const blob = await res.blob();
+            mime = blob.type || mime;
+            base64Data = await (async () => {
+              return await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+              });
+            })();
+          } catch (e) {
+            console.warn('Could not fetch file via web path', f.path, e);
+          }
+        }
+
+        if (!base64Data) {
+          console.warn('No base64 data available for attachment, skipping');
+          continue;
+        }
+
+        const filename = `todo_${itemId}_${Date.now()}_${i}.jpg`;
+        const saved = await Filesystem.writeFile({ path: `todos/${itemId}/${filename}`, data: base64Data, directory: Directory.Data });
+        const uri = saved.uri;
+        const filesize = Math.round((base64Data.length * 3) / 4);
+
+        const photoId = await db.createTodoPhoto({
+          todoItemId: itemId,
+          filename,
+          filepath: uri,
+          mimeType: mime,
+          filesize
+        });
+
+        savedIds.push(photoId);
+      } catch (err) {
+        console.error('Error saving attachment for item', itemId, err);
+      }
+    }
+
+    // reload photos for item
+    await loadPhotosForItem(itemId);
+    return savedIds;
+  };
+
+  const removePhoto = async (photoId: number, itemId: number) => {
+    try {
+      // fetch photo record to delete file
+      const photos = photosMap.value[itemId] || [];
+      const p = photos.find(x => x.id === photoId as any);
+      if (p && p.filepath && !p.filepath.startsWith('data:')) {
+        try {
+          await Filesystem.deleteFile({ path: p.filepath });
+        } catch (e) {
+          console.warn('Could not delete file', e);
+        }
+      }
+      await db.deleteTodoPhoto(photoId);
+      await loadPhotosForItem(itemId);
+    } catch (error) {
+      console.error('Error removing photo', error);
     }
   };
 
@@ -86,6 +193,7 @@ export function useTodoList() {
     await loadItems(listId);
   };
 
+
   return {
     lists,
     currentList,
@@ -101,5 +209,10 @@ export function useTodoList() {
     toggleItemCompleted,
     updateItem,
     deleteItem
+    ,
+    photosMap,
+    loadPhotosForItem,
+    attachFilesToItem,
+    removePhoto
   };
 }

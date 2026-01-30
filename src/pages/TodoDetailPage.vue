@@ -16,24 +16,29 @@
 
       <template v-else>
         <!-- Add Item -->
-            <ion-item>
-              <ion-input
-                v-model="newItemTitle"
-                placeholder="Aufgabe hinzufügen..."
-                @keyup.enter="handleAddItem"
-              />
-              <ion-button slot="end" fill="clear" @click="handleTakePhoto">
-                <ion-icon slot="icon-only" :icon="camera" />
-              </ion-button>
-              <ion-button slot="end" @click="handleAddItem" :disabled="!newItemTitle.trim()">
-                <ion-icon slot="icon-only" :icon="add" />
-              </ion-button>
-            </ion-item>
+        <ion-item>
+          <ion-input
+            v-model="newItemTitle"
+            placeholder="Aufgabe hinzufügen..."
+            @keyup.enter="handleAddItem"
+          />
+          <ion-button slot="end" fill="clear" @click="handlePickPhotos">
+            <ion-icon slot="icon-only" :icon="images" />
+          </ion-button>
+          <ion-button slot="end" fill="clear" @click="handleTakePhoto">
+            <ion-icon slot="icon-only" :icon="camera" />
+          </ion-button>
+          <ion-button slot="end" @click="handleAddItem" :disabled="!newItemTitle.trim()">
+            <ion-icon slot="icon-only" :icon="add" />
+          </ion-button>
+        </ion-item>
 
-            <div v-if="tempPhotoPath" class="photo-preview">
-              <img :src="getImageSrc(tempPhotoPath)" alt="Vorschau" />
-              <ion-button fill="clear" color="danger" @click="removeTempPhoto">Entfernen</ion-button>
-            </div>
+        <div v-if="tempPhotos.length > 0" class="photo-preview-grid">
+          <div v-for="(p, idx) in tempPhotos" :key="idx" class="thumb">
+            <img :src="getImageSrc(p.path || p.data)" />
+            <ion-button fill="clear" color="danger" @click="removeTempPhoto(idx)">×</ion-button>
+          </div>
+        </div>
 
         <!-- Items List -->
         <ion-list v-if="items.length > 0">
@@ -47,9 +52,17 @@
               <h3>{{ item.title }}</h3>
               <p v-if="item.description">{{ item.description }}</p>
             </ion-label>
-            <ion-button slot="end" fill="clear" @click="deleteItem(item.id!, listId)">
-              <ion-icon slot="icon-only" :icon="trashOutline" color="danger" />
-            </ion-button>
+            <div class="item-photos" slot="end">
+              <div v-if="photosMap[item.id!] && photosMap[item.id!].length > 0" class="thumb-row">
+                <img v-for="p in photosMap[item.id!].slice(0,3)" :key="p.id" :src="getImageSrc(p.filepath)" />
+              </div>
+              <ion-button fill="clear" @click="openAttachForItem(item.id!)">
+                <ion-icon :icon="camera" />
+              </ion-button>
+              <ion-button fill="clear" color="danger" @click="deleteItem(item.id!, listId)">
+                <ion-icon slot="icon-only" :icon="trashOutline" />
+              </ion-button>
+            </div>
           </ion-item>
         </ion-list>
 
@@ -71,11 +84,12 @@ import {
   IonBackButton, IonList, IonItem, IonLabel, IonCheckbox, IonInput,
   IonButton, IonIcon, IonSpinner
 } from '@ionic/vue';
-import { add, checkboxOutline, trashOutline, camera } from 'ionicons/icons';
+import { add, checkboxOutline, trashOutline, camera, images } from 'ionicons/icons';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { useTodoList } from '@/composables/useTodoList';
+import { usePhoto } from '@/composables/usePhoto';
 
 const route = useRoute();
 const listId = Number(route.params.id);
@@ -88,11 +102,16 @@ const {
   loadItems,
   createItem,
   toggleItemCompleted,
-  deleteItem
+  deleteItem,
+  photosMap,
+  attachFilesToItem,
+  loadPhotosForItem
 } = useTodoList();
 
+const { pickMultiplePhotos } = usePhoto();
+
 const newItemTitle = ref('');
-const tempPhotoPath = ref<string | null>(null);
+const tempPhotos = ref<Array<{ path?: string | null; data?: string | null }>>([]);
 
 onMounted(async () => {
   await loadList(listId);
@@ -101,10 +120,14 @@ onMounted(async () => {
 
 const handleAddItem = async () => {
   if (!newItemTitle.value.trim()) return;
-  
-  await createItem(listId, newItemTitle.value.trim(), undefined, tempPhotoPath.value || undefined);
+  const id = await createItem(listId, newItemTitle.value.trim());
+
+  if (tempPhotos.value.length > 0) {
+    await attachFilesToItem(id, tempPhotos.value.map(p => ({ path: p.path || null, data: p.data || null })));
+  }
+
   newItemTitle.value = '';
-  tempPhotoPath.value = null;
+  tempPhotos.value = [];
 };
 
 const handleTakePhoto = async () => {
@@ -119,7 +142,7 @@ const handleTakePhoto = async () => {
 
     if (!photo || !photo.webPath) return;
 
-    // fetch blob, convert to base64 and save to Filesystem
+    // fetch blob, convert to base64 and store in tempPhotos (defer saving until item created)
     const response = await fetch(photo.webPath);
     const blob = await response.blob();
     const reader = new FileReader();
@@ -132,22 +155,40 @@ const handleTakePhoto = async () => {
       reader.readAsDataURL(blob);
     });
 
-    const fileName = `todo_${Date.now()}.jpg`;
-    try {
-      await Filesystem.mkdir({ path: 'todos', directory: Directory.Data, recursive: true });
-    } catch (e) {
-      // ignore if exists
-    }
-
-    const saved = await Filesystem.writeFile({ path: `todos/${fileName}`, data: base64Data, directory: Directory.Data });
-    tempPhotoPath.value = saved.uri;
+    tempPhotos.value.push({ data: base64Data });
   } catch (error) {
     console.error('Error taking todo photo:', error);
   }
 };
 
-const removeTempPhoto = () => {
-  tempPhotoPath.value = null;
+const removeTempPhoto = (index: number) => {
+  tempPhotos.value.splice(index, 1);
+};
+
+const handlePickPhotos = async () => {
+  try {
+    const picked = await pickMultiplePhotos();
+    if (picked && picked.length > 0) {
+      for (const p of picked) {
+        tempPhotos.value.push({ path: p.path, data: p.data || null });
+      }
+    }
+  } catch (e) {
+    console.error('Error picking photos', e);
+  }
+};
+
+const openAttachForItem = async (itemId: number) => {
+  try {
+    // allow picking multiple images for existing item
+    const picked = await pickMultiplePhotos();
+    if (picked && picked.length > 0) {
+      await attachFilesToItem(itemId, picked.map(p => ({ path: p.path || null, data: p.data || null })));
+      await loadPhotosForItem(itemId);
+    }
+  } catch (e) {
+    console.error('Error attaching to item', e);
+  }
 };
 
 const getImageSrc = (path: string | null | undefined) => {

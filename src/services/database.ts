@@ -145,6 +145,16 @@ export interface TodoItem {
   created: string;
 }
 
+export interface TodoPhoto {
+  id?: number;
+  todoItemId: number;
+  filename: string;
+  filepath: string;
+  mimeType?: string;
+  filesize?: number;
+  created: string;
+}
+
 // In-Memory Storage für Web-Development
 class InMemoryStorage {
   private galleries: Gallery[] = [];
@@ -525,6 +535,23 @@ class DatabaseService {
       );
     `;
 
+    const todoPhotosTable = `
+      CREATE TABLE IF NOT EXISTS todo_photos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        todoItemId INTEGER NOT NULL,
+        filename TEXT NOT NULL,
+        filepath TEXT NOT NULL,
+        mimeType TEXT,
+        filesize INTEGER,
+        created TEXT NOT NULL,
+        FOREIGN KEY (todoItemId) REFERENCES todo_items(id) ON DELETE CASCADE
+      );
+    `;
+
+    const todoPhotosIndexes = `
+      CREATE INDEX IF NOT EXISTS idx_todo_photos_item ON todo_photos(todoItemId);
+    `;
+
     const todoIndexes = `
       CREATE INDEX IF NOT EXISTS idx_todo_items_list ON todo_items(listId);
     `;
@@ -546,6 +573,8 @@ class DatabaseService {
     await this.db.execute(todoListsTable);
     await this.db.execute(todoItemsTable);
     await this.db.execute(todoIndexes);
+    await this.db.execute(todoPhotosTable);
+    await this.db.execute(todoPhotosIndexes);
   }
 
   // Galerie CRUD Operationen
@@ -1474,6 +1503,44 @@ class DatabaseService {
       ...row,
       completed: row.completed === 1
     }));
+  }
+
+  // Todo Photo CRUD
+  async createTodoPhoto(photo: Omit<TodoPhoto, 'id' | 'created'>): Promise<number> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return 0;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const sql = 'INSERT INTO todo_photos (todoItemId, filename, filepath, mimeType, filesize, created) VALUES (?, ?, ?, ?, ?, ?);';
+    const result = await this.db.run(sql, [
+      photo.todoItemId,
+      photo.filename,
+      photo.filepath,
+      photo.mimeType || null,
+      photo.filesize || null,
+      now
+    ]);
+    return result.changes?.lastId || 0;
+  }
+
+  async getTodoPhotosByItem(todoItemId: number): Promise<TodoPhoto[]> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return [];
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'SELECT * FROM todo_photos WHERE todoItemId = ? ORDER BY created DESC;';
+    const result = await this.db.query(sql, [todoItemId]);
+    return result.values || [];
+  }
+
+  async deleteTodoPhoto(id: number): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'DELETE FROM todo_photos WHERE id = ?;';
+    await this.db.run(sql, [id]);
   }
 
   async updateTodoItem(id: number, updates: Partial<TodoItem>): Promise<void> {
