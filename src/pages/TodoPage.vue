@@ -3,7 +3,9 @@
     <ion-header :translucent="true">
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-back-button default-href="/" />
+          <ion-button fill="clear" @click="router.back()">
+            <ion-icon slot="icon-only" :icon="arrowBack" />
+          </ion-button>
         </ion-buttons>
         <ion-title>{{ $t('auto.todo') }}</ion-title>
         <ion-buttons slot="end">
@@ -92,7 +94,7 @@ import {
   IonIcon, IonList, IonItem, IonLabel, IonSpinner, IonModal, IonInput,
   alertController
 } from '@ionic/vue';
-import { add, checkboxOutline, trashOutline } from 'ionicons/icons';
+import { add, checkboxOutline, trashOutline, arrowBack } from 'ionicons/icons';
 import { useTodoList } from '@/composables/useTodoList';
 
 const router = useRouter();

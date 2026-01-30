@@ -3,7 +3,9 @@
     <ion-header :translucent="true">
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-back-button default-href="/" />
+          <ion-button fill="clear" @click="router.back()">
+            <ion-icon slot="icon-only" :icon="arrowBack" />
+          </ion-button>
         </ion-buttons>
         <ion-title>{{ $t('auto.einkaufslisten') }}</ion-title>
         <ion-buttons slot="end">
@@ -92,7 +94,7 @@ import {
   IonIcon, IonList, IonItem, IonLabel, IonSpinner, IonModal, IonInput,
   alertController
 } from '@ionic/vue';
-import { add, cartOutline, trashOutline } from 'ionicons/icons';
+import { add, cartOutline, trashOutline, arrowBack } from 'ionicons/icons';
 import { useShoppingList } from '@/composables/useShoppingList';
 
 const router = useRouter();
