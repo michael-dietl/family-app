@@ -10,7 +10,6 @@ import MapPage from '@/pages/MapPage.vue';
 import WinePage from '@/pages/WinePage.vue';
 import WineDetailPage from '@/pages/WineDetailPage.vue';
 import RoutesPage from '@/pages/RoutesPage.vue';
-import RouteRecordPage from '@/pages/RouteRecordPage.vue';
 import RouteDetailPage from '@/pages/RouteDetailPage.vue';
 import ShoppingListPage from '@/pages/ShoppingListPage.vue';
 import ShoppingListDetailPage from '@/pages/ShoppingListDetailPage.vue';
@@ -34,7 +33,7 @@ const router = createRouter({
     {path : '/wine', component: WinePage},
     {path : '/wine/:id', component: WineDetailPage},
     {path : '/routes', component: RoutesPage},
-    {path : '/routes/:id/record', component: RouteRecordPage},
+    {path : '/routes/:id/record', component: RouteDetailPage},
     {path : '/routes/:id', component: RouteDetailPage},
     {path : '/shopping', component: ShoppingListPage},
     {path : '/shopping/:id', component: ShoppingListDetailPage},

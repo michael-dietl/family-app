@@ -99,7 +99,24 @@
   </ion-page>
 </template>
 
+<!-- Diese Datei wurde durch RouteDetailPage.vue ersetzt. Siehe Routing und Komponenten-Importe. -->
 <script setup lang="ts">
+// Leere Weiterleitungsdatei, um alte Importe/Verweise abzufangen.
+// Bitte RouteDetailPage.vue verwenden!
+</script>
+<template>
+  <ion-page>
+    <ion-header>
+      <ion-toolbar color="danger">
+        <ion-title>RouteRecordPage entfernt</ion-title>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="ion-padding">
+      <p>Diese Seite wurde durch <b>RouteDetailPage.vue</b> ersetzt.<br>
+      Bitte alle Verweise anpassen.</p>
+    </ion-content>
+  </ion-page>
+</template>
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
