@@ -2,20 +2,16 @@
   <ion-page>
     <ion-header :translucent="true">
       <ion-toolbar>
-        <ion-buttons>
-          <ion-buttons slot="start">
-            <ion-button @click="router.back()">
-              <ion-icon :icon="arrowBackOutline" />
-            </ion-button>
-          </ion-buttons>
+        <ion-buttons slot="start">
+          <ion-button @click="router.back()">
+            <ion-icon :icon="arrowBackOutline" />
+          </ion-button>
         </ion-buttons>
         <ion-title>{{ routeData?.name || 'Route' }}</ion-title>
-        <ion-buttons>
-          <ion-buttons slot="end">
-            <ion-button @click="showOptionsMenu">
-              <ion-icon :icon="ellipsisVerticalOutline" />
-            </ion-button>
-          </ion-buttons>
+        <ion-buttons slot="end">
+          <ion-button @click="showOptionsMenu">
+            <ion-icon :icon="ellipsisVerticalOutline" />
+          </ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -23,27 +19,26 @@
       <div v-if="isLoading" class="loading-container">
         <ion-spinner name="crescent" />
       </div>
-      <div v-else style="position:relative; height:100%; min-height:400px;">
+      <div v-if="!isLoading" style="position:relative; height:100%; min-height:400px;">
         <!-- Karte -->
         <div id="detail-map" class="map-container" style="height: 50vh; min-height: 250px;"></div>
 
-        <div>
-          <div style="display:flex; border-bottom:1px solid #eee; margin-bottom:8px;">
-            <button
-              :class="['tab-btn', {active: activeTab==='info'}]"
-              @click="activeTab='info'"
-              style="flex:1; padding:8px 0; background:none; border:none; font-weight:600; color:var(--ion-text-color); border-bottom:2px solid transparent;"
-              :style="activeTab==='info' ? 'border-bottom:2px solid #3880ff; color:#3880ff;' : ''"
-            >Info</button>
-            <button
-              v-if="manualWaypoints.length > 0"
-              :class="['tab-btn', {active: activeTab==='waypoints'}]"
-              @click="activeTab='waypoints'"
-              style="flex:1; padding:8px 0; background:none; border:none; font-weight:600; color:var(--ion-text-color); border-bottom:2px solid transparent;"
-              :style="activeTab==='waypoints' ? 'border-bottom:2px solid #3880ff; color:#3880ff;' : ''"
-            >Wegpunkte</button>
-          </div>
-          <div v-show="activeTab==='info'">
+        <div style="display:flex; border-bottom:1px solid #eee; margin-bottom:8px;">
+          <button
+            :class="['tab-btn', {active: activeTab==='info'}]"
+            @click="activeTab='info'"
+            style="flex:1; padding:8px 0; background:none; border:none; font-weight:600; color:var(--ion-text-color); border-bottom:2px solid transparent;"
+            :style="activeTab==='info' ? 'border-bottom:2px solid #3880ff; color:#3880ff;' : ''"
+          >Info</button>
+          <button
+            :class="['tab-btn', {active: activeTab==='waypoints'}]"
+            @click="waypoints.length > 0 ? activeTab='waypoints' : null"
+            :disabled="waypoints.length === 0"
+            style="flex:1; padding:8px 0; background:none; border:none; font-weight:600; color:var(--ion-text-color); border-bottom:2px solid transparent; opacity: waypoints.length === 0 ? 0.5 : 1;"
+            :style="activeTab==='waypoints' ? 'border-bottom:2px solid #3880ff; color:#3880ff;' : ''"
+          >Wegpunkte</button>
+        </div>
+          <div v-if="activeTab==='info'">
             <!-- Info-Card -->
             <div class="info-card">
               <div class="info-header">
@@ -101,7 +96,7 @@
               </div>
             </div>
           </div>
-          <div v-show="activeTab==='waypoints'">
+          <div v-if="activeTab==='waypoints'">
             <div class="info-card">
               <div class="waypoints-section">
                 <h3>Wegpunkte</h3>
@@ -131,14 +126,13 @@
             </div>
           </div>
         </div>
-      </div>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
 // entfernt, da ref bereits unten importiert wird
-const activeTab = ref('info');
+let activeTab: string = 'info';
 
 import { ref, watch, watchEffect, computed, onMounted, onUnmounted } from 'vue';
 
@@ -175,7 +169,7 @@ watchEffect(() => {
   }
   displayDuration.value = formatDuration(0);
 });
-import * as WaypointEditModal from '@/components/WaypointEditModal.vue';
+// entfernt, da nicht genutzt
 
 const editModalOpen = ref(false);
 const editWaypoint = ref<Waypoint|null>(null);
@@ -188,12 +182,7 @@ function closeEditModal() {
   editModalOpen.value = false;
   editWaypoint.value = null;
 }
-async function saveWaypointEdit({ name, description }: { name: string; description: string }) {
-  if (!editWaypoint.value || typeof editWaypoint.value.id !== 'number') return;
-  await db.updateWaypoint(editWaypoint.value.id, { name, description });
-  await loadData();
-  closeEditModal();
-}
+// entfernt, da nicht genutzt
 async function deleteWaypoint() {
   if (!editWaypoint.value || typeof editWaypoint.value.id !== 'number') return;
   await db.deleteWaypoint(editWaypoint.value.id);
@@ -363,7 +352,7 @@ import {
   locationOutline,
   trashOutline,
   createOutline,
-  playOutline
+  // playOutline entfernt, da nicht genutzt
 } from 'ionicons/icons';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
