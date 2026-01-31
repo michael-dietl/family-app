@@ -200,28 +200,41 @@ const initMap = () => {
 };
 
 const drawRoute = () => {
-  if (!map || waypoints.value.length === 0) return;
+  if (!map) return;
 
-  // Draw route line from position waypoints
+  // Entferne alte Polyline
+  if (routeLine) {
+    map.removeLayer(routeLine);
+    routeLine = null;
+  }
+  // Entferne alte Marker
+  waypointMarkers.forEach(marker => {
+    if (map) map.removeLayer(marker);
+  });
+  waypointMarkers.clear();
+
+  if (waypoints.value.length === 0) return;
+
+  // Route-Polyline aus Positions-Wegpunkten
   const positionWaypoints = waypoints.value.filter(wp => wp.type === 'position');
   if (positionWaypoints.length > 0) {
     const latlngs = positionWaypoints.map(wp => L.latLng(wp.latitude, wp.longitude));
-    
     routeLine = L.polyline(latlngs, {
       color: '#3880ff',
       weight: 4,
       opacity: 0.7
     }).addTo(map);
-
-    // Fit map to route bounds
     map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+  } else {
+    // Kein Track: Karte auf ersten manuellen Wegpunkt zentrieren
+    const manual = waypoints.value.find(wp => wp.type === 'manual');
+    if (manual) map.setView([manual.latitude, manual.longitude], 15);
   }
 
-  // Add markers for all waypoints
+  // Marker für manuelle, Foto- und Video-Wegpunkte
   waypoints.value.forEach(waypoint => {
     let iconHtml = '';
     let className = '';
-
     switch (waypoint.type) {
       case 'photo':
         iconHtml = '<ion-icon name="camera"></ion-icon>';
@@ -236,9 +249,8 @@ const drawRoute = () => {
         className = 'waypoint-marker waypoint-manual';
         break;
       default:
-        return; // Don't show position waypoints as individual markers
+        return; // Positions-Wegpunkte nur als Linie
     }
-
     const marker = L.marker([waypoint.latitude, waypoint.longitude], {
       icon: L.divIcon({
         className,
@@ -246,20 +258,15 @@ const drawRoute = () => {
         iconSize: [30, 30]
       })
     });
-    
-    if (map) {
-      marker.addTo(map);
-    }
-
-    if (waypoint.name) {
-      marker.bindPopup(waypoint.name);
-    }
-
-    if (waypoint.id) {
-      waypointMarkers.set(waypoint.id, marker);
-    }
+    // Popup mit Name, Beschreibung, Zeit
+    let popup = `<strong>${waypoint.name || 'Wegpunkt'}</strong>`;
+    if (waypoint.description) popup += `<br>${waypoint.description}`;
+    if (waypoint.timestamp) popup += `<br><span style='font-size:11px;color:#888;'>${formatTime(waypoint.timestamp)}</span>`;
+    marker.bindPopup(popup);
+    if (map) marker.addTo(map);
+    if (waypoint.id) waypointMarkers.set(waypoint.id, marker);
   });
-};
+}
 
 const centerOnWaypoint = (waypoint: Waypoint) => {
   if (!map) return;

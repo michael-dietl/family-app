@@ -50,6 +50,9 @@
         <!-- Book Info -->
         <div class="info-section ion-padding">
           <h1>{{ book.title }}</h1>
+          <div v-if="book.subtitle" class="subtitle">
+            <span>{{ book.subtitle }}</span>
+          </div>
           
           <div v-if="book.authors" class="authors">
             <ion-icon :icon="personOutline" />

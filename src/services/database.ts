@@ -47,6 +47,7 @@ export interface Book {
   id?: number;
   isbn: string;
   title: string;
+  subtitle?: string;
   authors?: string;
   publisher?: string;
   publishedDate?: string;
@@ -301,10 +302,15 @@ class DatabaseService {
     try {
       const checkColumn = await this.db.query('PRAGMA table_info(books);');
       const hasQuantity = checkColumn.values?.some((col: any) => col.name === 'quantity');
-      
+      const hasSubtitle = checkColumn.values?.some((col: any) => col.name === 'subtitle');
+
       if (!hasQuantity && checkColumn.values && checkColumn.values.length > 0) {
         console.log('📦 Migrating books table: Adding quantity column');
         await this.db.execute('ALTER TABLE books ADD COLUMN quantity INTEGER DEFAULT 1;');
+      }
+      if (!hasSubtitle && checkColumn.values && checkColumn.values.length > 0) {
+        console.log('📚 Migrating books table: Adding subtitle column');
+        await this.db.execute('ALTER TABLE books ADD COLUMN subtitle TEXT;');
       }
     } catch (error) {
       // Tabelle existiert noch nicht, wird gleich erstellt
@@ -399,6 +405,7 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         isbn TEXT NOT NULL UNIQUE,
         title TEXT NOT NULL,
+        subtitle TEXT,
         authors TEXT,
         publisher TEXT,
         publishedDate TEXT,
@@ -909,15 +916,16 @@ class DatabaseService {
 
     const sql = `
       INSERT INTO books (
-        isbn, title, authors, publisher, publishedDate, description,
+        isbn, title, subtitle, authors, publisher, publishedDate, description,
         pageCount, categories, language, coverImage, categoryId,
         notes, rating, read, quantity, created
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
 
     const result = await this.db.run(sql, [
       book.isbn,
       book.title,
+      book.subtitle || null,
       book.authors || null,
       book.publisher || null,
       book.publishedDate || null,

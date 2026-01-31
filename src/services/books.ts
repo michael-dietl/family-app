@@ -3,6 +3,7 @@
 export interface GoogleBookInfo {
   isbn: string;
   title: string;
+  subtitle?: string;
   authors?: string[];
   publisher?: string;
   publishedDate?: string;
@@ -57,7 +58,7 @@ export async function lookupBookByISBN(isbn: string, retryCount = 0): Promise<{ 
 
   try {
     // Google Books API endpoint mit optionalem API Key
-    let apiUrl = `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`;
+    let apiUrl = `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&projection=full`;
     
     if (GOOGLE_BOOKS_API_KEY) {
       apiUrl += `&key=${GOOGLE_BOOKS_API_KEY}`;
@@ -147,11 +148,12 @@ export async function lookupBookByISBN(isbn: string, retryCount = 0): Promise<{ 
     // Prüfe ob Ergebnisse vorhanden sind
     if (!data.items || data.items.length === 0) {
       console.warn('⚠️ No book found for ISBN:', isbn);
+      console.warn('🔎 Vollständige Google Books API-Response (bei Fehler):', JSON.stringify(data, null, 2));
       return {
         error: {
           type: 'not_found',
           message: 'Buch nicht gefunden',
-          details: `Kein Buch mit ISBN ${isbn} in der Google Books Datenbank gefunden.`
+          details: `Kein Buch mit ISBN ${isbn} in der Google Books Datenbank gefunden.\n\nAPI-Response: ${JSON.stringify(data)}`
         }
       };
     }
@@ -161,6 +163,7 @@ export async function lookupBookByISBN(isbn: string, retryCount = 0): Promise<{ 
     const bookInfo: GoogleBookInfo = {
       isbn,
       title: volumeInfo.title || 'Unbekannter Titel',
+      subtitle: volumeInfo.subtitle,
       authors: volumeInfo.authors,
       publisher: volumeInfo.publisher,
       publishedDate: volumeInfo.publishedDate,
