@@ -61,7 +61,7 @@
           </div>
 
           <!-- Aufzeichnungs-Controls -->
-          <div style="display:flex; gap:12px; margin-bottom:16px;">
+          <div style="display:flex; gap:6px; margin-bottom:16px;">
             <ion-button v-if="routeData?.isRecording" color="warning" @click="pauseRecording">Pause</ion-button>
             <ion-button v-if="!routeData?.isRecording && !routeData?.endTime" color="success" @click="resumeRecording">Fortsetzen</ion-button>
             <ion-button v-if="routeData?.isRecording" color="danger" @click="stopRecording">Stop</ion-button>
@@ -454,7 +454,8 @@ const drawRoute = () => {
         className = 'waypoint-marker waypoint-video';
         break;
       case 'manual':
-        iconHtml = '<ion-icon name="flag"></ion-icon>';
+        // Pin-Icon als SVG (statt Kreis/Flagge)
+        iconHtml = `<svg width="24" height="32" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C6.477 0 2 4.477 2 10c0 7.732 8.06 20.03 8.406 20.53a1 1 0 0 0 1.188 0C13.94 30.03 22 17.732 22 10c0-5.523-4.477-10-10-10zm0 14a4 4 0 1 1 0-8 4 4 0 0 1 0 8z" fill="#ffc409" stroke="#222" stroke-width="1.5"/></svg>`;
         className = 'waypoint-marker waypoint-manual';
         break;
       default:
