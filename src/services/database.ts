@@ -1,3 +1,4 @@
+// ...existing code...
 import { CapacitorSQLite, SQLiteConnection, SQLiteDBConnection } from '@capacitor-community/sqlite';
 import { Capacitor } from '@capacitor/core';
 export interface Gallery {
@@ -89,6 +90,13 @@ export interface Waypoint {
   timestamp: string;
 }
 
+export interface WineCategory {
+  id?: number;
+  name: string;
+  description?: string;
+  created: string;
+}
+
 export interface Wine {
   id?: number;
   name: string;
@@ -107,6 +115,7 @@ export interface Wine {
   longitude?: number;
   purchaseDate?: string; // Kaufdatum
   storageLocation?: string; // Lagerort (z.B. "Regal 3, Fach 2")
+  categoryId?: number; // Kategorie-Referenz (analog Buchmodul)
   created: string;
   updated: string;
 }
@@ -455,6 +464,16 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_waypoints_timestamp ON waypoints(timestamp);
     `;
 
+    // Wein-Kategorien Tabelle
+    const wineCategoriesTable = `
+      CREATE TABLE IF NOT EXISTS wine_categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        created TEXT NOT NULL
+      );
+    `;
+
     // Weine Tabelle
     const winesTable = `
       CREATE TABLE IF NOT EXISTS wines (
@@ -475,8 +494,10 @@ class DatabaseService {
         longitude REAL,
         purchaseDate TEXT,
         storageLocation TEXT,
+        categoryId INTEGER,
         created TEXT NOT NULL,
-        updated TEXT NOT NULL
+        updated TEXT NOT NULL,
+        FOREIGN KEY (categoryId) REFERENCES wine_categories(id) ON DELETE SET NULL
       );
     `;
 
@@ -1270,6 +1291,19 @@ class DatabaseService {
     
     return result.values?.[0]?.count || 0;
   }
+  
+    // Wine Category CRUD Operations
+    async getWineCategories(): Promise<WineCategory[]> {
+      if (!this.isInitialized) await this.initialize();
+      if (this.useInMemory) {
+        return [];
+      }
+      if (!this.db) throw new Error('Database not initialized');
+
+      const sql = 'SELECT * FROM wine_categories ORDER BY name ASC;';
+      const result = await this.db.query(sql);
+      return result.values as WineCategory[] || [];
+    }
 
   // Shopping List CRUD Operations
   async createShoppingList(list: Omit<ShoppingList, 'id' | 'created' | 'updated'>): Promise<number> {

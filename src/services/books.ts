@@ -141,6 +141,9 @@ export async function lookupBookByISBN(isbn: string, retryCount = 0): Promise<{ 
     
     const data = await response.json();
     
+    // Logge die komplette Google Books API-Response für Debug-Zwecke
+    console.log('📚 Google Books API JSON Response:', JSON.stringify(data, null, 2));
+
     // Prüfe ob Ergebnisse vorhanden sind
     if (!data.items || data.items.length === 0) {
       console.warn('⚠️ No book found for ISBN:', isbn);

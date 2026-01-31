@@ -1,0 +1,186 @@
+[
+  {
+    "name": "galleries",
+    {
+      "name": "routes",
+      "type": "base",
+      "schema": [
+        { "name": "name", "type": "text", "required": true },
+        { "name": "description", "type": "text" },
+        { "name": "startTime", "type": "date", "required": true },
+        { "name": "endTime", "type": "date" },
+        { "name": "distance", "type": "number" },
+        { "name": "duration", "type": "number" },
+        { "name": "isRecording", "type": "bool" },
+        { "name": "created", "type": "date", "required": true }
+      ]
+    },
+    {
+      "name": "waypoints",
+      "type": "base",
+      "schema": [
+        { "name": "routeId", "type": "number", "required": true },
+        { "name": "type", "type": "text", "required": true },
+        { "name": "latitude", "type": "number", "required": true },
+        { "name": "longitude", "type": "number", "required": true },
+        { "name": "altitude", "type": "number" },
+        { "name": "accuracy", "type": "number" },
+        { "name": "name", "type": "text" },
+        { "name": "description", "type": "text" },
+        { "name": "photoId", "type": "number" },
+        { "name": "timestamp", "type": "date", "required": true }
+      ]
+    },
+    {
+      "name": "shopping_lists",
+      "type": "base",
+      "schema": [
+        { "name": "name", "type": "text", "required": true },
+        { "name": "created", "type": "date", "required": true },
+        { "name": "updated", "type": "date", "required": true }
+      ]
+    },
+    {
+      "name": "shopping_items",
+      "type": "base",
+      "schema": [
+        { "name": "listId", "type": "number", "required": true },
+        { "name": "name", "type": "text", "required": true },
+        { "name": "quantity", "type": "number" },
+        { "name": "completed", "type": "bool" },
+        { "name": "created", "type": "date", "required": true }
+      ]
+    },
+    {
+      "name": "todo_lists",
+      "type": "base",
+      "schema": [
+        { "name": "name", "type": "text", "required": true },
+        { "name": "created", "type": "date", "required": true },
+        { "name": "updated", "type": "date", "required": true }
+      ]
+    },
+    {
+      "name": "todo_items",
+      "type": "base",
+      "schema": [
+        { "name": "listId", "type": "number", "required": true },
+        { "name": "title", "type": "text", "required": true },
+        { "name": "description", "type": "text" },
+        { "name": "completed", "type": "bool" },
+        { "name": "photoPath", "type": "text" },
+        { "name": "created", "type": "date", "required": true }
+      ]
+    },
+    {
+      "name": "todo_photos",
+      "type": "base",
+      "schema": [
+        { "name": "todoItemId", "type": "number", "required": true },
+        { "name": "filename", "type": "text", "required": true },
+        { "name": "filepath", "type": "text", "required": true },
+        { "name": "mimeType", "type": "text" },
+        { "name": "filesize", "type": "number" },
+        { "name": "created", "type": "date", "required": true }
+      ]
+    }
+    "type": "base",
+    "schema": [
+      { "name": "name", "type": "text", "required": true },
+      { "name": "description", "type": "text" },
+      { "name": "coverPhotoId", "type": "number" },
+      { "name": "color", "type": "text" },
+      { "name": "created", "type": "date", "required": true },
+      { "name": "updated", "type": "date", "required": true }
+    ]
+  },
+  {
+    "name": "photos",
+    "type": "base",
+    "schema": [
+      { "name": "galleryId", "type": "number", "required": true },
+      { "name": "filename", "type": "text", "required": true },
+      { "name": "filepath", "type": "text", "required": true },
+      { "name": "thumbnail", "type": "text" },
+      { "name": "width", "type": "number" },
+      { "name": "height", "type": "number" },
+      { "name": "filesize", "type": "number" },
+      { "name": "mimeType", "type": "text" },
+      { "name": "latitude", "type": "number" },
+      { "name": "longitude", "type": "number" },
+      { "name": "dateTaken", "type": "date" },
+      { "name": "camera", "type": "text" },
+      { "name": "lens", "type": "text" },
+      { "name": "focalLength", "type": "number" },
+      { "name": "aperture", "type": "text" },
+      { "name": "shutterSpeed", "type": "text" },
+      { "name": "iso", "type": "number" },
+      { "name": "created", "type": "date", "required": true }
+    ]
+  },
+  {
+    "name": "book_categories",
+    "type": "base",
+    "schema": [
+      { "name": "name", "type": "text", "required": true },
+      { "name": "description", "type": "text" },
+      { "name": "created", "type": "date", "required": true }
+    ]
+  },
+  {
+    "name": "books",
+    "type": "base",
+    "schema": [
+      { "name": "isbn", "type": "text", "required": true },
+      { "name": "title", "type": "text", "required": true },
+      { "name": "authors", "type": "text" },
+      { "name": "publisher", "type": "text" },
+      { "name": "publishedDate", "type": "date" },
+      { "name": "description", "type": "text" },
+      { "name": "pageCount", "type": "number" },
+      { "name": "categories", "type": "text" },
+      { "name": "language", "type": "text" },
+      { "name": "coverImage", "type": "text" },
+      { "name": "categoryId", "type": "number" },
+      { "name": "notes", "type": "text" },
+      { "name": "rating", "type": "number" },
+      { "name": "read", "type": "bool" },
+      { "name": "quantity", "type": "number" },
+      { "name": "created", "type": "date", "required": true }
+    ]
+  },
+  {
+    "name": "wine_categories",
+    "type": "base",
+    "schema": [
+      { "name": "name", "type": "text", "required": true },
+      { "name": "description", "type": "text" },
+      { "name": "created", "type": "date", "required": true }
+    ]
+  },
+  {
+    "name": "wines",
+    "type": "base",
+    "schema": [
+      { "name": "name", "type": "text", "required": true },
+      { "name": "winery", "type": "text" },
+      { "name": "region", "type": "text" },
+      { "name": "country", "type": "text" },
+      { "name": "year", "type": "number" },
+      { "name": "grapeVariety", "type": "text" },
+      { "name": "type", "type": "text" },
+      { "name": "price", "type": "number" },
+      { "name": "quantity", "type": "number" },
+      { "name": "rating", "type": "number" },
+      { "name": "notes", "type": "text" },
+      { "name": "photoPath", "type": "text" },
+      { "name": "latitude", "type": "number" },
+      { "name": "longitude", "type": "number" },
+      { "name": "purchaseDate", "type": "date" },
+      { "name": "storageLocation", "type": "text" },
+      { "name": "categoryId", "type": "number" },
+      { "name": "created", "type": "date", "required": true },
+      { "name": "updated", "type": "date", "required": true }
+    ]
+  }
+]
