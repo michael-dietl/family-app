@@ -15,23 +15,24 @@
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
-
     <ion-content :fullscreen="true">
       <div v-if="isLoading" class="loading-container">
         <ion-spinner name="crescent" />
       </div>
-
       <template v-else-if="routeData">
         <!-- Map Container -->
         <div id="detail-map" class="map-container"></div>
-
         <!-- Route Info Card -->
         <div class="info-card">
           <!-- Aufzeichnungssteuerung: Immer anzeigen, wenn Route geladen -->
-          <div class="recording-controls button-grid">
-            <ion-button color="medium" @click="pauseRecording">
+          <div class="recording-controls button-grid" v-if="routeData">
+            <ion-button v-if="routeData.isRecording" color="medium" @click="pauseRecording">
               <ion-icon :icon="timeOutline" />
               Pause
+            </ion-button>
+            <ion-button v-else color="success" @click="resumeRecording">
+              <ion-icon :icon="playOutline" />
+              Fortsetzen
             </ion-button>
             <ion-button color="danger" @click="stopRecording">
               <ion-icon :icon="flagOutline" />
@@ -45,6 +46,29 @@
               <ion-icon :icon="cameraOutline" />
               Foto-Wegpunkt
             </ion-button>
+          </div>
+          <div class="info-stats stats-grid">
+            <div class="stat">
+              <ion-icon :icon="navigateOutline" color="primary" />
+              <div>
+                <div class="stat-value">{{ formatDistance(routeData?.distance || 0) }}</div>
+                <div class="stat-label">{{ $t('auto.distanz') }}</div>
+              </div>
+            </div>
+            <div class="stat">
+              <ion-icon :icon="timeOutline" color="success" />
+              <div>
+                <div class="stat-value">{{ displayDuration }}</div>
+                <div class="stat-label">{{ $t('auto.dauer') }}</div>
+              </div>
+            </div>
+            <div class="stat">
+              <ion-icon :icon="flagOutline" color="warning" />
+              <div>
+                <div class="stat-value">{{ waypoints.length }}</div>
+                <div class="stat-label">{{ $t('auto.wegpunkte') }}</div>
+              </div>
+            </div>
           </div>
 
           <style scoped>
@@ -61,8 +85,8 @@
           }
           </style>
           <div class="info-header">
-            <h2>{{ routeData.name }}</h2>
-            <p v-if="routeData.description" class="description">{{ routeData.description }}</p>
+            <h2>{{ routeData?.name }}</h2>
+            <p v-if="routeData?.description" class="description">{{ routeData?.description }}</p>
           </div>
 
           <div class="info-stats">
@@ -92,14 +116,51 @@
           </div>
 
           <div class="info-meta">
-            <p>
-              <strong>{{ $t('auto.gestartet') }}</strong> {{ formatDateTime(routeData.startTime) }}
+            <p v-if="routeData?.startTime">
+              <strong>{{ $t('auto.gestartet') }}</strong> {{ formatDateTime(routeData?.startTime) }}
             </p>
-            <p v-if="routeData.endTime">
-              <strong>{{ $t('auto.beendet') }}</strong> {{ formatDateTime(routeData.endTime) }}
+            <p v-if="routeData?.endTime">
+              <strong>{{ $t('auto.beendet') }}</strong> {{ formatDateTime(routeData?.endTime) }}
             </p>
           </div>
         </div>
+          <div class="recording-controls button-grid" v-if="routeData">
+            <ion-button v-if="routeData.isRecording" color="medium" @click="pauseRecording">
+              <ion-icon :icon="timeOutline" />
+              Pause
+            </ion-button>
+            <ion-button v-else color="success" @click="resumeRecording">
+              <ion-icon :icon="playOutline" />
+              Fortsetzen
+            </ion-button>
+            <ion-button color="danger" @click="stopRecording">
+              <ion-icon :icon="flagOutline" />
+              Beenden
+            </ion-button>
+            <ion-button color="tertiary" @click="addManualWaypoint">
+              <ion-icon :icon="flagOutline" />
+              Manueller Wegpunkt
+            </ion-button>
+            <ion-button color="primary" @click="addPhotoWaypoint">
+              <ion-icon :icon="cameraOutline" />
+              Foto-Wegpunkt
+            </ion-button>
+          </div>
+
+function resumeRecording() {
+  resumeRecordingImpl();
+}
+
+const resumeRecording = async () => {
+  await db.updateRoute(routeId, { isRecording: true });
+  await loadData();
+  const toast = await toastController.create({
+    message: 'Aufzeichnung fortgesetzt',
+    duration: 1500,
+    color: 'success'
+  });
+  await toast.present();
+};
 
         <!-- Waypoints List -->
         <div v-if="waypoints.length > 0" class="waypoints-section">
@@ -177,7 +238,7 @@ watchEffect(() => {
   }
   displayDuration.value = formatDuration(0);
 });
-import WaypointEditModal from '@/components/WaypointEditModal.vue';
+import * as WaypointEditModal from '@/components/WaypointEditModal.vue';
 
 const editModalOpen = ref(false);
 const editWaypoint = ref<Waypoint|null>(null);
@@ -238,17 +299,26 @@ const addManualWaypointImpl = async () => {
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Geolocation } from '@capacitor/geolocation';
 
-// --- Aufzeichnungssteuerung ---
-function pauseRecording() {
-  return pauseRecordingImpl();
-}
-const pauseRecordingImpl = async () => {
+// --- Aufzeichnung pausieren ---
+const pauseRecording = async () => {
   await db.updateRoute(routeId, { isRecording: false });
   await loadData();
   const toast = await toastController.create({
     message: 'Aufzeichnung pausiert',
     duration: 1500,
-    color: 'medium'
+    color: 'warning'
+  });
+  await toast.present();
+};
+
+// --- Aufzeichnungssteuerung ---
+const resumeRecording = async () => {
+  await db.updateRoute(routeId, { isRecording: true });
+  await loadData();
+  const toast = await toastController.create({
+    message: 'Aufzeichnung fortgesetzt',
+    duration: 1500,
+    color: 'success'
   });
   await toast.present();
 };
@@ -257,7 +327,18 @@ function stopRecording() {
   return stopRecordingImpl();
 }
 const stopRecordingImpl = async () => {
-  await db.updateRoute(routeId, { isRecording: false, endTime: new Date().toISOString() });
+  // Hole aktuelle Route für startTime
+  const route = await db.getRoute(routeId);
+  const endTime = new Date().toISOString();
+  let duration = undefined;
+  if (route && route.startTime) {
+    const start = new Date(route.startTime).getTime();
+    const end = new Date(endTime).getTime();
+    if (!isNaN(start) && !isNaN(end) && end > start) {
+      duration = Math.floor((end - start) / 1000);
+    }
+  }
+  await db.updateRoute(routeId, { isRecording: false, endTime, duration });
   await loadData();
   const toast = await toastController.create({
     message: 'Aufzeichnung beendet',
@@ -345,7 +426,8 @@ import {
   cameraOutline,
   locationOutline,
   trashOutline,
-  createOutline
+  createOutline,
+  playOutline
 } from 'ionicons/icons';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -719,6 +801,13 @@ const formatTime = (dateString: string): string => {
   gap: 12px;
   margin-bottom: 20px;
 }
+          .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            width: 100%;
+            margin-bottom: 20px;
+          }
 
 .stat {
   flex: 1;
