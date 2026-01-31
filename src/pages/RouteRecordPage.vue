@@ -12,6 +12,9 @@
           <ion-button @click="addWaypointDialog" :disabled="!isTracking">
             <ion-icon :icon="addOutline" />
           </ion-button>
+          <ion-button @click="addPhotoWaypointHandler" :disabled="!isTracking">
+            <ion-icon name="camera" />
+          </ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -125,6 +128,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { db, type Route, type Waypoint } from '@/services/database';
 import { useRouteTracking } from '@/composables/useRouteTracking';
+import { usePhoto } from '@/composables/usePhoto';
 
 const route = useRoute();
 const router = useRouter();
@@ -142,8 +146,39 @@ const {
   pauseTracking,
   resumeTracking,
   stopTracking,
-  addManualWaypoint
+  addManualWaypoint,
+  addPhotoWaypoint
 } = useRouteTracking();
+
+const { takePhoto, savePhoto } = usePhoto();
+// Handler für Foto-Wegpunkt
+const addPhotoWaypointHandler = async () => {
+  try {
+    const image = await takePhoto();
+    if (!image || !image.webPath) return;
+
+    // Foto speichern (in Galerie 0, da Route-Fotos nicht in Galerie gelistet werden müssen)
+    const photoId = await savePhoto(image.webPath, 0);
+    if (!photoId || !currentPosition.value) return;
+
+    // Aktuelle Position verwenden
+    await addPhotoWaypoint(photoId, currentPosition.value.coords.latitude, currentPosition.value.coords.longitude);
+
+    const toast = await toastController.create({
+      message: 'Foto-Wegpunkt hinzugefügt',
+      duration: 2000,
+      color: 'success'
+    });
+    await toast.present();
+  } catch (e) {
+    const toast = await toastController.create({
+      message: 'Fehler beim Foto-Wegpunkt',
+      duration: 2000,
+      color: 'danger'
+    });
+    await toast.present();
+  }
+};
 
 let map: L.Map | null = null;
 let routeLine: L.Polyline | null = null;
@@ -233,11 +268,18 @@ watch(waypoints, (newWaypoints) => {
         return; // Already added
       }
 
+      let html = '';
+      if (wp.type === 'manual') {
+        html = '<ion-icon name="location-sharp" style="color:#3880ff;font-size:32px;"></ion-icon>';
+      } else if (wp.type === 'photo') {
+        html = '<ion-icon name="camera" style="color:#222;font-size:32px;"></ion-icon>';
+      }
+
       const marker = L.marker([wp.latitude, wp.longitude], {
         icon: L.divIcon({
           className: `waypoint-marker waypoint-${wp.type}`,
-          html: `<ion-icon name="${wp.type === 'photo' ? 'camera' : 'flag'}"></ion-icon>`,
-          iconSize: [30, 30]
+          html,
+          iconSize: [32, 32]
         })
       });
 
@@ -245,7 +287,18 @@ watch(waypoints, (newWaypoints) => {
         marker.addTo(map);
       }
 
-      if (wp.name) {
+      // Popup: Name oder Foto-Thumbnail
+      if (wp.type === 'photo' && wp.photoId) {
+        // Lade Foto aus DB (async, aber hier reicht ein einfaches fetch)
+        db.getPhoto(wp.photoId).then(photo => {
+          if (photo && (photo.thumbnail || photo.filepath)) {
+            const imgSrc = photo.thumbnail || photo.filepath;
+            marker.bindPopup(`<img src="${imgSrc}" style="max-width:120px;max-height:120px;border-radius:8px;box-shadow:0 2px 8px #0002;" />`);
+          } else {
+            marker.bindPopup('Foto');
+          }
+        });
+      } else if (wp.name) {
         marker.bindPopup(wp.name);
       }
 

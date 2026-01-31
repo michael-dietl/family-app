@@ -2,13 +2,13 @@
   <ion-page>
     <ion-header :translucent="true">
       <ion-toolbar>
-        <ion-buttons slot="start">
+        <ion-buttons>
           <ion-button @click="router.back()">
             <ion-icon :icon="arrowBackOutline" />
           </ion-button>
         </ion-buttons>
         <ion-title>{{ routeData?.name || 'Route' }}</ion-title>
-        <ion-buttons slot="end">
+        <ion-buttons>
           <ion-button @click="showOptionsMenu">
             <ion-icon :icon="ellipsisVerticalOutline" />
           </ion-button>
@@ -27,6 +27,39 @@
 
         <!-- Route Info Card -->
         <div class="info-card">
+          <!-- Aufzeichnungssteuerung: Immer anzeigen, wenn Route geladen -->
+          <div class="recording-controls button-grid">
+            <ion-button color="medium" @click="pauseRecording">
+              <ion-icon :icon="timeOutline" />
+              Pause
+            </ion-button>
+            <ion-button color="danger" @click="stopRecording">
+              <ion-icon :icon="flagOutline" />
+              Beenden
+            </ion-button>
+            <ion-button color="tertiary" @click="addManualWaypoint">
+              <ion-icon :icon="flagOutline" />
+              Manueller Wegpunkt
+            </ion-button>
+            <ion-button color="primary" @click="addPhotoWaypoint">
+              <ion-icon :icon="cameraOutline" />
+              Foto-Wegpunkt
+            </ion-button>
+          </div>
+
+          <style scoped>
+          .button-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+          }
+          .button-grid ion-button {
+            width: 100%;
+            justify-content: center;
+          }
+          </style>
           <div class="info-header">
             <h2>{{ routeData.name }}</h2>
             <p v-if="routeData.description" class="description">{{ routeData.description }}</p>
@@ -44,7 +77,7 @@
             <div class="stat">
               <ion-icon :icon="timeOutline" color="success" />
               <div>
-                <div class="stat-value">{{ formatDuration(routeData.duration || 0) }}</div>
+                <div class="stat-value">{{ displayDuration }}</div>
                 <div class="stat-label">{{ $t('auto.dauer') }}</div>
               </div>
             </div>
@@ -79,7 +112,6 @@
               button
             >
               <ion-icon
-                slot="start"
                 :icon="getWaypointIcon(waypoint.type)"
                 :color="getWaypointColor(waypoint.type)"
               />
@@ -88,8 +120,20 @@
                 <p v-if="waypoint.description">{{ waypoint.description }}</p>
                 <p class="waypoint-time">{{ formatTime(waypoint.timestamp) }}</p>
               </ion-label>
+              <ion-button class="edit-btn" fill="clear" size="small" @click.stop="openEditModal(waypoint)">
+                <ion-icon :icon="createOutline" />
+              </ion-button>
             </ion-item>
           </ion-list>
+          <WaypointEditModal
+            v-if="editModalOpen"
+            :is-open="editModalOpen"
+            :name="editWaypoint?.name || ''"
+            :description="editWaypoint?.description || ''"
+            @save="saveWaypointEdit"
+            @cancel="closeEditModal"
+            @delete="deleteWaypoint"
+          />
         </div>
       </template>
     </ion-content>
@@ -97,7 +141,183 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+
+import { ref } from 'vue';
+
+const displayDuration = ref('');
+watchEffect(() => {
+  if (!routeData.value) {
+    displayDuration.value = '';
+    return;
+  }
+  // 1. Wenn Route beendet (endTime): Differenz startTime - endTime
+  if (routeData.value.endTime) {
+    const start = new Date(routeData.value.startTime).getTime();
+    const end = new Date(routeData.value.endTime).getTime();
+    if (!isNaN(start) && !isNaN(end) && end > start) {
+      const seconds = Math.floor((end - start) / 1000);
+      displayDuration.value = formatDuration(seconds);
+      return;
+    }
+  }
+  // 2. Wenn explizite Dauer vorhanden (z.B. nach Sync)
+  if (routeData.value.duration && routeData.value.duration > 0) {
+    displayDuration.value = formatDuration(routeData.value.duration);
+    return;
+  }
+  // 3. Laufende Aufzeichnung: Zeit seit Start
+  if (routeData.value.startTime) {
+    const start = new Date(routeData.value.startTime).getTime();
+    const now = Date.now();
+    if (!isNaN(start) && now > start) {
+      const seconds = Math.floor((now - start) / 1000);
+      displayDuration.value = formatDuration(seconds);
+      return;
+    }
+  }
+  displayDuration.value = formatDuration(0);
+});
+import WaypointEditModal from '@/components/WaypointEditModal.vue';
+
+const editModalOpen = ref(false);
+const editWaypoint = ref<Waypoint|null>(null);
+
+function openEditModal(waypoint: Waypoint) {
+  editWaypoint.value = waypoint;
+  editModalOpen.value = true;
+}
+function closeEditModal() {
+  editModalOpen.value = false;
+  editWaypoint.value = null;
+}
+async function saveWaypointEdit({ name, description }: { name: string; description: string }) {
+  if (!editWaypoint.value || typeof editWaypoint.value.id !== 'number') return;
+  await db.updateWaypoint(editWaypoint.value.id, { name, description });
+  await loadData();
+  closeEditModal();
+}
+async function deleteWaypoint() {
+  if (!editWaypoint.value || typeof editWaypoint.value.id !== 'number') return;
+  await db.deleteWaypoint(editWaypoint.value.id);
+  await loadData();
+  closeEditModal();
+}
+// --- Manuellen Wegpunkt hinzufügen ---
+function addManualWaypoint() {
+  return addManualWaypointImpl();
+}
+const addManualWaypointImpl = async () => {
+  try {
+    const position = await Geolocation.getCurrentPosition();
+    await db.createWaypoint({
+      routeId,
+      type: 'manual',
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      name: 'Manueller Wegpunkt',
+      description: '',
+      timestamp: new Date().toISOString()
+    });
+    await loadData();
+    drawRoute();
+    const toast = await toastController.create({
+      message: 'Manueller Wegpunkt hinzugefügt',
+      duration: 1500,
+      color: 'success'
+    });
+    await toast.present();
+  } catch (err) {
+    const toast = await toastController.create({
+      message: 'Manueller Wegpunkt fehlgeschlagen',
+      duration: 1500,
+      color: 'danger'
+    });
+    await toast.present();
+  }
+};
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Geolocation } from '@capacitor/geolocation';
+
+// --- Aufzeichnungssteuerung ---
+function pauseRecording() {
+  return pauseRecordingImpl();
+}
+const pauseRecordingImpl = async () => {
+  await db.updateRoute(routeId, { isRecording: false });
+  await loadData();
+  const toast = await toastController.create({
+    message: 'Aufzeichnung pausiert',
+    duration: 1500,
+    color: 'medium'
+  });
+  await toast.present();
+};
+
+function stopRecording() {
+  return stopRecordingImpl();
+}
+const stopRecordingImpl = async () => {
+  await db.updateRoute(routeId, { isRecording: false, endTime: new Date().toISOString() });
+  await loadData();
+  const toast = await toastController.create({
+    message: 'Aufzeichnung beendet',
+    duration: 1500,
+    color: 'danger'
+  });
+  await toast.present();
+};
+
+// --- Foto-Wegpunkt hinzufügen ---
+function addPhotoWaypoint() {
+  return addPhotoWaypointImpl();
+}
+const addPhotoWaypointImpl = async () => {
+  try {
+    const position = await Geolocation.getCurrentPosition();
+    const photo = await Camera.getPhoto({
+      resultType: CameraResultType.Base64,
+      source: CameraSource.Camera,
+      quality: 70
+    });
+    // Foto als Gallery-Photo speichern (Dummy-GalleryId 1, oder eigene Logik)
+    const photoId = await db.createPhoto({
+      galleryId: 1, // ggf. eigene Logik für GalleryId
+      filename: `route-photo-${Date.now()}.jpg`,
+      filepath: `data:image/jpeg;base64,${photo.base64String}`,
+      thumbnail: photo.base64String,
+      mimeType: photo.format ? `image/${photo.format}` : 'image/jpeg',
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude
+    });
+    // Wegpunkt anlegen
+    await db.createWaypoint({
+      routeId,
+      type: 'photo',
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      name: 'Foto-Wegpunkt',
+      description: '',
+      photoId,
+      timestamp: new Date().toISOString()
+    });
+    await loadData();
+    drawRoute();
+    const toast = await toastController.create({
+      message: 'Foto-Wegpunkt hinzugefügt',
+      duration: 1500,
+      color: 'success'
+    });
+    await toast.present();
+  } catch (err) {
+    const toast = await toastController.create({
+      message: 'Foto-Wegpunkt fehlgeschlagen',
+      duration: 1500,
+      color: 'danger'
+    });
+    await toast.present();
+  }
+};
+import { computed, onMounted, onUnmounted, watchEffect } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   IonPage,
@@ -129,7 +349,9 @@ import {
 } from 'ionicons/icons';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { db, type Route as RouteData, type Waypoint } from '@/services/database';
+import { db } from '@/services/database';
+type RouteData = import('@/services/database').Route;
+type Waypoint = import('@/services/database').Waypoint;
 
 const vueRoute = useRoute();
 const router = useRouter();
@@ -162,9 +384,8 @@ onUnmounted(() => {
 const loadData = async () => {
   try {
     isLoading.value = true;
-    routeData.value = await db.getRoute(routeId);
-    
-    if (!routeData.value) {
+    const route = await db.getRoute(routeId);
+    if (!route) {
       const toast = await toastController.create({
         message: 'Route nicht gefunden',
         duration: 2000,
@@ -174,7 +395,9 @@ const loadData = async () => {
       router.back();
       return;
     }
-
+    // Robust: isRecording immer Boolean
+    route.isRecording = !!route.isRecording;
+    routeData.value = route;
     waypoints.value = await db.getWaypointsByRoute(routeId);
   } catch (error) {
     console.error('Error loading route:', error);
@@ -471,6 +694,7 @@ const formatTime = (dateString: string): string => {
   padding: 20px;
   overflow-y: auto;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 10;
 }
 
 .info-header {

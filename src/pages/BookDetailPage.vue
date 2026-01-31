@@ -214,13 +214,12 @@ const loadBook = async () => {
   isLoading.value = true;
   try {
     const bookId = parseInt(route.params.id as string);
-    const books = await db.getBooks();
-    book.value = books.find(b => b.id === bookId) || null;
-    
+    book.value = await db.getBook(bookId);
     // Debug log
     if (book.value) {
       console.log('📖 Book loaded:', {
         title: book.value.title,
+        subtitle: book.value.subtitle,
         hasDescription: !!book.value.description,
         descriptionLength: book.value.description?.length || 0
       });

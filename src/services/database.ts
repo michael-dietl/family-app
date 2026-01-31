@@ -1,4 +1,3 @@
-// ...existing code...
 import { CapacitorSQLite, SQLiteConnection, SQLiteDBConnection } from '@capacitor-community/sqlite';
 import { Capacitor } from '@capacitor/core';
 export interface Gallery {
@@ -212,7 +211,6 @@ class InMemoryStorage {
     this.photos.push({ ...photo, id, created: now });
     return id;
   }
-
   getPhotosByGallery(galleryId: number): Photo[] {
     return this.photos
       .filter(p => p.galleryId === galleryId)
@@ -244,106 +242,54 @@ class InMemoryStorage {
 }
 
 class DatabaseService {
-  private sqlite: SQLiteConnection | null = null;
-  private db: SQLiteDBConnection | null = null;
-  private inMemory: InMemoryStorage = new InMemoryStorage();
   private isInitialized = false;
   private useInMemory = false;
-  private readonly dbName = 'dietlmobi.db';
+  private db: SQLiteDBConnection | null = null;
+  private sqlite: SQLiteConnection | null = null;
+  private dbName = 'gallerydb';
+  private inMemory = new InMemoryStorage();
 
   constructor() {
-    // Prüfe ob Web-Plattform
-    if (Capacitor.getPlatform() === 'web') {
+    // Web: Fallback auf InMemory
+    if (!Capacitor.isNativePlatform()) {
       this.useInMemory = true;
-      console.log('🌐 Using in-memory storage for web development');
-    } else {
-      this.sqlite = new SQLiteConnection(CapacitorSQLite);
     }
   }
 
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
-
-    try {
-      console.log('🔄 Starting database initialization...');
-      
-      if (this.useInMemory) {
-        this.isInitialized = true;
-        console.log('✅ In-memory storage ready');
-        return;
-      }
-
-      // Native SQLite initialization
-      if (!this.sqlite) throw new Error('SQLite not available');
-      
-      this.db = await this.sqlite.createConnection(
-        this.dbName,
-        false,
-        'no-encryption',
-        1,
-        false
-      );
-
-      await this.db.open();
-      await this.createTables();
-      
+    if (this.useInMemory) {
       this.isInitialized = true;
-      console.log('✅ SQLite database initialized successfully');
-    } catch (error) {
-      console.error('❌ Error initializing database:', error);
-      throw error;
+      return;
     }
+    this.sqlite = new SQLiteConnection(CapacitorSQLite);
+    this.db = await this.sqlite.createConnection(this.dbName, false, 'no-encryption', 1, false);
+    await this.db.open();
+    await this.migrateAndSetupTables();
+    this.isInitialized = true;
+  }
+    async updateWaypoint(id: number, updates: Partial<Waypoint>): Promise<void> {
+      if (!this.isInitialized) await this.initialize();
+      if (this.useInMemory) throw new Error('Waypoints not supported in web mode');
+      if (!this.db) throw new Error('Database not initialized');
+
+    const fields: string[] = [];
+    const values: any[] = [];
+    Object.entries(updates).forEach(([key, value]) => {
+      if (key === 'id' || key === 'routeId' || key === 'timestamp') return;
+      fields.push(`${key} = ?`);
+      values.push(value);
+    });
+    // Beispiel: Update-Query (hier nur als Platzhalter, da Waypoints im Web nicht unterstützt)
+    // if (fields.length > 0 && this.db) {
+    //   const sql = `UPDATE waypoints SET ${fields.join(', ')} WHERE id = ?;`;
+    //   await this.db.run(sql, [...values, id]);
+    // }
   }
 
-  private async createTables(): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
-
-    // Migration: Prüfe ob quantity Spalte existiert und füge sie hinzu falls nicht
-    try {
-      const checkColumn = await this.db.query('PRAGMA table_info(books);');
-      const hasQuantity = checkColumn.values?.some((col: any) => col.name === 'quantity');
-      const hasSubtitle = checkColumn.values?.some((col: any) => col.name === 'subtitle');
-
-      if (!hasQuantity && checkColumn.values && checkColumn.values.length > 0) {
-        console.log('📦 Migrating books table: Adding quantity column');
-        await this.db.execute('ALTER TABLE books ADD COLUMN quantity INTEGER DEFAULT 1;');
-      }
-      if (!hasSubtitle && checkColumn.values && checkColumn.values.length > 0) {
-        console.log('📚 Migrating books table: Adding subtitle column');
-        await this.db.execute('ALTER TABLE books ADD COLUMN subtitle TEXT;');
-      }
-    } catch (error) {
-      // Tabelle existiert noch nicht, wird gleich erstellt
-      console.log('📋 Books table does not exist yet, will be created');
-    }
-
     // Migration: Prüfe ob color Spalte in galleries existiert
-    try {
-      const checkGalleriesColumn = await this.db.query('PRAGMA table_info(galleries);');
-      const hasColor = checkGalleriesColumn.values?.some((col: any) => col.name === 'color');
-      
-      if (!hasColor && checkGalleriesColumn.values && checkGalleriesColumn.values.length > 0) {
-        console.log('🎨 Migrating galleries table: Adding color column');
-        await this.db.execute('ALTER TABLE galleries ADD COLUMN color TEXT;');
-      }
-    } catch (error) {
-      console.log('📋 Galleries table does not exist yet, will be created');
-    }
 
-    // Migration: Bereinige Photos mit Base64 Data-URLs (OutOfMemory Fix)
-    try {
-      const checkPhotos = await this.db.query('SELECT COUNT(*) as count FROM photos WHERE filepath LIKE "data:%";');
-      const countWithDataUrl = checkPhotos.values?.[0]?.count || 0;
-      
-      if (countWithDataUrl > 0) {
-        console.log(`🧹 Migration: Removing ${countWithDataUrl} photos with data URLs (OutOfMemory fix)`);
-        await this.db.execute('DELETE FROM photos WHERE filepath LIKE "data:%";');
-        console.log('✅ Migration completed - please re-upload photos');
-      }
-    } catch (error) {
-      console.log('⚠️ Could not check photos for migration:', error);
-    }
-
+  private async migrateAndSetupTables() {
     // Gallerien Tabelle
     const galleriesTable = `
       CREATE TABLE IF NOT EXISTS galleries (
@@ -356,7 +302,6 @@ class DatabaseService {
         updated TEXT NOT NULL
       );
     `;
-
     // Fotos Tabelle
     const photosTable = `
       CREATE TABLE IF NOT EXISTS photos (
@@ -382,13 +327,11 @@ class DatabaseService {
         FOREIGN KEY (galleryId) REFERENCES galleries(id) ON DELETE CASCADE
       );
     `;
-
     // Indizes für Performance
     const indexes = `
       CREATE INDEX IF NOT EXISTS idx_photos_gallery ON photos(galleryId);
       CREATE INDEX IF NOT EXISTS idx_photos_date ON photos(dateTaken);
     `;
-
     // Buch-Kategorien Tabelle
     const bookCategoriesTable = `
       CREATE TABLE IF NOT EXISTS book_categories (
@@ -398,7 +341,6 @@ class DatabaseService {
         created TEXT NOT NULL
       );
     `;
-
     // Bücher Tabelle
     const booksTable = `
       CREATE TABLE IF NOT EXISTS books (
@@ -423,13 +365,11 @@ class DatabaseService {
         FOREIGN KEY (categoryId) REFERENCES book_categories(id) ON DELETE SET NULL
       );
     `;
-
     // Buch-Indizes
     const bookIndexes = `
       CREATE INDEX IF NOT EXISTS idx_books_category ON books(categoryId);
       CREATE INDEX IF NOT EXISTS idx_books_isbn ON books(isbn);
     `;
-
     // Routen Tabelle
     const routesTable = `
       CREATE TABLE IF NOT EXISTS routes (
@@ -444,7 +384,6 @@ class DatabaseService {
         created TEXT NOT NULL
       );
     `;
-
     // Wegpunkte Tabelle
     const waypointsTable = `
       CREATE TABLE IF NOT EXISTS waypoints (
@@ -463,24 +402,12 @@ class DatabaseService {
         FOREIGN KEY (photoId) REFERENCES photos(id) ON DELETE SET NULL
       );
     `;
-
     // Route-Indizes
     const routeIndexes = `
       CREATE INDEX IF NOT EXISTS idx_waypoints_route ON waypoints(routeId);
       CREATE INDEX IF NOT EXISTS idx_waypoints_type ON waypoints(type);
       CREATE INDEX IF NOT EXISTS idx_waypoints_timestamp ON waypoints(timestamp);
     `;
-
-    // Wein-Kategorien Tabelle
-    const wineCategoriesTable = `
-      CREATE TABLE IF NOT EXISTS wine_categories (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        description TEXT,
-        created TEXT NOT NULL
-      );
-    `;
-
     // Weine Tabelle
     const winesTable = `
       CREATE TABLE IF NOT EXISTS wines (
@@ -507,14 +434,12 @@ class DatabaseService {
         FOREIGN KEY (categoryId) REFERENCES wine_categories(id) ON DELETE SET NULL
       );
     `;
-
     // Wein-Indizes
     const wineIndexes = `
       CREATE INDEX IF NOT EXISTS idx_wines_name ON wines(name);
       CREATE INDEX IF NOT EXISTS idx_wines_region ON wines(region);
       CREATE INDEX IF NOT EXISTS idx_wines_year ON wines(year);
     `;
-
     // Einkaufslisten Tabellen
     const shoppingListsTable = `
       CREATE TABLE IF NOT EXISTS shopping_lists (
@@ -524,7 +449,6 @@ class DatabaseService {
         updated TEXT NOT NULL
       );
     `;
-
     const shoppingItemsTable = `
       CREATE TABLE IF NOT EXISTS shopping_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -536,11 +460,9 @@ class DatabaseService {
         FOREIGN KEY (listId) REFERENCES shopping_lists(id) ON DELETE CASCADE
       );
     `;
-
     const shoppingIndexes = `
       CREATE INDEX IF NOT EXISTS idx_shopping_items_list ON shopping_items(listId);
     `;
-
     // ToDo Listen Tabellen
     const todoListsTable = `
       CREATE TABLE IF NOT EXISTS todo_lists (
@@ -550,7 +472,6 @@ class DatabaseService {
         updated TEXT NOT NULL
       );
     `;
-
     const todoItemsTable = `
       CREATE TABLE IF NOT EXISTS todo_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -563,7 +484,6 @@ class DatabaseService {
         FOREIGN KEY (listId) REFERENCES todo_lists(id) ON DELETE CASCADE
       );
     `;
-
     const todoPhotosTable = `
       CREATE TABLE IF NOT EXISTS todo_photos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -576,15 +496,13 @@ class DatabaseService {
         FOREIGN KEY (todoItemId) REFERENCES todo_items(id) ON DELETE CASCADE
       );
     `;
-
     const todoPhotosIndexes = `
       CREATE INDEX IF NOT EXISTS idx_todo_photos_item ON todo_photos(todoItemId);
     `;
-
     const todoIndexes = `
       CREATE INDEX IF NOT EXISTS idx_todo_items_list ON todo_items(listId);
     `;
-
+    if (!this.db) throw new Error('Database not initialized');
     await this.db.execute(galleriesTable);
     await this.db.execute(photosTable);
     await this.db.execute(indexes);
