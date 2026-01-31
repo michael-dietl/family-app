@@ -3,13 +3,13 @@
     <ion-header :translucent="true">
       <ion-toolbar>
         <ion-buttons>
-          <ion-button @click="router.back()">
+          <ion-button slot="start" @click="router.back()">
             <ion-icon :icon="arrowBackOutline" />
           </ion-button>
         </ion-buttons>
         <ion-title>{{ routeData?.name || 'Route' }}</ion-title>
         <ion-buttons>
-          <ion-button @click="showOptionsMenu">
+          <ion-button slot="end" @click="showOptionsMenu">
             <ion-icon :icon="ellipsisVerticalOutline" />
           </ion-button>
         </ion-buttons>
@@ -19,191 +19,90 @@
       <div v-if="isLoading" class="loading-container">
         <ion-spinner name="crescent" />
       </div>
-      <template v-else-if="routeData">
-        <!-- Map Container -->
-        <div id="detail-map" class="map-container"></div>
-        <!-- Route Info Card -->
+      <div v-else style="position:relative; height:100%; min-height:400px;">
+        <!-- Karte -->
+        <div id="detail-map" class="map-container" style="height: 50vh; min-height: 250px;"></div>
+
+        <!-- Info-Card -->
         <div class="info-card">
-          <!-- Aufzeichnungssteuerung: Immer anzeigen, wenn Route geladen -->
-          <div class="recording-controls button-grid" v-if="routeData">
-            <ion-button v-if="routeData.isRecording" color="medium" @click="pauseRecording">
-              <ion-icon :icon="timeOutline" />
-              Pause
-            </ion-button>
-            <ion-button v-else color="success" @click="resumeRecording">
-              <ion-icon :icon="playOutline" />
-              Fortsetzen
-            </ion-button>
-            <ion-button color="danger" @click="stopRecording">
-              <ion-icon :icon="flagOutline" />
-              Beenden
-            </ion-button>
-            <ion-button color="tertiary" @click="addManualWaypoint">
-              <ion-icon :icon="flagOutline" />
-              Manueller Wegpunkt
-            </ion-button>
-            <ion-button color="primary" @click="addPhotoWaypoint">
-              <ion-icon :icon="cameraOutline" />
-              Foto-Wegpunkt
-            </ion-button>
-          </div>
-          <div class="info-stats stats-grid">
-            <div class="stat">
-              <ion-icon :icon="navigateOutline" color="primary" />
-              <div>
-                <div class="stat-value">{{ formatDistance(routeData?.distance || 0) }}</div>
-                <div class="stat-label">{{ $t('auto.distanz') }}</div>
-              </div>
-            </div>
-            <div class="stat">
-              <ion-icon :icon="timeOutline" color="success" />
-              <div>
-                <div class="stat-value">{{ displayDuration }}</div>
-                <div class="stat-label">{{ $t('auto.dauer') }}</div>
-              </div>
-            </div>
-            <div class="stat">
-              <ion-icon :icon="flagOutline" color="warning" />
-              <div>
-                <div class="stat-value">{{ waypoints.length }}</div>
-                <div class="stat-label">{{ $t('auto.wegpunkte') }}</div>
-              </div>
-            </div>
-          </div>
-
-          <style scoped>
-          .button-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 16px;
-          }
-          .button-grid ion-button {
-            width: 100%;
-            justify-content: center;
-          }
-          </style>
           <div class="info-header">
-            <h2>{{ routeData?.name }}</h2>
-            <p v-if="routeData?.description" class="description">{{ routeData?.description }}</p>
+            <h2>{{ routeData?.name || 'Route' }}</h2>
+            <p class="description" v-if="routeData?.description">{{ routeData.description }}</p>
           </div>
-
-          <div class="info-stats">
+          <div class="stats-grid">
             <div class="stat">
-              <ion-icon :icon="navigateOutline" color="primary" />
-              <div>
-                <div class="stat-value">{{ formatDistance(routeData.distance || 0) }}</div>
-                <div class="stat-label">{{ $t('auto.distanz') }}</div>
-              </div>
-            </div>
-
-            <div class="stat">
-              <ion-icon :icon="timeOutline" color="success" />
+              <ion-icon :icon="timeOutline" />
               <div>
                 <div class="stat-value">{{ displayDuration }}</div>
-                <div class="stat-label">{{ $t('auto.dauer') }}</div>
+                <div class="stat-label">Dauer</div>
               </div>
             </div>
-
             <div class="stat">
-              <ion-icon :icon="flagOutline" color="warning" />
+              <ion-icon :icon="navigateOutline" />
+              <div>
+                <div class="stat-value">{{ routeData?.distance ? formatDistance(routeData.distance) : '-' }}</div>
+                <div class="stat-label">Distanz</div>
+              </div>
+            </div>
+            <div class="stat">
+              <ion-icon :icon="flagOutline" />
               <div>
                 <div class="stat-value">{{ waypoints.length }}</div>
-                <div class="stat-label">{{ $t('auto.wegpunkte') }}</div>
+                <div class="stat-label">Wegpunkte</div>
               </div>
             </div>
           </div>
 
+          <!-- Meta-Infos -->
           <div class="info-meta">
-            <p v-if="routeData?.startTime">
-              <strong>{{ $t('auto.gestartet') }}</strong> {{ formatDateTime(routeData?.startTime) }}
-            </p>
-            <p v-if="routeData?.endTime">
-              <strong>{{ $t('auto.beendet') }}</strong> {{ formatDateTime(routeData?.endTime) }}
-            </p>
+            <p><strong>Start:</strong> {{ routeData?.startTime ? formatDateTime(routeData.startTime) : '-' }}</p>
+            <p v-if="routeData?.endTime"><strong>Ende:</strong> {{ formatDateTime(routeData.endTime) }}</p>
+            <p><strong>Status:</strong> <span :style="{color: routeData?.isRecording ? '#3880ff' : '#eb445a'}">{{ routeData?.isRecording ? 'Aufzeichnung läuft' : 'Beendet' }}</span></p>
           </div>
-        </div>
-          <div class="recording-controls button-grid" v-if="routeData">
-            <ion-button v-if="routeData.isRecording" color="medium" @click="pauseRecording">
-              <ion-icon :icon="timeOutline" />
-              Pause
+
+          <!-- Aufzeichnungs-Controls -->
+          <div style="display:flex; gap:12px; margin-bottom:16px;">
+            <ion-button v-if="routeData?.isRecording" color="warning" @click="pauseRecording">Pause</ion-button>
+            <ion-button v-if="!routeData?.isRecording && !routeData?.endTime" color="success" @click="resumeRecording">Fortsetzen</ion-button>
+            <ion-button v-if="routeData?.isRecording" color="danger" @click="stopRecording">Stop</ion-button>
+            <ion-button v-if="routeData && !routeData.endTime" color="primary" @click="addManualWaypoint">
+              <ion-icon :icon="flagOutline" slot="start" /> Wegpunkt
             </ion-button>
-            <ion-button v-else color="success" @click="resumeRecording">
-              <ion-icon :icon="playOutline" />
-              Fortsetzen
-            </ion-button>
-            <ion-button color="danger" @click="stopRecording">
-              <ion-icon :icon="flagOutline" />
-              Beenden
-            </ion-button>
-            <ion-button color="tertiary" @click="addManualWaypoint">
-              <ion-icon :icon="flagOutline" />
-              Manueller Wegpunkt
-            </ion-button>
-            <ion-button color="primary" @click="addPhotoWaypoint">
-              <ion-icon :icon="cameraOutline" />
-              Foto-Wegpunkt
+            <ion-button v-if="routeData && !routeData.endTime" color="tertiary" @click="addPhotoWaypoint">
+              <ion-icon :icon="cameraOutline" slot="start" /> Foto
             </ion-button>
           </div>
 
-function resumeRecording() {
-  resumeRecordingImpl();
-}
-
-const resumeRecording = async () => {
-  await db.updateRoute(routeId, { isRecording: true });
-  await loadData();
-  const toast = await toastController.create({
-    message: 'Aufzeichnung fortgesetzt',
-    duration: 1500,
-    color: 'success'
-  });
-  await toast.present();
-};
-
-        <!-- Waypoints List -->
-        <div v-if="waypoints.length > 0" class="waypoints-section">
-          <h3>{{ $t('auto.wegpunkte') }}</h3>
-          <ion-list>
-            <ion-item
-              v-for="(waypoint, index) in manualWaypoints"
-              :key="waypoint.id"
-              @click="centerOnWaypoint(waypoint)"
-              button
-            >
-              <ion-icon
-                :icon="getWaypointIcon(waypoint.type)"
-                :color="getWaypointColor(waypoint.type)"
-              />
-              <ion-label>
-                <h3>{{ waypoint.name || `Wegpunkt ${index + 1}` }}</h3>
-                <p v-if="waypoint.description">{{ waypoint.description }}</p>
-                <p class="waypoint-time">{{ formatTime(waypoint.timestamp) }}</p>
-              </ion-label>
-              <ion-button class="edit-btn" fill="clear" size="small" @click.stop="openEditModal(waypoint)">
-                <ion-icon :icon="createOutline" />
-              </ion-button>
-            </ion-item>
-          </ion-list>
-          <WaypointEditModal
-            v-if="editModalOpen"
-            :is-open="editModalOpen"
-            :name="editWaypoint?.name || ''"
-            :description="editWaypoint?.description || ''"
-            @save="saveWaypointEdit"
-            @cancel="closeEditModal"
-            @delete="deleteWaypoint"
-          />
+          <!-- Wegpunkt-Liste -->
+          <div class="waypoints-section">
+            <h3>Wegpunkte</h3>
+            <ion-list v-if="manualWaypoints.length > 0">
+              <ion-item v-for="wp in manualWaypoints" :key="wp.id" @click="centerOnWaypoint(wp)">
+                <ion-icon :icon="getWaypointIcon(wp.type)" :color="getWaypointColor(wp.type)" slot="start" />
+                <ion-label>
+                  <div style="font-weight:600;">{{ wp.name || 'Wegpunkt' }}</div>
+                  <div v-if="wp.description" style="font-size:13px; color:var(--ion-color-medium);">{{ wp.description }}</div>
+                  <div class="waypoint-time">{{ formatTime(wp.timestamp) }}</div>
+                </ion-label>
+                <ion-button fill="clear" color="medium" slot="end" @click.stop="openEditModal(wp)">
+                  <ion-icon :icon="createOutline" />
+                </ion-button>
+                <ion-button fill="clear" color="danger" slot="end" @click.stop="deleteWaypoint">
+                  <ion-icon :icon="trashOutline" />
+                </ion-button>
+              </ion-item>
+            </ion-list>
+            <div v-else style="color:var(--ion-color-medium); font-size:14px;">Keine manuellen oder Foto-Wegpunkte vorhanden.</div>
+          </div>
         </div>
-      </template>
+      </div>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
 
-import { ref } from 'vue';
+import { ref, watch, watchEffect, computed, onMounted, onUnmounted } from 'vue';
 
 const displayDuration = ref('');
 watchEffect(() => {
@@ -398,7 +297,6 @@ const addPhotoWaypointImpl = async () => {
     await toast.present();
   }
 };
-import { computed, onMounted, onUnmounted, watchEffect } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   IonPage,
@@ -445,7 +343,7 @@ const isLoading = ref(true);
 let map: L.Map | null = null;
 let routeLine: L.Polyline | null = null;
 const waypointMarkers: Map<number, L.Marker> = new Map();
-
+// ...existing code...
 // Filter only manual and photo waypoints for list
 const manualWaypoints = computed(() =>
   waypoints.value.filter(wp => wp.type === 'manual' || wp.type === 'photo' || wp.type === 'video')
@@ -456,12 +354,18 @@ onMounted(async () => {
   initMap();
 });
 
+// Map-Redraw bei Datenänderung
+watch(waypoints, () => {
+  drawRoute();
+});
+
 onUnmounted(() => {
   if (map) {
     map.remove();
     map = null;
   }
 });
+
 
 const loadData = async () => {
   try {
@@ -571,7 +475,7 @@ const drawRoute = () => {
     if (map) marker.addTo(map);
     if (waypoint.id) waypointMarkers.set(waypoint.id, marker);
   });
-}
+};
 
 const centerOnWaypoint = (waypoint: Waypoint) => {
   if (!map) return;
@@ -861,6 +765,7 @@ const formatTime = (dateString: string): string => {
 }
 
 .waypoint-time {
+  /* nur CSS, kein Script! */
   font-size: 12px;
   color: var(--ion-color-medium);
   margin-top: 4px;
