@@ -268,10 +268,10 @@ class DatabaseService {
     await this.migrateAndSetupTables();
     this.isInitialized = true;
   }
-    async updateWaypoint(id: number, updates: Partial<Waypoint>): Promise<void> {
-      if (!this.isInitialized) await this.initialize();
-      if (this.useInMemory) throw new Error('Waypoints not supported in web mode');
-      if (!this.db) throw new Error('Database not initialized');
+  async updateWaypoint(id: number, updates: Partial<Waypoint>): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) throw new Error('Waypoints not supported in web mode');
+    if (!this.db) throw new Error('Database not initialized');
 
     const fields: string[] = [];
     const values: any[] = [];
@@ -280,14 +280,15 @@ class DatabaseService {
       fields.push(`${key} = ?`);
       values.push(value);
     });
-    // Beispiel: Update-Query (hier nur als Platzhalter, da Waypoints im Web nicht unterstützt)
-    // if (fields.length > 0 && this.db) {
-    //   const sql = `UPDATE waypoints SET ${fields.join(', ')} WHERE id = ?;`;
-    //   await this.db.run(sql, [...values, id]);
-    // }
+
+    if (fields.length === 0) return;
+
+    values.push(id);
+    const sql = `UPDATE waypoints SET ${fields.join(', ')} WHERE id = ?;`;
+    await this.db.run(sql, values);
   }
 
-    // Migration: Prüfe ob color Spalte in galleries existiert
+  // Migration: Prüfe ob color Spalte in galleries existiert
 
   private async migrateAndSetupTables() {
     // Gallerien Tabelle

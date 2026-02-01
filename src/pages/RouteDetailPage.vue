@@ -34,6 +34,7 @@
             @click="activeTab='info'"
           >{{$t('auto.info')}}</button>
           <button
+            v-if="hasWaypointTab"
             :class="['tab-btn', {active: activeTab==='waypoints'}]"
             @click="activeTab='waypoints'"
           >{{$t('auto.wegpunkte')}}</button>
@@ -99,30 +100,59 @@
         </div>
 
         <!-- Wegpunkte-Tab -->
-        <div v-show="activeTab==='waypoints'">
+        <div v-if="hasWaypointTab" v-show="activeTab==='waypoints'">
           <div class="info-card">
             <div class="waypoints-section">
               <h3>{{$t('auto.wegpunkte')}}</h3>
-              <ion-list>
-                <ion-item v-for="wp in manualWaypoints" :key="wp.id" @click="centerOnWaypoint(wp)">
+              <ion-list lines="none">
+                <ion-item
+                  v-for="wp in waypointEntries"
+                  :key="wp.id"
+                  button
+                  detail
+                  @click="centerOnWaypoint(wp)"
+                >
                   <template v-slot:start>
-                    <ion-icon :icon="getWaypointIcon(wp.type)" :color="getWaypointColor(wp.type)" />
+                    <div
+                      v-if="wp.type === 'photo'"
+                      class="waypoint-preview"
+                      @click.stop="previewPhoto(wp)"
+                    >
+                      <img v-if="getWaypointPhotoSrc(wp)" :src="getWaypointPhotoSrc(wp)" alt="" />
+                      <div v-else class="preview-placeholder">
+                        <ion-icon :icon="cameraOutline" />
+                      </div>
+                    </div>
+                    <ion-icon
+                      v-else
+                      :icon="getWaypointIcon(wp.type)"
+                      :color="getWaypointColor(wp.type)"
+                    />
                   </template>
                   <ion-label>
-                    <div style="font-weight:600;">{{ wp.name || $t('auto.wegpunkt') }}</div>
-                    <div v-if="wp.description" style="font-size:13px; color:var(--ion-color-medium);">{{ wp.description }}</div>
-                    <div class="waypoint-time">{{ formatTime(wp.timestamp) }}</div>
+                    <div class="waypoint-title">{{ wp.name || getDefaultWaypointLabel(wp.type) }}</div>
+                    <p v-if="wp.description" class="waypoint-description">{{ wp.description }}</p>
+                    <p class="waypoint-time">{{ formatTime(wp.timestamp) }}</p>
                   </ion-label>
-                  <ion-button fill="clear" color="medium" @click.stop="openEditModal(wp)">
-                    <template v-slot:end>
-                      <ion-icon :icon="createOutline" />
-                    </template>
-                  </ion-button>
-                  <ion-button fill="clear" color="danger" @click.stop="deleteWaypoint">
-                    <template v-slot:end>
-                      <ion-icon :icon="trashOutline" />
-                    </template>
-                  </ion-button>
+                  <ion-buttons slot="end" class="waypoint-action-group">
+                    <ion-button
+                      v-if="wp.type === 'manual'"
+                      fill="clear"
+                      color="medium"
+                      size="small"
+                      @click.stop="editWaypointInfo(wp)"
+                    >
+                      <ion-icon slot="icon-only" :icon="createOutline" />
+                    </ion-button>
+                    <ion-button
+                      fill="clear"
+                      color="danger"
+                      size="small"
+                      @click.stop="confirmDeleteWaypoint(wp)"
+                    >
+                      <ion-icon slot="icon-only" :icon="trashOutline" />
+                    </ion-button>
+                  </ion-buttons>
                 </ion-item>
               </ion-list>
             </div>
@@ -130,6 +160,21 @@
         </div>
       </div>
     </ion-content>
+    <ion-modal :is-open="previewModalOpen" @didDismiss="closePhotoPreview" :backdrop-dismiss="true">
+      <div class="photo-preview-modal">
+        <div class="photo-preview-header">
+          <div>
+            <p class="modal-title">{{ previewWaypoint?.name || $t('auto.foto') }}</p>
+            <p v-if="previewWaypoint?.timestamp" class="modal-subtitle">{{ formatDateTime(previewWaypoint.timestamp) }}</p>
+          </div>
+          <ion-button fill="clear" color="medium" @click="closePhotoPreview">
+            <ion-icon :icon="closeOutline" />
+          </ion-button>
+        </div>
+        <ion-img v-if="previewPhotoData?.filepath" :src="previewPhotoData.filepath" />
+        <p v-else class="photo-preview-placeholder">{{ $t('auto.foto') }}</p>
+      </div>
+    </ion-modal>
   </ion-page>
 </template>
 
@@ -148,6 +193,8 @@ import {
   IonButtons,
   IonButton,
   IonIcon,
+  IonModal,
+  IonImg,
   IonList,
   IonItem,
   IonLabel,
@@ -165,7 +212,8 @@ import {
   cameraOutline,
   locationOutline,
   trashOutline,
-  createOutline
+  createOutline,
+  closeOutline
 } from 'ionicons/icons';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -175,6 +223,7 @@ import { useI18n } from 'vue-i18n';
 
 type RouteData = import('@/services/database').Route;
 type Waypoint = import('@/services/database').Waypoint;
+type Photo = import('@/services/database').Photo;
 
 const vueRoute = useRoute();
 const router = useRouter();
@@ -220,12 +269,28 @@ const {
 } = useRouteTracking();
 
 const activeTab = ref('info');
-const editModalOpen = ref(false);
-const editWaypoint = ref<Waypoint | null>(null);
+const previewModalOpen = ref(false);
+const previewWaypoint = ref<Waypoint | null>(null);
+const previewPhotoData = ref<Photo | null>(null);
+const waypointPhotoCache = ref<Record<number, Photo>>({});
 
-const manualWaypoints = computed(() =>
-  waypoints.value.filter(wp => wp.type === 'manual' || wp.type === 'photo' || wp.type === 'video')
-);
+const waypointEntries = computed(() => {
+  return [...waypoints.value]
+    .filter(wp => wp.type === 'manual' || wp.type === 'photo')
+    .sort((a, b) => {
+      const aTime = new Date(a.timestamp).getTime() || 0;
+      const bTime = new Date(b.timestamp).getTime() || 0;
+      return bTime - aTime;
+    });
+});
+
+const hasWaypointTab = computed(() => waypointEntries.value.length > 0);
+
+watch(hasWaypointTab, (visible) => {
+  if (!visible && activeTab.value === 'waypoints') {
+    activeTab.value = 'info';
+  }
+});
 
 const displayDuration = ref('');
 const liveDistance = computed(() => {
@@ -273,21 +338,154 @@ watchEffect(() => {
 });
 // entfernt, da nicht genutzt
 
-function openEditModal(waypoint: Waypoint) {
-  editWaypoint.value = waypoint;
-  editModalOpen.value = true;
-}
-function closeEditModal() {
-  editModalOpen.value = false;
-  editWaypoint.value = null;
-}
-// entfernt, da nicht genutzt
-async function deleteWaypoint() {
-  if (!editWaypoint.value || typeof editWaypoint.value.id !== 'number') return;
-  await db.deleteWaypoint(editWaypoint.value.id);
-  // entfernt, da ref bereits unten importiert wird
-  closeEditModal();
-}
+const getDefaultWaypointLabel = (type: Waypoint['type']) => {
+  switch (type) {
+    case 'photo':
+      return t('auto.foto');
+    case 'manual':
+      return t('auto.wegpunkt');
+    default:
+      return t('auto.wegpunkt');
+  }
+};
+
+const getWaypointPhotoSrc = (waypoint: Waypoint): string | undefined => {
+  if (!waypoint.photoId) return undefined;
+  const photo = waypointPhotoCache.value[waypoint.photoId];
+  return photo?.thumbnail || photo?.filepath || undefined;
+};
+
+const editWaypointInfo = async (waypoint: Waypoint) => {
+  if (!waypoint.id) return;
+  const alert = await alertController.create({
+    header: `${t('auto.wegpunkt')} ${t('auto.bearbeiten')}`,
+    inputs: [
+      {
+        name: 'name',
+        type: 'text',
+        placeholder: t('auto.name'),
+        value: waypoint.name || ''
+      },
+      {
+        name: 'description',
+        type: 'textarea',
+        placeholder: t('auto.beschreibung'),
+        value: waypoint.description || ''
+      }
+    ],
+    buttons: [
+      {
+        text: t('auto.abbrechen'),
+        role: 'cancel'
+      },
+      {
+        text: t('auto.speichern'),
+        handler: async (data) => {
+          try {
+            await db.updateWaypoint(waypoint.id!, {
+              name: data.name,
+              description: data.description
+            });
+            await loadData();
+            const toast = await toastController.create({
+              message: t('auto.wegpunkt_aktualisiert'),
+              duration: 1500,
+              color: 'success'
+            });
+            await toast.present();
+          } catch (error) {
+            const toast = await toastController.create({
+              message: t('auto.wegpunkt_aktualisierung_fehlgeschlagen'),
+              duration: 2000,
+              color: 'danger'
+            });
+            await toast.present();
+          }
+        }
+      }
+    ]
+  });
+  await alert.present();
+};
+
+const confirmDeleteWaypoint = async (waypoint: Waypoint) => {
+  if (!waypoint.id) return;
+  const alert = await alertController.create({
+    header: `${t('auto.wegpunkt')} ${t('auto.löschen')}`,
+    message: t('auto.möchtest_du_diesen_wegpunkt_wirklich_löschen'),
+    buttons: [
+      {
+        text: t('auto.abbrechen'),
+        role: 'cancel'
+      },
+      {
+        text: t('auto.löschen'),
+        role: 'destructive',
+        handler: async () => {
+          try {
+            await db.deleteWaypoint(waypoint.id!);
+            await loadData();
+            const toast = await toastController.create({
+              message: t('auto.wegpunkt_geloescht'),
+              duration: 1500,
+              color: 'success'
+            });
+            await toast.present();
+          } catch (error) {
+            const toast = await toastController.create({
+              message: t('auto.wegpunkt_konnte_nicht_geloescht_werden'),
+              duration: 2000,
+              color: 'danger'
+            });
+            await toast.present();
+          }
+        }
+      }
+    ]
+  });
+  await alert.present();
+};
+
+const previewPhoto = async (waypoint: Waypoint) => {
+  if (!waypoint.photoId) return;
+  previewWaypoint.value = waypoint;
+  previewModalOpen.value = true;
+  previewPhotoData.value = waypointPhotoCache.value[waypoint.photoId] || null;
+  if (!previewPhotoData.value) {
+    const photo = await db.getPhoto(waypoint.photoId);
+    if (photo) {
+      const cacheKey = photo.id ?? waypoint.photoId!;
+      waypointPhotoCache.value = {
+        ...waypointPhotoCache.value,
+        [cacheKey]: photo
+      };
+      previewPhotoData.value = photo;
+    }
+  }
+};
+
+const closePhotoPreview = () => {
+  previewModalOpen.value = false;
+  previewWaypoint.value = null;
+  previewPhotoData.value = null;
+};
+
+const preloadWaypointPhotos = async (list: Waypoint[]) => {
+  const ids = Array.from(
+    new Set(list.filter(wp => wp.photoId).map(wp => wp.photoId as number))
+  ).filter(id => id && !waypointPhotoCache.value[id]);
+  if (ids.length === 0) return;
+  await Promise.all(ids.map(async (id) => {
+    const photo = await db.getPhoto(id);
+    if (photo) {
+      const cacheKey = photo.id ?? id;
+      waypointPhotoCache.value = {
+        ...waypointPhotoCache.value,
+        [cacheKey]: photo
+      };
+    }
+  }));
+};
 // --- Manuellen Wegpunkt hinzufügen ---
 function addManualWaypoint() {
   return addManualWaypointImpl();
@@ -446,6 +644,7 @@ onMounted(async () => {
 // Map-Redraw bei Datenänderung
 watch(waypoints, () => {
   drawRoute();
+  void preloadWaypointPhotos(waypoints.value);
 });
 
 onUnmounted(() => {
@@ -523,6 +722,8 @@ const loadData = async () => {
     route.isRecording = !!route.isRecording;
     routeData.value = route;
     waypoints.value = await db.getWaypointsByRoute(routeId);
+    waypointPhotoCache.value = {};
+    await preloadWaypointPhotos(waypoints.value);
     await loadWaypoints(routeId);
   } catch (error) {
     console.error('Error loading route:', error);
@@ -961,6 +1162,65 @@ function formatTime(dateString: string): string {
   font-size: 12px;
   color: var(--ion-color-medium);
   margin-top: 4px;
+}
+.waypoint-preview {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--ion-color-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.waypoint-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.preview-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ion-color-medium);
+}
+.waypoint-action-group {
+  display: flex;
+  gap: 4px;
+}
+.photo-preview-modal {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 40vh;
+}
+.photo-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.modal-title {
+  margin: 0;
+  font-weight: 700;
+}
+.modal-subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ion-color-medium);
+}
+.photo-preview-modal ion-img {
+  width: 100%;
+  border-radius: 14px;
+  max-height: 70vh;
+  object-fit: contain;
+}
+.photo-preview-placeholder {
+  text-align: center;
+  color: var(--ion-color-medium);
 }
 </style>
 

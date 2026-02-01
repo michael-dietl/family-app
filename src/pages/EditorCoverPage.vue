@@ -24,83 +24,92 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonButton, IonIcon, IonSpinner, IonBackButton, toastController } from '@ionic/vue';
 import { checkmark } from 'ionicons/icons';
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Capacitor } from '@capacitor/core';
-import ImageEditor from 'tui-image-editor';
+import FilerobotImageEditor from 'filerobot-image-editor';
 import { db } from '@/services/database';
-import 'tui-image-editor/dist/tui-image-editor.css';
-import 'tui-color-picker/dist/tui-color-picker.css';
+import {
+  buildFilerobotConfig,
+  loadFilerobotStyles,
+  unloadFilerobotStyles,
+  getDevicePixelRatio,
+  getFilerobotLanguage,
+  getImagePayload,
+} from '@/utils/filerobotEditor';
 
 const route = useRoute();
 const router = useRouter();
+const { locale } = useI18n();
 const editorContainer = ref<HTMLElement | null>(null);
 const isSaving = ref(false);
 
 const imageSrc = route.query.imageSrc as string;
 const bookId = route.query.bookId as string;
-const coverPath = route.query.coverPath as string;
 
-let editorInstance: ImageEditor | null = null;
+let editorInstance: InstanceType<typeof FilerobotImageEditor> | null = null;
+let stylesLoaded = false;
+let styleLoadPromise: Promise<void> | null = null;
+
+const scheduleStyleUnload = () => {
+  if (styleLoadPromise) {
+    const promise = styleLoadPromise;
+    styleLoadPromise = null;
+    promise.finally(() => {
+      unloadFilerobotStyles();
+      stylesLoaded = false;
+    });
+    return;
+  }
+
+  if (stylesLoaded) {
+    unloadFilerobotStyles();
+    stylesLoaded = false;
+  }
+};
+
+const cleanupEditor = () => {
+  if (editorInstance) {
+    try {
+      editorInstance.terminate();
+    } catch (error) {
+      console.warn('Unable to destroy Filerobot editor', error);
+    }
+    editorInstance = null;
+  }
+  scheduleStyleUnload();
+};
+
+const initEditor = async () => {
+  if (!editorContainer.value || !imageSrc) return;
+  cleanupEditor();
+
+  const language = getFilerobotLanguage(locale.value);
+  styleLoadPromise = loadFilerobotStyles();
+  try {
+    await styleLoadPromise;
+    stylesLoaded = true;
+  } finally {
+    styleLoadPromise = null;
+  }
+  editorInstance = new FilerobotImageEditor(
+    editorContainer.value,
+    buildFilerobotConfig(imageSrc, language, {
+      backgroundColor: '#1e1e1e',
+    })
+  );
+  editorInstance.render();
+};
 
 onMounted(async () => {
   if (!editorContainer.value) return;
-
-  // Warte bis DOM vollständig gerendert ist
   await nextTick();
-  
-  // Verwende getBoundingClientRect für präzise Dimensionen
-  const rect = editorContainer.value.getBoundingClientRect();
-  const containerWidth = rect.width;
-  const containerHeight = rect.height;
-  
-  console.log('📐 Editor Container Dimensions:', {
-    width: containerWidth,
-    height: containerHeight,
-    rect,
-    clientWidth: editorContainer.value.clientWidth,
-    clientHeight: editorContainer.value.clientHeight,
-    offsetWidth: editorContainer.value.offsetWidth,
-    offsetHeight: editorContainer.value.offsetHeight,
-    windowHeight: window.innerHeight
-  });
-
-  editorInstance = new ImageEditor(editorContainer.value, {
-    includeUI: {
-      loadImage: {
-        path: imageSrc,
-        name: 'Cover'
-      },
-      theme: {
-        'common.bi.image': '',
-        'common.bisize.width': '0px',
-        'common.bisize.height': '0px',
-        'common.backgroundImage': 'none',
-        'common.backgroundColor': '#1e1e1e',
-        'common.border': '0px'
-      },
-      menu: ['crop', 'rotate', 'shape'],
-      initMenu: 'crop',
-      uiSize: {
-        width: `${containerWidth}px`,
-        height: `${containerHeight}px`
-      },
-      menuBarPosition: 'bottom'
-    },
-    cssMaxWidth: containerWidth,
-    cssMaxHeight: containerHeight,
-    selectionStyle: {
-      cornerSize: 20,
-      rotatingPointOffset: 70
-    }
-  });
+  setTimeout(() => initEditor(), 60);
 });
 
 onBeforeUnmount(() => {
-  if (editorInstance) {
-    editorInstance.destroy();
-  }
+  cleanupEditor();
 });
 
 const saveImage = async () => {
@@ -109,37 +118,37 @@ const saveImage = async () => {
   isSaving.value = true;
 
   try {
-    const dataURL = editorInstance.toDataURL();
-    const base64Data = dataURL.split(',')[1];
+    const { imageData } = editorInstance.getCurrentImgData(
+      { name: 'Cover', extension: 'jpg' },
+      getDevicePixelRatio()
+    );
+    const payload = getImagePayload(imageData);
+    const base64Data = payload.base64;
 
-    // Speichere bearbeitetes Bild
     const fileName = `book_cover_${bookId}_${Date.now()}.jpg`;
     const result = await Filesystem.writeFile({
       path: `books/${fileName}`,
       data: base64Data,
       directory: Directory.Data,
-      recursive: true
+      recursive: true,
     });
 
-    // Update Buch mit neuem Cover
     await db.updateBook(parseInt(bookId), { coverImage: result.uri });
 
     const toast = await toastController.create({
       message: 'Cover gespeichert',
       duration: 2000,
-      color: 'success'
+      color: 'success',
     });
     await toast.present();
 
-    // Zurück zur Detailseite
     router.push(`/library/book/${bookId}`);
-
   } catch (error) {
     console.error('Error saving cover:', error);
     const toast = await toastController.create({
       message: 'Fehler beim Speichern',
       duration: 2000,
-      color: 'danger'
+      color: 'danger',
     });
     await toast.present();
   } finally {
@@ -150,30 +159,39 @@ const saveImage = async () => {
 
 <style scoped>
 .image-editor-container {
+  width: min(960px, 100%);
+  max-width: 100%;
+  height: min(calc(100vh - 140px - env(safe-area-inset-bottom, 16px)), 780px);
+  margin: 0 auto;
+  padding-bottom: env(safe-area-inset-bottom, 24px);
+  background: #1e1e1e;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+ion-content {
+  --background: #1e1e1e;
+  --padding-bottom: 16px;
+}
+
+:global(.FIE_main-container),
+:global(.FIE_editor-content) {
   width: 100%;
   height: 100%;
-  position: relative;
-  overflow: hidden;
 }
 
-:deep(.tui-image-editor-container) {
-  width: 100% !important;
-  height: 100% !important;
-  max-height: 100% !important;
-  overflow: hidden !important;
+:global(.FIE_editor-content) {
+  flex: 1;
+  background: transparent;
 }
 
-:deep(.tui-image-editor-canvas-container) {
-  background-color: #1e1e1e;
+:global(.FIE_topbar-buttons-wrapper) {
+  display: none;
 }
 
-:deep(.tui-image-editor-main-container) {
-  height: 100% !important;
-  max-height: 100% !important;
-}
-
-/* Verhindere Überlagerung der unteren Navigation */
-:deep(.tui-image-editor-menu) {
-  max-height: calc(100vh - var(--ion-safe-area-bottom, 0px) - 56px) !important;
+:global(.FIE_topbar-history-buttons) {
+  gap: 8px;
 }
 </style>

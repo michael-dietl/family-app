@@ -147,6 +147,11 @@ export default {
     manueller_wegpunkt_fehlgeschlagen: 'Impossibile aggiungere il waypoint manuale',
     foto_wegpunkt_hinzugefuegt: 'Waypoint fotografico aggiunto',
     foto_wegpunkt_fehlgeschlagen: 'Impossibile aggiungere il waypoint fotografico',
+    wegpunkt_aktualisiert: 'Punto di passaggio aggiornato',
+    wegpunkt_aktualisierung_fehlgeschlagen: 'Impossibile aggiornare il punto di passaggio',
+    wegpunkt_gelöscht: 'Punto di passaggio eliminato',
+    wegpunkt_konnte_nicht_geloescht_werden: 'Impossibile eliminare il punto di passaggio',
+    möchtest_du_diesen_wegpunkt_wirklich_löschen: 'Vuoi davvero eliminare questo punto di percorso?',
     aufzeichnung_pausiert: 'Registrazione in pausa',
     aufzeichnung_fortgesetzt: 'Registrazione ripresa'
   },

@@ -175,6 +175,11 @@ export default {
     "manueller_wegpunkt_fehlgeschlagen": "Échec de l’ajout du point de passage manuel",
     "foto_wegpunkt_hinzugefuegt": "Point de passage photo ajouté",
     "foto_wegpunkt_fehlgeschlagen": "Échec de l’ajout du point de passage photo",
+    "wegpunkt_aktualisiert": "Point de passage mis à jour",
+    "wegpunkt_aktualisierung_fehlgeschlagen": "Impossible de mettre à jour le point de passage",
+    "wegpunkt_gelöscht": "Point de passage supprimé",
+    "wegpunkt_konnte_nicht_geloescht_werden": "Impossible de supprimer le point de passage",
+    "möchtest_du_diesen_wegpunkt_wirklich_löschen": "Veux-tu vraiment supprimer ce point de passage ?",
     "aufzeichnung_pausiert": "Enregistrement en pause",
     "aufzeichnung_fortgesetzt": "Enregistrement repris",
 
