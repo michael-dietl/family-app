@@ -185,6 +185,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { db, type Book, type BookCategory } from '@/services/database';
+import { downloadRemoteCoverImage, isRemoteImageUrl } from '@/services/imageStorage';
 
 const route = useRoute();
 const router = useRouter();
@@ -210,6 +211,16 @@ const loadCategories = async () => {
   }
 };
 
+const ensureLocalCoverDownloaded = async (loadedBook: Book) => {
+  if (!loadedBook.coverImage || !loadedBook.id || !isRemoteImageUrl(loadedBook.coverImage)) return;
+
+  const localUri = await downloadRemoteCoverImage(loadedBook.coverImage, loadedBook.id);
+  if (localUri) {
+    await db.updateBook(loadedBook.id, { coverImage: localUri });
+    loadedBook.coverImage = localUri;
+  }
+};
+
 const loadBook = async () => {
   isLoading.value = true;
   try {
@@ -217,6 +228,7 @@ const loadBook = async () => {
     book.value = await db.getBook(bookId);
     // Debug log
     if (book.value) {
+        await ensureLocalCoverDownloaded(book.value);
       console.log('📖 Book loaded:', {
         title: book.value.title,
         subtitle: book.value.subtitle,

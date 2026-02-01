@@ -159,6 +159,7 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { db, type Book, type BookCategory } from '@/services/database';
 import { lookupBookByISBN, formatAuthors, formatCategories, setGoogleBooksApiKey, getGoogleBooksApiKey } from '@/services/books';
+import { downloadRemoteCoverImage, isRemoteImageUrl } from '@/services/imageStorage';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 
 const router = useRouter();
@@ -654,6 +655,13 @@ const lookupAndSaveBook = async (isbn: string) => {
     console.log('📚 Speichere Buch mit categoryId:', selectedCategoryId.value, 'bookData:', bookData);
 
     const bookId = await db.createBook(bookData);
+
+    if (bookData.coverImage && isRemoteImageUrl(bookData.coverImage)) {
+      const localCover = await downloadRemoteCoverImage(bookData.coverImage, bookId);
+      if (localCover) {
+        await db.updateBook(bookId, { coverImage: localCover });
+      }
+    }
 
     const toast = await toastController.create({
       message: `"${bookInfo.title}" hinzugefügt`,

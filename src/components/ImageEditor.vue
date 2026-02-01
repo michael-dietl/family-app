@@ -195,6 +195,24 @@ onBeforeUnmount(() => {
   overflow: hidden;
   position: relative;
 }
+
+:global(.tui-image-editor-main) {
+  min-height: calc(100vh - 56px - env(safe-area-inset-bottom, 16px));
+}
+
+:global(.tui-image-editor-menu) {
+  padding: 0.5rem;
+  gap: 0.35rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+:global(.tui-image-editor-menu button) {
+  min-height: 48px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.9rem;
+  border-radius: 0.85rem;
+}
 </style>
 
 <style>

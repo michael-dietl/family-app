@@ -296,7 +296,7 @@ export default {
     "route_löschen": "Route löschen",
     "möchtest_du_diese_route_wirklich_löschen_diese_aktion_kann_n": "Möchtest du diese Route wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
     "route_gelöscht": "Route gelöscht",
-    "route": "Wegg",
+    "route": "Weg",
     "zurueck": "Zurück",
     "start": "Start:",
     "ende": "Ende:",
