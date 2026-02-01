@@ -4,7 +4,7 @@
       <ion-toolbar>
         <template #start>
           <ion-buttons>
-            <ion-button @click="router.back()">
+            <ion-button @click="router.back()" aria-label="Zurück">
               <ion-icon :icon="arrowBackOutline" />
             </ion-button>
           </ion-buttons>
@@ -28,28 +28,14 @@
         <div id="detail-map" class="map-container" style="height: 50vh; min-height: 250px;"></div>
 
         <!-- Tabs immer sichtbar -->
-        <div style="display:flex; border-bottom:1px solid #eee; margin-bottom:8px;">
+        <div class="tabs-bar">
           <button
             :class="['tab-btn', {active: activeTab==='info'}]"
             @click="activeTab='info'"
-            style="flex:1; padding:8px 0; background:none; border:none; font-weight:600; color:var(--ion-text-color); border-bottom:2px solid transparent;"
-            :style="activeTab==='info' ? 'border-bottom:2px solid #3880ff; color:#3880ff;' : ''"
           >Info</button>
           <button
             :class="['tab-btn', {active: activeTab==='waypoints'}]"
-            @click="waypoints.length > 0 ? activeTab='waypoints' : null"
-            :disabled="waypoints.length === 0"
-            :style="{
-              flex: 1,
-              padding: '8px 0',
-              background: 'none',
-              border: 'none',
-              fontWeight: 600,
-              color: activeTab==='waypoints' ? '#3880ff' : 'var(--ion-text-color)',
-              borderBottom: activeTab==='waypoints' ? '2px solid #3880ff' : '2px solid transparent',
-              opacity: waypoints.length === 0 ? 0.5 : 1,
-              cursor: waypoints.length === 0 ? 'not-allowed' : 'pointer'
-            }"
+            @click="activeTab='waypoints'"
           >Wegpunkte</button>
         </div>
 
@@ -71,7 +57,7 @@
               <div class="stat">
                 <ion-icon :icon="navigateOutline" />
                 <div>
-                  <div class="stat-value">{{ routeData?.distance ? formatDistance(routeData.distance) : '-' }}</div>
+                  <div class="stat-value">{{ liveDistance != null ? formatDistance(liveDistance) : '-' }}</div>
                   <div class="stat-label">Distanz</div>
                 </div>
               </div>
@@ -100,7 +86,7 @@
                 <template v-slot:start>
                   <ion-icon :icon="flagOutline" />
                 </template>
-                Wegpunkt
+                PIN
               </ion-button>
               <ion-button v-if="routeData && !routeData.endTime" color="tertiary" class="route-control-btn" @click="addPhotoWaypoint">
                 <template v-slot:start>
@@ -150,12 +136,88 @@
 <script setup lang="ts">
 
 import { ref, watch, watchEffect, computed, onMounted, onUnmounted } from 'vue';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Geolocation } from '@capacitor/geolocation';
+import { useRoute, useRouter } from 'vue-router';
+import {
+  IonPage,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonContent,
+  IonButtons,
+  IonButton,
+  IonIcon,
+  IonList,
+  IonItem,
+  IonLabel,
+  IonSpinner,
+  actionSheetController,
+  alertController,
+  toastController
+} from '@ionic/vue';
+import {
+  arrowBackOutline,
+  ellipsisVerticalOutline,
+  navigateOutline,
+  timeOutline,
+  flagOutline,
+  cameraOutline,
+  locationOutline,
+  trashOutline,
+  createOutline
+} from 'ionicons/icons';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { db } from '@/services/database';
+import { useRouteTracking } from '@/composables/useRouteTracking';
+
+type RouteData = import('@/services/database').Route;
+type Waypoint = import('@/services/database').Waypoint;
+
+const vueRoute = useRoute();
+const router = useRouter();
+const routeId = Number(vueRoute.params.id);
+
+const routeData = ref<RouteData | null>(null);
+const isLoading = ref(true);
+const waypoints = ref<Waypoint[]>([]);
+
+const {
+  isTracking,
+  distance: trackingDistance,
+  duration: trackingDuration,
+  waypoints: trackingWaypoints,
+  startTracking,
+  pauseTracking,
+  resumeTracking,
+  stopTracking,
+  loadWaypoints
+} = useRouteTracking();
+
 const activeTab = ref('info');
+const editModalOpen = ref(false);
+const editWaypoint = ref<Waypoint | null>(null);
+
+const manualWaypoints = computed(() =>
+  waypoints.value.filter(wp => wp.type === 'manual' || wp.type === 'photo' || wp.type === 'video')
+);
 
 const displayDuration = ref('');
+const liveDistance = computed(() => {
+  if (routeData.value?.isRecording) {
+    return trackingDistance.value;
+  }
+  return routeData.value?.distance ?? null;
+});
+
 watchEffect(() => {
   if (!routeData.value) {
     displayDuration.value = '';
+    return;
+  }
+  if (routeData.value.isRecording) {
+    displayDuration.value = formatDuration(trackingDuration.value || 0);
     return;
   }
   // 1. Wenn Route beendet (endTime): Differenz startTime - endTime
@@ -186,9 +248,6 @@ watchEffect(() => {
   displayDuration.value = formatDuration(0);
 });
 // entfernt, da nicht genutzt
-
-const editModalOpen = ref(false);
-const editWaypoint = ref<Waypoint|null>(null);
 
 function openEditModal(waypoint: Waypoint) {
   editWaypoint.value = waypoint;
@@ -243,6 +302,7 @@ import { Geolocation } from '@capacitor/geolocation';
 
 // --- Aufzeichnung pausieren ---
 const pauseRecording = async () => {
+  pauseTracking();
   await db.updateRoute(routeId, { isRecording: false });
   await loadData();
   const toast = await toastController.create({
@@ -255,6 +315,7 @@ const pauseRecording = async () => {
 
 // --- Aufzeichnungssteuerung ---
 const resumeRecording = async () => {
+  resumeTracking();
   await db.updateRoute(routeId, { isRecording: true });
   await loadData();
   const toast = await toastController.create({
@@ -269,18 +330,27 @@ function stopRecording() {
   return stopRecordingImpl();
 }
 const stopRecordingImpl = async () => {
-  // Hole aktuelle Route für startTime
   const route = await db.getRoute(routeId);
   const endTime = new Date().toISOString();
-  let duration = undefined;
-  if (route && route.startTime) {
+  const trackedDistance = trackingDistance.value;
+  const trackedDuration = trackingDuration.value;
+  await stopTracking();
+
+  let finalDuration = trackedDuration;
+  if (finalDuration == null && route && route.startTime) {
     const start = new Date(route.startTime).getTime();
     const end = new Date(endTime).getTime();
     if (!isNaN(start) && !isNaN(end) && end > start) {
-      duration = Math.floor((end - start) / 1000);
+      finalDuration = Math.floor((end - start) / 1000);
     }
   }
-  await db.updateRoute(routeId, { isRecording: false, endTime, duration });
+
+  await db.updateRoute(routeId, {
+    isRecording: false,
+    endTime,
+    duration: finalDuration,
+    distance: trackedDistance
+  });
   await loadData();
   const toast = await toastController.create({
     message: 'Aufzeichnung beendet',
@@ -340,61 +410,20 @@ const addPhotoWaypointImpl = async () => {
     await toast.present();
   }
 };
-import { useRoute, useRouter } from 'vue-router';
-import {
-  IonPage,
-  IonHeader,
-  IonToolbar,
-  IonTitle,
-  IonContent,
-  IonButtons,
-  IonButton,
-  IonIcon,
-  IonList,
-  IonItem,
-  IonLabel,
-  IonSpinner,
-  actionSheetController,
-  alertController,
-  toastController
-} from '@ionic/vue';
-import {
-  arrowBackOutline,
-  ellipsisVerticalOutline,
-  navigateOutline,
-  timeOutline,
-  flagOutline,
-  cameraOutline,
-  locationOutline,
-  trashOutline,
-  createOutline,
-  // playOutline entfernt, da nicht genutzt
-} from 'ionicons/icons';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { db } from '@/services/database';
-type RouteData = import('@/services/database').Route;
-type Waypoint = import('@/services/database').Waypoint;
+      color: 'danger'
+    });
+    await toast.present();
+  }
+};
 
-const vueRoute = useRoute();
-const router = useRouter();
-const routeId = Number(vueRoute.params.id);
-const routeData = ref<RouteData | null>(null);
-const waypoints = ref<Waypoint[]>([]);
-const isLoading = ref(true);
-
-let map: L.Map | null = null;
-let routeLine: L.Polyline | null = null;
-const waypointMarkers: Map<number, L.Marker> = new Map();
-// ...existing code...
-// Filter only manual and photo waypoints for list
-const manualWaypoints = computed(() =>
-  waypoints.value.filter(wp => wp.type === 'manual' || wp.type === 'photo' || wp.type === 'video')
-);
+watch(trackingWaypoints, (newWaypoints) => {
+  waypoints.value = [...newWaypoints];
+}, { deep: true });
 
 onMounted(async () => {
   await loadData();
   initMap();
+  startPositionWatch();
 });
 
 // Map-Redraw bei Datenänderung
@@ -406,6 +435,55 @@ onUnmounted(() => {
   if (map) {
     map.remove();
     map = null;
+  }
+  stopPositionWatch();
+});
+function startPositionWatch() {
+  stopPositionWatch();
+  if (!routeData.value?.isRecording) return;
+  updateCurrentPosition();
+  positionWatchInterval = window.setInterval(updateCurrentPosition, 5000);
+}
+
+function stopPositionWatch() {
+  if (positionWatchInterval) {
+    clearInterval(positionWatchInterval);
+    positionWatchInterval = null;
+  }
+  if (currentPositionMarker && map) {
+    map.removeLayer(currentPositionMarker);
+    currentPositionMarker = null;
+  }
+}
+
+async function updateCurrentPosition() {
+  if (!map || !routeData.value?.isRecording) return;
+  try {
+    const pos = await Geolocation.getCurrentPosition();
+    const latlng = [pos.coords.latitude, pos.coords.longitude] as [number, number];
+    if (!currentPositionMarker) {
+      currentPositionMarker = L.marker(latlng, {
+        icon: L.divIcon({
+          className: 'current-position-marker',
+          html: '<div style="width:18px;height:18px;background:#3880ff;border-radius:50%;border:3px solid #fff;box-shadow:0 0 8px #3880ff88;"></div>',
+          iconSize: [18, 18],
+          iconAnchor: [9, 9]
+        })
+      }).addTo(map);
+    } else {
+      currentPositionMarker.setLatLng(latlng);
+    }
+  } catch (e) {
+    // Keine Positionsdaten verfügbar
+  }
+}
+// Reagiere auf Wechsel des Aufzeichnungsstatus
+watch(() => routeData.value?.isRecording, (isRec) => {
+  if (isRec) {
+    startPositionWatch();
+    startLiveTracking();
+  } else {
+    stopPositionWatch();
   }
 });
 
@@ -428,6 +506,7 @@ const loadData = async () => {
     route.isRecording = !!route.isRecording;
     routeData.value = route;
     waypoints.value = await db.getWaypointsByRoute(routeId);
+    await loadWaypoints(routeId);
   } catch (error) {
     console.error('Error loading route:', error);
   } finally {
@@ -461,7 +540,7 @@ const initMap = () => {
   }, 100);
 };
 
-const drawRoute = () => {
+function drawRoute() {
   if (!map) return;
 
   // Entferne alte Polyline
@@ -668,14 +747,14 @@ const getWaypointColor = (type: string) => {
   }
 };
 
-const formatDistance = (meters: number): string => {
+function formatDistance(meters: number): string {
   if (meters < 1000) {
     return `${Math.round(meters)} m`;
   }
   return `${(meters / 1000).toFixed(2)} km`;
 };
 
-const formatDuration = (seconds: number): string => {
+function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   
@@ -685,7 +764,7 @@ const formatDuration = (seconds: number): string => {
   return `${minutes} min`;
 };
 
-const formatDateTime = (dateString: string): string => {
+function formatDateTime(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleString('de-DE', {
     day: '2-digit',
@@ -696,7 +775,7 @@ const formatDateTime = (dateString: string): string => {
   });
 };
 
-const formatTime = (dateString: string): string => {
+function formatTime(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleTimeString('de-DE', {
     hour: '2-digit',
@@ -706,6 +785,9 @@ const formatTime = (dateString: string): string => {
 </script>
 
 <style scoped>
+.current-position-marker {
+  z-index: 9999;
+}
 .loading-container {
   display: flex;
   align-items: center;
@@ -713,9 +795,30 @@ const formatTime = (dateString: string): string => {
   height: 100%;
 }
 
+.tabs-bar {
+  display: flex;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 8px;
+  gap: 2px;
+}
+.tab-btn {
+  flex: 1;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  font-weight: 600;
+  color: var(--ion-text-color);
+  border-bottom: 2px solid transparent;
+  font-size: 16px;
+  transition: color 0.2s, border-bottom 0.2s;
+}
+.tab-btn.active {
+  border-bottom: 2px solid #3880ff;
+  color: #3880ff;
+}
 .route-controls {
   display: flex;
-  gap: 8px;
+  gap: 2px;
   margin-bottom: 16px;
   margin-left: 0;
 }
@@ -737,7 +840,7 @@ const formatTime = (dateString: string): string => {
   left: 0;
   right: 0;
   bottom: 50%;
-  z-index: 1;
+  z-index: 20;
 }
 
 .info-card {

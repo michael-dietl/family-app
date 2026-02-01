@@ -176,32 +176,11 @@
           </ion-list>
         </div>
 
-        <!-- Save Button -->
-        <div class="settings-section">
-          <h2>{{ $t('auto.sprache') }}</h2>
-          <ion-list>
-            <ion-item>
-              <ion-label position="stacked">
-                <strong>{{ t('settings.chooseLanguage') }}</strong>
-              </ion-label>
-              <ion-select v-model="selectedLocale" interface="popover" @ionChange="changeLocale">
-                <ion-select-option value="de">{{ t('languageNames.de') }}</ion-select-option>
-                <ion-select-option value="en">{{ t('languageNames.en') }}</ion-select-option>
-                <ion-select-option value="it">{{ t('languageNames.it') }}</ion-select-option>
-                <ion-select-option value="fr">{{ t('languageNames.fr') }}</ion-select-option>
-                <ion-select-option value="bar">{{ t('languageNames.bar') }}</ion-select-option>
-              </ion-select>
-            </ion-item>
-          </ion-list>
-        </div>
-
         <ion-button expand="block" @click="saveSettings" :disabled="isSaving" class="save-button">
           <ion-spinner v-if="isSaving" slot="start" />
           <ion-icon v-else :icon="save" slot="start" />
           {{ t('settings.save') }}
         </ion-button>
-
-        <ion-button @click="testGPSExtraction">{{ $t('auto.test_gps_extraction') }}</ion-button>
       </div>
     </ion-content>
   </ion-page>

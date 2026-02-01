@@ -12,6 +12,7 @@ import router from './router';
 import { onUnmounted } from 'vue';
 import { alertController, toastController } from '@ionic/vue';
 import { App as CapacitorApp } from '@capacitor/app';
+import { NavigationBar } from '@capgo/capacitor-navigation-bar';
 
 // Datenbank beim App-Start initialisieren
 onMounted(async () => {
@@ -88,6 +89,13 @@ onMounted(async () => {
       }
     });
   };
+
+
+  // Beispiel: Heller App-Farbton -> dunkle Buttons
+  await NavigationBar.setNavigationBarColor({
+    color: '#FFFFFF',
+    darkButtons: true,   // dunkle Icons (schwarz)
+  });
 
   document.addEventListener('ionBackButton', handler as EventListener);
   onUnmounted(() => document.removeEventListener('ionBackButton', handler as EventListener));

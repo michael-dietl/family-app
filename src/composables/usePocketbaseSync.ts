@@ -176,6 +176,7 @@ export function usePocketbaseSync() {
           const data = {
             isbn: book.isbn,
             title: book.title,
+            subtitle: book.subtitle || '',
             authors: book.authors || '',
             publisher: book.publisher || '',
             publishedDate: book.publishedDate || '',
@@ -212,6 +213,7 @@ export function usePocketbaseSync() {
             await db.createBook({
               isbn: remote.isbn,
               title: remote.title,
+              subtitle: remote.subtitle,
               authors: remote.authors,
               publisher: remote.publisher,
               publishedDate: remote.publishedDate,

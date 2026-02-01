@@ -71,13 +71,12 @@ const initializeLocale = async () => {
 
 router.isReady().then(async () => {
   await initializeLocale();
-  // Set app status bar color to match the light orange theme (Android/iOS where supported)
+  // Set app status bar color to a lighter orange (Android/iOS where supported)
   try {
-    await StatusBar.setBackgroundColor({ color: '#FF7A18' });
+    await StatusBar.setBackgroundColor({ color: '#ffe6b3' }); // sehr helles Orange
     await StatusBar.setStyle({ style: Style.Dark });
   } catch (e) {
     // ignore if not supported in current environment
-    // console.debug('StatusBar not available', e);
   }
   app.mount('#app');
 });

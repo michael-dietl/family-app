@@ -34,7 +34,7 @@
 
       <!-- Category Filter -->
       <div v-if="categories.length > 0" class="category-filter ion-padding-horizontal">
-        <ion-segment :value="selectedCategoryId?.toString() || 'all'" @ionChange="handleCategoryChange">
+        <ion-segment :scrollable="true" :value="selectedCategoryId?.toString() || 'all'" @ionChange="handleCategoryChange">
           <ion-segment-button value="all">
             <ion-label>{{ $t('auto.alle') }}</ion-label>
           </ion-segment-button>
@@ -637,6 +637,7 @@ const lookupAndSaveBook = async (isbn: string) => {
     const bookData: Omit<Book, 'id' | 'created'> = {
       isbn: bookInfo.isbn,
       title: bookInfo.title,
+      subtitle: bookInfo.subtitle,
       authors: formatAuthors(bookInfo.authors),
       publisher: bookInfo.publisher,
       publishedDate: bookInfo.publishedDate,
