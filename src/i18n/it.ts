@@ -134,7 +134,21 @@ export default {
     weintyp: 'Tipo di vino',
     weißwein: 'Vino bianco',
     z_b_https_deine_domain_com_oder_http_localhost_8090: 'Es. https://tuo-dominio.com o http://localhost:8090',
-    zusammenfassung: 'Riepilogo'
+    zusammenfassung: 'Riepilogo',
+    route: 'Percorso',
+    zurueck: 'Indietro',
+    start: 'Inizio:',
+    ende: 'Fine:',
+    status: 'Stato:',
+    beendet_status: 'Terminato',
+    pin: 'Pin',
+    wegpunkt: 'Punto di percorso',
+    manueller_wegpunkt_hinzugefuegt: 'Waypoint manuale aggiunto',
+    manueller_wegpunkt_fehlgeschlagen: 'Impossibile aggiungere il waypoint manuale',
+    foto_wegpunkt_hinzugefuegt: 'Waypoint fotografico aggiunto',
+    foto_wegpunkt_fehlgeschlagen: 'Impossibile aggiungere il waypoint fotografico',
+    aufzeichnung_pausiert: 'Registrazione in pausa',
+    aufzeichnung_fortgesetzt: 'Registrazione ripresa'
   },
   languageNames: {
     bar: 'Bavarese',

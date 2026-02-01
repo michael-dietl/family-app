@@ -4,12 +4,12 @@
       <ion-toolbar>
         <template #start>
           <ion-buttons>
-            <ion-button @click="router.back()" aria-label="Zurück">
+            <ion-button @click="router.back()" :aria-label="$t('auto.zurueck')">
               <ion-icon :icon="arrowBackOutline" />
             </ion-button>
           </ion-buttons>
         </template>
-        <ion-title>{{ routeData?.name || 'Route' }}</ion-title>
+        <ion-title>{{ routeData?.name || $t('auto.route') }}</ion-title>
         <template #end>
           <ion-buttons>
             <ion-button @click="showOptionsMenu">
@@ -32,11 +32,11 @@
           <button
             :class="['tab-btn', {active: activeTab==='info'}]"
             @click="activeTab='info'"
-          >Info</button>
+          >{{$t('auto.info')}}</button>
           <button
             :class="['tab-btn', {active: activeTab==='waypoints'}]"
             @click="activeTab='waypoints'"
-          >Wegpunkte</button>
+          >{{$t('auto.wegpunkte')}}</button>
         </div>
 
         <!-- Info-Tab -->
@@ -51,48 +51,48 @@
                 <ion-icon :icon="timeOutline" />
                 <div>
                   <div class="stat-value">{{ displayDuration }}</div>
-                  <div class="stat-label">Dauer</div>
+                  <div class="stat-label">{{$t('auto.dauer')}}</div>
                 </div>
               </div>
               <div class="stat">
                 <ion-icon :icon="navigateOutline" />
                 <div>
                   <div class="stat-value">{{ liveDistance != null ? formatDistance(liveDistance) : '-' }}</div>
-                  <div class="stat-label">Distanz</div>
+                  <div class="stat-label">{{$t('auto.distanz')}}</div>
                 </div>
               </div>
               <div class="stat">
                 <ion-icon :icon="flagOutline" />
                 <div>
                   <div class="stat-value">{{ waypoints.length }}</div>
-                  <div class="stat-label">Wegpunkte</div>
+                  <div class="stat-label">{{$t('auto.wegpunkte')}}</div>
                 </div>
               </div>
             </div>
 
             <!-- Meta-Infos -->
             <div class="info-meta">
-              <p><strong>Start:</strong> {{ routeData?.startTime ? formatDateTime(routeData.startTime) : '-' }}</p>
-              <p v-if="routeData?.endTime"><strong>Ende:</strong> {{ formatDateTime(routeData.endTime) }}</p>
-              <p><strong>Status:</strong> <span :style="{color: routeData?.isRecording ? '#3880ff' : '#eb445a'}">{{ routeData?.isRecording ? 'Aufzeichnung läuft' : 'Beendet' }}</span></p>
+              <p><strong>{{$t('auto.start')}}</strong> {{ routeData?.startTime ? formatDateTime(routeData.startTime) : '-' }}</p>
+              <p v-if="routeData?.endTime"><strong>{{$t('auto.ende')}}</strong> {{ formatDateTime(routeData.endTime) }}</p>
+              <p><strong>{{$t('auto.status')}}</strong> <span :style="{color: routeData?.isRecording ? '#3880ff' : '#eb445a'}">{{ routeData?.isRecording ? $t('auto.aufzeichnung_läuft') : $t('auto.beendet_status') }}</span></p>
             </div>
 
             <!-- Aufzeichnungs-Controls -->
             <div class="route-controls">
-              <ion-button v-if="routeData?.isRecording" color="warning" class="route-control-btn" @click="pauseRecording">Pause</ion-button>
-              <ion-button v-if="!routeData?.isRecording && !routeData?.endTime" color="success" class="route-control-btn" @click="resumeRecording">Fortsetzen</ion-button>
-              <ion-button v-if="routeData?.isRecording" color="danger" class="route-control-btn" @click="stopRecording">Stop</ion-button>
+              <ion-button v-if="routeData?.isRecording" color="warning" class="route-control-btn" @click="pauseRecording">{{$t('auto.pausieren')}}</ion-button>
+              <ion-button v-if="!routeData?.isRecording && !routeData?.endTime" color="success" class="route-control-btn" @click="resumeRecording">{{$t('auto.fortsetzen')}}</ion-button>
+              <ion-button v-if="routeData?.isRecording" color="danger" class="route-control-btn" @click="stopRecording">{{$t('auto.aufzeichnung_beenden')}}</ion-button>
               <ion-button v-if="routeData && !routeData.endTime" color="primary" class="route-control-btn" @click="addManualWaypoint">
                 <template v-slot:start>
                   <ion-icon :icon="flagOutline" />
                 </template>
-                PIN
+                {{$t('auto.pin')}}
               </ion-button>
               <ion-button v-if="routeData && !routeData.endTime" color="tertiary" class="route-control-btn" @click="addPhotoWaypoint">
                 <template v-slot:start>
                   <ion-icon :icon="cameraOutline" />
                 </template>
-                Foto
+                {{$t('auto.foto')}}
               </ion-button>
             </div>
           </div>
@@ -102,14 +102,14 @@
         <div v-show="activeTab==='waypoints'">
           <div class="info-card">
             <div class="waypoints-section">
-              <h3>Wegpunkte</h3>
+              <h3>{{$t('auto.wegpunkte')}}</h3>
               <ion-list>
                 <ion-item v-for="wp in manualWaypoints" :key="wp.id" @click="centerOnWaypoint(wp)">
                   <template v-slot:start>
                     <ion-icon :icon="getWaypointIcon(wp.type)" :color="getWaypointColor(wp.type)" />
                   </template>
                   <ion-label>
-                    <div style="font-weight:600;">{{ wp.name || 'Wegpunkt' }}</div>
+                    <div style="font-weight:600;">{{ wp.name || $t('auto.wegpunkt') }}</div>
                     <div v-if="wp.description" style="font-size:13px; color:var(--ion-color-medium);">{{ wp.description }}</div>
                     <div class="waypoint-time">{{ formatTime(wp.timestamp) }}</div>
                   </ion-label>
@@ -171,6 +171,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { db } from '@/services/database';
 import { useRouteTracking } from '@/composables/useRouteTracking';
+import { useI18n } from 'vue-i18n';
 
 type RouteData = import('@/services/database').Route;
 type Waypoint = import('@/services/database').Waypoint;
@@ -182,6 +183,29 @@ const routeId = Number(vueRoute.params.id);
 const routeData = ref<RouteData | null>(null);
 const isLoading = ref(true);
 const waypoints = ref<Waypoint[]>([]);
+const { t } = useI18n();
+
+let map: L.Map | null = null;
+let routeLine: L.Polyline | null = null;
+const waypointMarkers: Map<number, L.Marker> = new Map();
+let currentPositionMarker: L.Marker | null = null;
+let positionWatchInterval: number | null = null;
+
+const startLiveTracking = async () => {
+  if (!routeData.value?.isRecording || isTracking.value) return;
+  try {
+    await startTracking(routeId);
+    await loadWaypoints(routeId);
+  } catch (error) {
+    console.error('Error starting live tracking:', error);
+    const toast = await toastController.create({
+      message: t('auto.fehler_beim_starten_der_aufzeichnung'),
+      duration: 2000,
+      color: 'danger'
+    });
+    await toast.present();
+  }
+};
 
 const {
   isTracking,
@@ -283,22 +307,20 @@ const addManualWaypointImpl = async () => {
     await loadData();
     setTimeout(() => drawRoute(), 100); // Fix: Karte bleibt sichtbar
     const toast = await toastController.create({
-      message: 'Manueller Wegpunkt hinzugefügt',
+      message: t('auto.manueller_wegpunkt_hinzugefuegt'),
       duration: 1500,
       color: 'success'
     });
     await toast.present();
   } catch (err) {
     const toast = await toastController.create({
-      message: 'Manueller Wegpunkt fehlgeschlagen',
+      message: t('auto.manueller_wegpunkt_fehlgeschlagen'),
       duration: 1500,
       color: 'danger'
     });
     await toast.present();
   }
 };
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { Geolocation } from '@capacitor/geolocation';
 
 // --- Aufzeichnung pausieren ---
 const pauseRecording = async () => {
@@ -306,7 +328,7 @@ const pauseRecording = async () => {
   await db.updateRoute(routeId, { isRecording: false });
   await loadData();
   const toast = await toastController.create({
-    message: 'Aufzeichnung pausiert',
+    message: t('auto.aufzeichnung_pausiert'),
     duration: 1500,
     color: 'warning'
   });
@@ -319,7 +341,7 @@ const resumeRecording = async () => {
   await db.updateRoute(routeId, { isRecording: true });
   await loadData();
   const toast = await toastController.create({
-    message: 'Aufzeichnung fortgesetzt',
+    message: t('auto.aufzeichnung_fortgesetzt'),
     duration: 1500,
     color: 'success'
   });
@@ -353,7 +375,7 @@ const stopRecordingImpl = async () => {
   });
   await loadData();
   const toast = await toastController.create({
-    message: 'Aufzeichnung beendet',
+    message: t('auto.aufzeichnung_beendet'),
     duration: 1500,
     color: 'danger'
   });
@@ -396,20 +418,15 @@ const addPhotoWaypointImpl = async () => {
     await loadData();
     drawRoute();
     const toast = await toastController.create({
-      message: 'Foto-Wegpunkt hinzugefügt',
+      message: t('auto.foto_wegpunkt_hinzugefuegt'),
       duration: 1500,
       color: 'success'
     });
     await toast.present();
   } catch (err) {
     const toast = await toastController.create({
-      message: 'Foto-Wegpunkt fehlgeschlagen',
+      message: t('auto.foto_wegpunkt_fehlgeschlagen'),
       duration: 1500,
-      color: 'danger'
-    });
-    await toast.present();
-  }
-};
       color: 'danger'
     });
     await toast.present();
@@ -494,7 +511,7 @@ const loadData = async () => {
     const route = await db.getRoute(routeId);
     if (!route) {
       const toast = await toastController.create({
-        message: 'Route nicht gefunden',
+        message: t('auto.route_nicht_gefunden'),
         duration: 2000,
         color: 'danger'
       });
@@ -601,7 +618,7 @@ function drawRoute() {
       })
     });
     // Popup mit Name, Beschreibung, Zeit
-    let popup = `<strong>${waypoint.name || 'Wegpunkt'}</strong>`;
+    let popup = `<strong>${waypoint.name || t('auto.wegpunkt')}</strong>`;
     if (waypoint.description) popup += `<br>${waypoint.description}`;
     if (waypoint.timestamp) popup += `<br><span style='font-size:11px;color:#888;'>${formatTime(waypoint.timestamp)}</span>`;
     marker.bindPopup(popup);
@@ -622,17 +639,17 @@ const centerOnWaypoint = (waypoint: Waypoint) => {
 
 const showOptionsMenu = async () => {
   const actionSheet = await actionSheetController.create({
-    header: 'Route Optionen',
+    header: t('auto.route_optionen'),
     buttons: [
       {
-        text: 'Bearbeiten',
+        text: t('auto.bearbeiten'),
         icon: createOutline,
         handler: () => {
           editRoute();
         }
       },
       {
-        text: 'Löschen',
+        text: t('auto.löschen'),
         icon: trashOutline,
         role: 'destructive',
         handler: () => {
@@ -640,7 +657,7 @@ const showOptionsMenu = async () => {
         }
       },
       {
-        text: 'Abbrechen',
+        text: t('auto.abbrechen'),
         role: 'cancel'
       }
     ]
@@ -651,29 +668,29 @@ const showOptionsMenu = async () => {
 const editRoute = async () => {
   if (!routeData.value) return;
 
-  const alert = await alertController.create({
-    header: 'Route bearbeiten',
+    const alert = await alertController.create({
+      header: t('auto.route_bearbeiten'),
     inputs: [
       {
         name: 'name',
         type: 'text',
-        placeholder: 'Name',
+          placeholder: t('auto.name'),
         value: routeData.value.name
       },
       {
         name: 'description',
         type: 'textarea',
-        placeholder: 'Beschreibung',
+          placeholder: t('auto.beschreibung'),
         value: routeData.value.description || ''
       }
     ],
     buttons: [
       {
-        text: 'Abbrechen',
+          text: t('auto.abbrechen'),
         role: 'cancel'
       },
       {
-        text: 'Speichern',
+          text: t('auto.speichern'),
         handler: async (data) => {
           if (data.name) {
             await db.updateRoute(routeId, {
@@ -682,7 +699,7 @@ const editRoute = async () => {
             });
             await loadData();
             const toast = await toastController.create({
-              message: 'Route aktualisiert',
+              message: t('auto.route_aktualisiert'),
               duration: 2000,
               color: 'success'
             });
@@ -696,21 +713,21 @@ const editRoute = async () => {
 };
 
 const deleteRoute = async () => {
-  const alert = await alertController.create({
-    header: 'Route löschen',
-    message: 'Möchtest du diese Route wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
+    const alert = await alertController.create({
+      header: t('auto.route_löschen'),
+      message: t('auto.möchtest_du_diese_route_wirklich_löschen_diese_aktion_kann_n'),
     buttons: [
       {
-        text: 'Abbrechen',
+          text: t('auto.abbrechen'),
         role: 'cancel'
       },
       {
-        text: 'Löschen',
+          text: t('auto.löschen'),
         role: 'destructive',
         handler: async () => {
           await db.deleteRoute(routeId);
           const toast = await toastController.create({
-            message: 'Route gelöscht',
+              message: t('auto.route_gelöscht'),
             duration: 2000,
             color: 'success'
           });

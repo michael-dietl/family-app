@@ -1,0 +1,254 @@
+{
+  "entities": [
+    {
+      "name": "_superusers",
+      "type": "auth",
+      "fields": [
+        { "name": "id", "type": "text", "required": true, "system": true },
+        { "name": "password", "type": "password", "required": true, "system": true },
+        { "name": "tokenKey", "type": "text", "required": true, "system": true },
+        { "name": "email", "type": "email", "required": true, "system": true },
+        { "name": "emailVisibility", "type": "bool", "required": false, "system": true },
+        { "name": "verified", "type": "bool", "required": false, "system": true },
+        { "name": "created", "type": "autodate", "required": false, "system": true },
+        { "name": "updated", "type": "autodate", "required": false, "system": true }
+      ],
+      "indexes": [
+        "idx_tokenKey_pbc_3142635823",
+        "idx_email_pbc_3142635823"
+      ]
+    },
+    {
+      "name": "users",
+      "type": "auth",
+      "fields": [
+        { "name": "id", "type": "text", "required": true, "system": true },
+        { "name": "password", "type": "password", "required": true, "system": true },
+        { "name": "tokenKey", "type": "text", "required": true, "system": true },
+        { "name": "email", "type": "email", "required": false, "system": true },
+        { "name": "emailVisibility", "type": "bool", "required": false, "system": true },
+        { "name": "verified", "type": "bool", "required": false, "system": true },
+        { "name": "username", "type": "text", "required": true, "system": false },
+        { "name": "name", "type": "text", "required": false, "system": false },
+        { "name": "avatar", "type": "file", "required": false, "system": false },
+        { "name": "Role", "type": "relation", "required": false, "system": false },
+        { "name": "created", "type": "autodate", "required": false, "system": false },
+        { "name": "updated", "type": "autodate", "required": false, "system": false }
+      ],
+      "indexes": [
+        "__pb_users_auth__username_idx",
+        "__pb_users_auth__email_idx",
+        "__pb_users_auth__tokenKey_idx"
+      ]
+    },
+    {
+      "name": "Albums",
+      "type": "base",
+      "fields": [
+        { "name": "id", "type": "text", "required": true },
+        { "name": "title", "type": "text", "required": false },
+        { "name": "description", "type": "editor", "required": false },
+        { "name": "files", "type": "file", "required": false },
+        { "name": "created", "type": "autodate", "required": false },
+        { "name": "updated", "type": "autodate", "required": false }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "BookCategories",
+      "type": "base",
+      "fields": [
+        { "name": "id", "type": "text", "required": true },
+        { "name": "Categorie", "type": "text", "required": false },
+        { "name": "created", "type": "autodate", "required": false },
+        { "name": "updated", "type": "autodate", "required": false }
+      ],
+      "indexes": ["idx_5GwYlRH"]
+    },
+    {
+      "name": "BookLibrary",
+      "type": "base",
+      "fields": [
+        { "name": "id", "type": "text", "required": true },
+        { "name": "Name", "type": "text", "required": false },
+        { "name": "Description", "type": "text", "required": false },
+        { "name": "created", "type": "autodate", "required": false },
+        { "name": "updated", "type": "autodate", "required": false }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "Books",
+      "type": "base",
+      "fields": [
+        { "name": "id", "type": "text", "required": true },
+        { "name": "Title", "type": "text", "required": false },
+        { "name": "SubTitle", "type": "text", "required": false },
+        { "name": "ISBN", "type": "text", "required": false },
+        { "name": "ISBN_plain", "type": "text", "required": false },
+        { "name": "Manufacturer", "type": "text", "required": false },
+        { "name": "NumberOfPages", "type": "text", "required": false },
+        { "name": "Publisher", "type": "text", "required": false },
+        { "name": "PublicationDate", "type": "date", "required": false },
+        { "name": "Paper", "type": "bool", "required": false },
+        { "name": "Category", "type": "relation", "required": false },
+        { "name": "Library", "type": "relation", "required": false },
+        { "name": "Cover", "type": "file", "required": false },
+        { "name": "created", "type": "autodate", "required": false },
+        { "name": "updated", "type": "autodate", "required": false }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "Files",
+      "type": "base",
+      "fields": [
+        { "name": "id", "type": "text", "required": true },
+        { "name": "Title", "type": "text", "required": false },
+        { "name": "Description", "type": "text", "required": false },
+        { "name": "File", "type": "file", "required": false },
+        { "name": "Location", "type": "relation", "required": false },
+        { "name": "created", "type": "autodate", "required": false },
+        { "name": "updated", "type": "autodate", "required": false }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "GeoLocations",
+      "type": "base",
+      "fields": [
+        { "name": "id", "type": "text", "required": true },
+        { "name": "timestamp", "type": "date", "required": false },
+        { "name": "latitude", "type": "number", "required": false },
+        { "name": "longitude", "type": "number", "required": false },
+        { "name": "accuracy", "type": "number", "required": false },
+        { "name": "altitudeAccuracy", "type": "number", "required": false },
+        { "name": "altitude", "type": "number", "required": false },
+        { "name": "speed", "type": "number", "required": false },
+        { "name": "heading", "type": "number", "required": false },
+        { "name": "GeoTracks", "type": "relation", "required": false },
+        { "name": "relatedCollection", "type": "text", "required": false },
+        { "name": "relatedId", "type": "text", "required": false },
+        { "name": "relatedFile", "type": "text", "required": false },
+        { "name": "created", "type": "autodate", "required": false },
+        { "name": "updated", "type": "autodate", "required": false }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "GeoTracks",
+      "type": "base",
+      "fields": [
+        { "name": "id", "type": "text", "required": true },
+        { "name": "Name", "type": "text", "required": false },
+        { "name": "Description", "type": "editor", "required": false },
+        { "name": "created", "type": "autodate", "required": false },
+        { "name": "updated", "type": "autodate", "required": false }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "Memories",
+      "type": "base",
+      "fields": [
+        { "name": "id", "type": "text", "required": true },
+        { "name": "Title", "type": "text", "required": false },
+        { "name": "Teaser", "type": "editor", "required": false },
+        { "name": "Message", "type": "editor", "required": false },
+        { "name": "Datum", "type": "date", "required": false },
+        { "name": "Files", "type": "file", "required": false },
+        { "name": "URL", "type": "url", "required": false },
+        { "name": "Author", "type": "relation", "required": false },
+        { "name": "RoleAccess", "type": "relation", "required": true },
+        { "name": "created", "type": "autodate", "required": false },
+        { "name": "updated", "type": "autodate", "required": false }
+      ],
+      "indexes": ["idx_8Mu0hTq"]
+    },
+    {
+      "name": "Roles",
+      "type": "base",
+      "fields": [
+        { "name": "id", "type": "text", "required": true },
+        { "name": "RoleName", "type": "text", "required": false },
+        { "name": "RoleID", "type": "number", "required": false },
+        { "name": "created", "type": "autodate", "required": false },
+        { "name": "updated", "type": "autodate", "required": false }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "Tasks",
+      "type": "base",
+      "fields": [
+        { "name": "id", "type": "text", "required": true },
+        { "name": "Title", "type": "text", "required": false },
+        { "name": "Comment", "type": "editor", "required": false },
+        { "name": "DueDate", "type": "date", "required": false },
+        { "name": "FinishDate", "type": "date", "required": false },
+        { "name": "Status", "type": "select", "required": false, "values": ["open", "inprogress", "done"] },
+        { "name": "field", "type": "relation", "required": false },
+        { "name": "created", "type": "autodate", "required": false },
+        { "name": "updated", "type": "autodate", "required": false }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "_authOrigins",
+      "type": "base",
+      "fields": [
+        { "name": "id", "type": "text", "required": true, "system": true },
+        { "name": "collectionRef", "type": "text", "required": true, "system": true },
+        { "name": "recordRef", "type": "text", "required": true, "system": true },
+        { "name": "fingerprint", "type": "text", "required": true, "system": true },
+        { "name": "created", "type": "autodate", "required": false, "system": true },
+        { "name": "updated", "type": "autodate", "required": false, "system": true }
+      ],
+      "indexes": ["idx_authOrigins_unique_pairs"]
+    },
+    {
+      "name": "_externalAuths",
+      "type": "base",
+      "fields": [
+        { "name": "id", "type": "text", "required": true, "system": true },
+        { "name": "collectionRef", "type": "text", "required": true, "system": true },
+        { "name": "recordRef", "type": "text", "required": true, "system": true },
+        { "name": "provider", "type": "text", "required": true, "system": true },
+        { "name": "providerId", "type": "text", "required": true, "system": true },
+        { "name": "created", "type": "autodate", "required": false, "system": true },
+        { "name": "updated", "type": "autodate", "required": false, "system": true }
+      ],
+      "indexes": [
+        "idx_externalAuths_record_provider",
+        "idx_externalAuths_collection_provider"
+      ]
+    },
+    {
+      "name": "_mfas",
+      "type": "base",
+      "fields": [
+        { "name": "id", "type": "text", "required": true, "system": true },
+        { "name": "collectionRef", "type": "text", "required": true, "system": true },
+        { "name": "recordRef", "type": "text", "required": true, "system": true },
+        { "name": "method", "type": "text", "required": true, "system": true },
+        { "name": "created", "type": "autodate", "required": false, "system": true },
+        { "name": "updated", "type": "autodate", "required": false, "system": true }
+      ],
+      "indexes": ["idx_mfas_collectionRef_recordRef"]
+    },
+    {
+      "name": "_otps",
+      "type": "base",
+      "fields": [
+        { "name": "id", "type": "text", "required": true, "system": true },
+        { "name": "collectionRef", "type": "text", "required": true, "system": true },
+        { "name": "recordRef", "type": "text", "required": true, "system": true },
+        { "name": "password", "type": "password", "required": true, "system": true },
+        { "name": "sentTo", "type": "text", "required": false, "system": true },
+        { "name": "created", "type": "autodate", "required": false, "system": true },
+        { "name": "updated", "type": "autodate", "required": false, "system": true }
+      ],
+      "indexes": ["idx_otps_collectionRef_recordRef"]
+    }
+  ]
+}
