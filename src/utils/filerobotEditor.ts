@@ -1,5 +1,5 @@
 import FilerobotImageEditor from 'filerobot-image-editor';
-import { TABS, TOOLS } from 'react-filerobot-image-editor';
+import { FilerobotImageEditorConfig, TABS, TOOLS } from 'react-filerobot-image-editor';
 
 const LANGUAGE_OVERRIDES: Record<string, string> = {
   en: 'en',
@@ -15,6 +15,14 @@ const LANGUAGE_OVERRIDES: Record<string, string> = {
 };
 
 const DEFAULT_MIME = 'image/jpeg';
+
+const DEFAULT_TABS = [
+  TABS.ADJUST,
+  TABS.FINETUNE,
+  TABS.FILTERS,
+  TABS.ANNOTATE,
+  TABS.RESIZE,
+];
 
 type SavedImageData = {
   imageBase64?: string;
@@ -89,21 +97,25 @@ export const unloadFilerobotStyles = () => {
 export const buildFilerobotConfig = (
   source: string,
   language: string,
-  overrides: Record<string, unknown> = {}
-) => ({
-  source,
-  language,
-  tabsIds: [TABS.ADJUST, TABS.FILTERS, TABS.ANNOTATE],
-  defaultTabId: TABS.ADJUST,
-  defaultToolId: TOOLS.CROP,
-  removeSaveButton: true,
-  disableSaveIfNoChanges: false,
-  observePluginContainerSize: true,
-  savingPixelRatio: getDevicePixelRatio(),
-  previewPixelRatio: getDevicePixelRatio(),
-  backgroundColor: '#1e1e1e',
-  ...overrides,
-});
+  overrides: Partial<FilerobotImageEditorConfig> = {}
+): FilerobotImageEditorConfig => {
+  const { tabsIds, ...restOverrides } = overrides;
+  const config: FilerobotImageEditorConfig = {
+    source,
+    language,
+    tabsIds: tabsIds ?? DEFAULT_TABS,
+    defaultTabId: TABS.ADJUST,
+    defaultToolId: TOOLS.CROP,
+    removeSaveButton: true,
+    disableSaveIfNoChanges: false,
+    observePluginContainerSize: true,
+    savingPixelRatio: getDevicePixelRatio(),
+    previewPixelRatio: getDevicePixelRatio(),
+    backgroundColor: '#1e1e1e',
+    ...restOverrides,
+  };
+  return config;
+};
 
 const buildDataUrl = (mimeType: string, base64: string) => `data:${mimeType};base64,${base64}`;
 

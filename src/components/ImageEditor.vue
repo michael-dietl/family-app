@@ -33,6 +33,8 @@ import {
   convertSavedImageDataToBlob,
   getDevicePixelRatio,
   getFilerobotLanguage,
+  loadFilerobotStyles,
+  unloadFilerobotStyles,
 } from '@/utils/filerobotEditor';
 
 interface Props {
@@ -53,6 +55,25 @@ const isSaving = ref(false);
 let editorInstance: InstanceType<typeof FilerobotImageEditor> | null = null;
 let initTimeout: ReturnType<typeof setTimeout> | null = null;
 let closing = false;
+let stylesLoaded = false;
+let styleLoadPromise: Promise<void> | null = null;
+
+const scheduleStyleUnload = () => {
+  if (styleLoadPromise) {
+    const pending = styleLoadPromise;
+    styleLoadPromise = null;
+    pending.finally(() => {
+      unloadFilerobotStyles();
+      stylesLoaded = false;
+    });
+    return;
+  }
+
+  if (stylesLoaded) {
+    unloadFilerobotStyles();
+    stylesLoaded = false;
+  }
+};
 
 const cleanupEditor = () => {
   if (initTimeout) {
@@ -68,6 +89,8 @@ const cleanupEditor = () => {
     }
     editorInstance = null;
   }
+
+  scheduleStyleUnload();
 };
 
 const handleClose = () => {
@@ -78,12 +101,19 @@ const handleClose = () => {
   closing = false;
 };
 
-const initEditor = () => {
+const initEditor = async () => {
   if (!editorContainer.value || !props.imageSrc || !props.isOpen) return;
 
   cleanupEditor();
 
   const language = getFilerobotLanguage(locale.value);
+  styleLoadPromise = loadFilerobotStyles();
+  try {
+    await styleLoadPromise;
+    stylesLoaded = true;
+  } finally {
+    styleLoadPromise = null;
+  }
   editorInstance = new FilerobotImageEditor(
     editorContainer.value,
     buildFilerobotConfig(props.imageSrc, language, {

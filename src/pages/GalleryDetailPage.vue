@@ -129,7 +129,7 @@
                   muted
                   playsinline
                 ></video>
-                <div class="video-overlay">
+                <div class="video-overlay" @click.stop.prevent="openVideoPreview(photo)">
                   <ion-icon :icon="playCircle" />
                 </div>
               </div>
@@ -141,6 +141,16 @@
                 class="photo-img"
               />
               </a>
+              <div v-if="!selectionMode && !photo.isVideo" class="photo-actions">
+                <ion-button
+                  fill="clear"
+                  size="small"
+                  class="action-button"
+                  @click.stop.prevent="openImageEditor(photo)"
+                >
+                  <ion-icon :icon="pencilOutline" />
+                </ion-button>
+              </div>
               
               <!-- Mehrfachselektion Modus -->
               <div
@@ -190,11 +200,48 @@
       @confirm="handleLocationConfirm"
       @cancel="handleLocationCancel"
     />
+    <ImageEditor
+      :is-open="photoEditorOpen"
+      :image-src="photoEditorSrc"
+      @close="closeImageEditor"
+      @save="handleImageEditorSave"
+    />
+    <ion-modal
+      :is-open="videoPreviewOpen"
+      @did-dismiss="closeVideoPreview"
+      class="video-preview-modal"
+      :initial-breakpoint="0.8"
+      :breakpoints="[0.4, 0.7, 0.95]"
+    >
+      <ion-header>
+        <ion-toolbar>
+          <ion-buttons slot="start">
+            <ion-button @click="closeVideoPreview">
+              <ion-icon :icon="close" />
+            </ion-button>
+          </ion-buttons>
+          <ion-title>Video Vorschau</ion-title>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="video-preview-content">
+        <div class="video-preview-container">
+          <video
+            v-if="videoPreviewSrc"
+            ref="videoPreviewRef"
+            :src="videoPreviewSrc"
+            controls
+            autoplay
+            playsinline
+            class="video-preview-player"
+          ></video>
+        </div>
+      </ion-content>
+    </ion-modal>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, onBeforeUnmount, onActivated } from 'vue';
+import { ref, computed, onMounted, watch, onBeforeUnmount, onActivated } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   IonPage,
@@ -202,6 +249,7 @@ import {
   IonToolbar,
   IonTitle,
   IonContent,
+  IonModal,
   IonButtons,
   IonButton,
   IonBackButton,
@@ -231,7 +279,8 @@ import {
   create,
   closeCircle,
   close,
-  checkmarkCircle
+  checkmarkCircle,
+  pencilOutline
 } from 'ionicons/icons';
 import { CameraSource } from '@capacitor/camera';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -243,7 +292,8 @@ import { useLightbox } from '@/composables/useLightbox';
 import { extractExifFromUri, extractExifFromImage } from '@/services/exif';
 import GalleryMap from '@/components/GalleryMap.vue';
 import LocationPickerModal from '@/components/LocationPickerModal.vue';
-import type { Photo } from '@/services/database';
+import ImageEditor from '@/components/ImageEditor.vue';
+import { db, type Photo } from '@/services/database';
 
 const route = useRoute();
 const router = useRouter();
@@ -260,6 +310,11 @@ const selectedPhoto = ref<Photo | null>(null);
 const selectionMode = ref(false);
 const selectedPhotos = ref<Set<number>>(new Set());
 
+const getImageSrc = (path: string | undefined) => {
+  if (!path) return '';
+  return Capacitor.convertFileSrc(path);
+};
+
 // Manuelle GPS-Eingabe
 const showLocationPicker = ref(false);
 const pendingPhotoData = ref<{
@@ -268,6 +323,17 @@ const pendingPhotoData = ref<{
   filename?: string;
   cameraExifData?: any;
 } | null>(null);
+// Image editor state
+const photoEditorOpen = ref(false);
+const photoBeingEdited = ref<Photo | null>(null);
+const photoEditorSrc = computed(() => {
+  if (!photoBeingEdited.value) return '';
+  return getImageSrc(photoBeingEdited.value.filepath);
+});
+// Video preview state
+const videoPreviewOpen = ref(false);
+const videoPreviewSrc = ref<string | null>(null);
+const videoPreviewRef = ref<HTMLVideoElement | null>(null);
 
 let longPressTimer: ReturnType<typeof setTimeout> | null = null;
 let longPressPhoto: Photo | null = null;
@@ -309,6 +375,67 @@ const handleViewChange = (event: CustomEvent) => {
   if (value === 'grid' || value === 'map') {
     currentView.value = value;
   }
+};
+const openImageEditor = (photo: Photo) => {
+  photoBeingEdited.value = photo;
+  photoEditorOpen.value = true;
+};
+const closeImageEditor = () => {
+  photoEditorOpen.value = false;
+  photoBeingEdited.value = null;
+};
+const blobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      resolve(result.split(',')[1]);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+const handleImageEditorSave = async (blob: Blob) => {
+  if (!photoBeingEdited.value || !currentGallery.value) return;
+  const galleryId = currentGallery.value.id;
+  if (!galleryId) return;
+
+  try {
+    const base64 = await blobToBase64(blob);
+    const fileName = photoBeingEdited.value.filename || `photo_${photoBeingEdited.value.id}_${Date.now()}.jpg`;
+    const targetPath = `galleries/${galleryId}/${fileName}`;
+
+    const result = await Filesystem.writeFile({
+      path: targetPath,
+      data: base64,
+      directory: Directory.Data,
+      recursive: true
+    });
+
+    await db.updatePhoto(photoBeingEdited.value.id!, {
+      filepath: result.uri,
+      thumbnail: `data:image/jpeg;base64,${base64}`
+    });
+
+    await loadGallery(galleryId);
+  } catch (error) {
+    console.error('Error saving edited photo:', error);
+  } finally {
+    closeImageEditor();
+  }
+};
+const openVideoPreview = (photo: Photo) => {
+  videoPreviewSrc.value = getImageSrc(photo.filepath);
+  videoPreviewOpen.value = true;
+};
+const closeVideoPreview = () => {
+  if (videoPreviewRef.value) {
+    videoPreviewRef.value.pause();
+    videoPreviewRef.value.currentTime = 0;
+    videoPreviewRef.value = null;
+  }
+  videoPreviewOpen.value = false;
+  videoPreviewSrc.value = null;
 };
 
 onMounted(async () => {
@@ -595,7 +722,7 @@ const openSelectedEditor = () => {
   if (selectedPhoto.value.isVideo) {
     openVideoEditor(selectedPhoto.value);
   } else {
-    openEditor(selectedPhoto.value);
+    openImageEditor(selectedPhoto.value);
   }
   
   selectedPhoto.value = null;
@@ -609,17 +736,6 @@ const getVideoPoster = (photoId: number | undefined) => {
   const photo = photos.value.find(p => p.id === photoId);
   // Verwende thumbnail falls vorhanden, sonst filepath
   return photo?.thumbnail || photo?.filepath || '';
-};
-
-const openEditor = (photo: Photo) => {
-  const galleryId = route.params.id as string;
-  router.push({
-    path: `/gallery/${galleryId}/editor`,
-    query: {
-      imageSrc: photo.filepath,
-      photoId: photo.id?.toString()
-    }
-  });
 };
 
 const openVideoEditor = (video: Photo) => {
@@ -675,11 +791,6 @@ const startSelectionMode = () => {
 const cancelSelectionMode = () => {
   selectionMode.value = false;
   selectedPhotos.value.clear();
-};
-
-const getImageSrc = (path: string | undefined) => {
-  if (!path) return '';
-  return Capacitor.convertFileSrc(path);
 };
 
 const togglePhotoSelection = (photo: Photo) => {
@@ -840,6 +951,33 @@ const deleteSelectedPhotos = async () => {
   display: block;
 }
 
+.photo-actions {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 12;
+}
+
+.photo-actions ion-button {
+  width: 36px;
+  height: 36px;
+  --padding-start: 0;
+  --padding-end: 0;
+  --border-radius: 50%;
+  --background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  pointer-events: auto;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.photo-actions ion-icon {
+  font-size: 18px;
+}
+
 .photo-selected {
   outline: 4px solid var(--ion-color-primary);
   outline-offset: -4px;
@@ -902,7 +1040,11 @@ const deleteSelectedPhotos = async () => {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 50%;
+  padding: 8px;
   z-index: 10;
 }
 
@@ -910,6 +1052,26 @@ const deleteSelectedPhotos = async () => {
   font-size: 48px;
   color: white;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.video-preview-content {
+  --background: #0d0d0d;
+}
+
+.video-preview-container {
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.video-preview-player {
+  width: 100%;
+  max-width: 100%;
+  max-height: 70vh;
+  border-radius: 12px;
+  background: #000;
 }
 </style>
 
