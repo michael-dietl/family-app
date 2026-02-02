@@ -41,6 +41,7 @@ export function useLightbox() {
             type: 'video',
             width: 1920,
             height: 1080,
+            objectFit: 'contain',
             videoSrc: photo.filepath,
             mimeType: photo.mimeType || 'video/mp4'
           };
@@ -65,6 +66,7 @@ export function useLightbox() {
           src: photo.filepath,
           width: width,
           height: height,
+          objectFit: 'contain',
           alt: photo.filename,
         };
       }),

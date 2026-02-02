@@ -80,21 +80,71 @@
 
             <!-- Aufzeichnungs-Controls -->
             <div class="route-controls">
-              <ion-button v-if="routeData?.isRecording" color="warning" class="route-control-btn" @click="pauseRecording">{{$t('auto.pausieren')}}</ion-button>
-              <ion-button v-if="!routeData?.isRecording && !routeData?.endTime" color="success" class="route-control-btn" @click="resumeRecording">{{$t('auto.fortsetzen')}}</ion-button>
-              <ion-button v-if="routeData?.isRecording" color="danger" class="route-control-btn" @click="stopRecording">{{$t('auto.aufzeichnung_beenden')}}</ion-button>
-              <ion-button v-if="routeData && !routeData.endTime" color="primary" class="route-control-btn" @click="addManualWaypoint">
-                <template v-slot:start>
-                  <ion-icon :icon="flagOutline" />
-                </template>
-                {{$t('auto.pin')}}
-              </ion-button>
-              <ion-button v-if="routeData && !routeData.endTime" color="tertiary" class="route-control-btn" @click="addPhotoWaypoint">
-                <template v-slot:start>
-                  <ion-icon :icon="cameraOutline" />
-                </template>
-                {{$t('auto.foto')}}
-              </ion-button>
+              <div class="recording-status">
+                <span class="recording-pulse" :class="{ active: routeData?.isRecording }"></span>
+                <div class="status-text">
+                  <p class="status-label">{{ recordingStatusLabel }}</p>
+                  <p class="status-subtext">{{ displayDuration }}</p>
+                </div>
+              </div>
+              <div class="control-buttons">
+                <ion-button
+                  v-if="routeData?.isRecording"
+                  shape="round"
+                  fill="outline"
+                  class="route-action"
+                  :aria-label="$t('auto.pausieren')"
+                  @click="pauseRecording"
+                  expand="block"
+                >
+                  <ion-icon slot="icon-only" :icon="pauseOutline" />
+                </ion-button>
+                <ion-button
+                  v-else-if="routeData && !routeData.endTime"
+                  shape="round"
+                  fill="outline"
+                  class="route-action"
+                  :aria-label="$t('auto.fortsetzen')"
+                  @click="resumeRecording"
+                  expand="block"
+                >
+                  <ion-icon slot="icon-only" :icon="playOutline" />
+                </ion-button>
+                <ion-button
+                  v-if="routeData?.isRecording"
+                  shape="round"
+                  fill="outline"
+                  color="danger"
+                  class="route-action"
+                  :aria-label="$t('auto.aufzeichnung_beenden')"
+                  @click="stopRecording"
+                  expand="block"
+                >
+                  <ion-icon slot="icon-only" :icon="stopCircleOutline" />
+                </ion-button>
+                <ion-button
+                  v-if="routeData && !routeData.endTime"
+                  shape="round"
+                  fill="outline"
+                  class="route-action"
+                  :aria-label="$t('auto.pin')"
+                  @click="addManualWaypoint"
+                  expand="block"
+                >
+                  <ion-icon slot="icon-only" :icon="flagOutline" />
+                </ion-button>
+                <ion-button
+                  v-if="routeData && !routeData.endTime"
+                  shape="round"
+                  fill="outline"
+                  class="route-action"
+                  :aria-label="$t('auto.foto')"
+                  @click="addPhotoWaypoint"
+                  expand="block"
+                >
+                  <ion-icon slot="icon-only" :icon="cameraOutline" expand="block"/>
+                </ion-button>
+              </div>
             </div>
           </div>
         </div>
@@ -213,7 +263,10 @@ import {
   locationOutline,
   trashOutline,
   createOutline,
-  closeOutline
+  closeOutline,
+  pauseOutline,
+  playOutline,
+  stopCircleOutline
 } from 'ionicons/icons';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -335,6 +388,15 @@ watchEffect(() => {
     }
   }
   displayDuration.value = formatDuration(0);
+});
+const recordingStatusLabel = computed(() => {
+  if (routeData.value?.isRecording) {
+    return t('auto.aufzeichnung_läuft');
+  }
+  if (routeData.value?.endTime) {
+    return t('auto.beendet_status');
+  }
+  return t('auto.aufzeichnung_pausiert');
 });
 // entfernt, da nicht genutzt
 
@@ -1036,20 +1098,71 @@ function formatTime(dateString: string): string {
 }
 .route-controls {
   display: flex;
-  gap: 2px;
+  flex-direction: column;
+  gap: 12px;
   margin-bottom: 16px;
-  margin-left: 0;
 }
-.route-control-btn {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 44px;
-  max-width: 100%;
-  font-size: 16px;
+.recording-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.recording-pulse {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #eb445a;
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}
+.recording-pulse.active {
+  opacity: 1;
+  animation: recordingPulse 1.6s ease-in-out infinite;
+}
+.status-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.status-label {
+  margin: 0;
   font-weight: 600;
+  font-size: 16px;
+}
+.status-subtext {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ion-color-medium);
+}
+.control-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.route-action {
+  min-width: 48px;
+  min-height: 48px;
+  --border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.route-action ion-icon {
+  font-size: 22px;
+}
+@keyframes recordingPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(235, 68, 90, 0.7);
+  }
+  70% {
+    transform: scale(1.4);
+    box-shadow: 0 0 0 10px rgba(235, 68, 90, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(235, 68, 90, 0);
+  }
 }
 
 .map-container {

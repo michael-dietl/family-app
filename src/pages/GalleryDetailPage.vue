@@ -14,7 +14,7 @@
           <ion-button v-if="selectedPhoto && !selectionMode" @click="clearSelection">
             <ion-icon :icon="closeCircle" />
           </ion-button>
-          <ion-button v-if="selectedPhoto && !selectionMode" @click="openSelectedEditor" color="primary">
+          <ion-button v-if="selectedPhoto && !selectionMode" @click="openSelectedEditor" color="primary" class="gallery-edit-button">
             <ion-icon :icon="create" />
           </ion-button>
           <ion-button v-if="!selectedPhoto && !selectionMode" @click="showPhotoOptions">
@@ -861,6 +861,19 @@ const deleteSelectedPhotos = async () => {
 .gallery-description {
   background: var(--ion-color-light);
   border-bottom: 1px solid var(--ion-color-light-shade);
+}
+.gallery-edit-button {
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  width: 40px;
+  height: 40px;
+  --border-radius: 50%;
+  --background: var(--ion-color-light);
+  border: 1px solid var(--ion-color-primary);
+  --color: var(--ion-color-primary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 .view-toggle {
