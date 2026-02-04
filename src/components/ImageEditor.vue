@@ -58,6 +58,11 @@ let closing = false;
 let stylesLoaded = false;
 let styleLoadPromise: Promise<void> | null = null;
 
+const getRotateConfig = (): { componentType: 'slider'; angle: number } => ({
+  componentType: 'slider',
+  angle: 0.1,
+});
+
 const scheduleStyleUnload = () => {
   if (styleLoadPromise) {
     const pending = styleLoadPromise;
@@ -118,6 +123,7 @@ const initEditor = async () => {
     editorContainer.value,
     buildFilerobotConfig(props.imageSrc, language, {
       onClose: handleClose,
+      Rotate: getRotateConfig(),
     })
   );
   editorInstance.render();
@@ -152,6 +158,7 @@ watch(() => props.imageSrc, (newSrc) => {
       buildFilerobotConfig(newSrc, language, {
         onClose: handleClose,
         backgroundColor: '#1e1e1e',
+        Rotate: getRotateConfig(),
       })
     );
   }
@@ -211,5 +218,15 @@ ion-content {
 
 :global(.FIE_topbar-history-buttons) {
   gap: 8px;
+}
+
+:global(.FIE_rotate_button_left),
+:global(.FIE_rotate_button_right) {
+  display: none;
+}
+
+:global(.FIE_rotate-slider) {
+  flex: 1;
+  min-width: 0;
 }
 </style>

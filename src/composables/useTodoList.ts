@@ -173,12 +173,20 @@ export function useTodoList() {
     await loadLists();
   };
 
-  const createItem = async (listId: number, title: string, description?: string, photoPath?: string): Promise<number> => {
+  const createItem = async (
+    listId: number,
+    title: string,
+    description?: string,
+    dueDate?: string,
+    photoPath?: string
+  ): Promise<number> => {
     const id = await db.createTodoItem({
       listId,
       title,
       description,
       completed: false,
+      dueDate: dueDate || null,
+      completionDate: null,
       photoPath: photoPath || null
     } as any);
     await loadItems(listId);
@@ -186,7 +194,11 @@ export function useTodoList() {
   };
 
   const toggleItemCompleted = async (id: number, completed: boolean, listId: number) => {
-    await db.updateTodoItem(id, { completed });
+    const updates: Partial<TodoItem> = {
+      completed,
+      completionDate: completed ? new Date().toISOString() : null
+    };
+    await db.updateTodoItem(id, updates);
     await loadItems(listId);
   };
 

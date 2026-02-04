@@ -19,6 +19,7 @@ import { locationOutline } from 'ionicons/icons';
 import L from 'leaflet';
 import type { Photo } from '@/services/database';
 import { db } from '@/services/database';
+import { Capacitor } from '@capacitor/core';
 
 // Fix Leaflet Default Marker Icons
 import 'leaflet/dist/leaflet.css';
@@ -81,6 +82,11 @@ const updatePhotosWithLocation = async () => {
   }
 };
 
+const getImageSrc = (path: string | undefined) => {
+  if (!path) return '';
+  return Capacitor.convertFileSrc(path);
+};
+
 const createPopupContent = (photo: Photo): string => {
   let dateStr = '';
   if (photo.dateTaken) {
@@ -91,7 +97,7 @@ const createPopupContent = (photo: Photo): string => {
   
   return `
     <div class="photo-popup">
-      <img src="${photo.filepath}" alt="${photo.filename}" style="max-width: 200px; max-height: 150px; object-fit: cover; border-radius: 4px;">
+      <img src="${getImageSrc(photo.filepath)}" alt="${photo.filename}" style="max-width: 200px; max-height: 150px; object-fit: cover; border-radius: 4px;">
       <p style="margin: 8px 0 0; font-size: 12px; font-weight: 500;">${photo.filename}</p>
       ${dateLine}
     </div>
@@ -101,7 +107,7 @@ const createPopupContent = (photo: Photo): string => {
 const createTooltipContent = (photo: Photo): string => {
   return `
     <div class="photo-tooltip">
-      <img src="${photo.filepath}" alt="${photo.filename}" style="max-width: 150px; max-height: 120px; object-fit: cover; border-radius: 4px;">
+      <img src="${getImageSrc(photo.filepath)}" alt="${photo.filename}" style="max-width: 150px; max-height: 120px; object-fit: cover; border-radius: 4px;">
     </div>
   `;
 };

@@ -94,12 +94,14 @@ export const unloadFilerobotStyles = () => {
   }
 };
 
+
 export const buildFilerobotConfig = (
   source: string,
   language: string,
   overrides: Partial<FilerobotImageEditorConfig> = {}
 ): FilerobotImageEditorConfig => {
   const { tabsIds, ...restOverrides } = overrides;
+
   const config: FilerobotImageEditorConfig = {
     source,
     language,
@@ -114,6 +116,15 @@ export const buildFilerobotConfig = (
     backgroundColor: '#1e1e1e',
     ...restOverrides,
   };
+
+  // ⭐ WICHTIGER FIX – sanft gemerged, zerstört nichts
+  if (overrides.Rotate) {
+    (config as any).Rotate = {
+      ...(config as any).Rotate,
+      ...overrides.Rotate,
+    };
+  }
+
   return config;
 };
 

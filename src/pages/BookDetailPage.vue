@@ -109,7 +109,7 @@
           <div class="categories-section">
             <h3>
               {{ $t('auto.kategorien') }}
-              <ion-button size="small" fill="clear" class="edit-category-btn" @click="editCategory">
+              <ion-button size="small" fill="clear" class="edit-category-btn" @click="editCategory" slot="middle">
                 <ion-icon :icon="createOutline" />
               </ion-button>
             </h3>
@@ -218,7 +218,7 @@ const ensureLocalCoverDownloaded = async (loadedBook: Book) => {
     return true;
   }
 
-  const existingLocal = await findLocalCoverImage(loadedBook.id);
+  const existingLocal = await findLocalCoverImage(loadedBook.id, [loadedBook.isbn]);
   if (existingLocal) {
     await db.updateBook(loadedBook.id, { coverImage: existingLocal });
     loadedBook.coverImage = existingLocal;
@@ -647,15 +647,16 @@ const convertBlobToBase64 = (blob: Blob): Promise<string> => {
 }
 
 .book-detail {
-  padding-bottom: 2rem;
+  padding-bottom: 1.25rem;
 }
 
 .cover-section {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 2rem;
+  padding: 1.25rem 1rem;
   background: var(--ion-color-light);
+  gap: 0.5rem;
 }
 
 .cover-image-wrapper {
@@ -685,8 +686,8 @@ const convertBlobToBase64 = (blob: Blob): Promise<string> => {
 }
 
 .placeholder-cover-large {
-  width: 150px;
-  height: 200px;
+  width: 140px;
+  height: 190px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -734,6 +735,16 @@ const convertBlobToBase64 = (blob: Blob): Promise<string> => {
   font-size: 1.75rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  color: var(--ion-color-medium);
+  margin-bottom: 0.5rem;
+}
+
+.subtitle span {
+  display: block;
 }
 
 .authors {

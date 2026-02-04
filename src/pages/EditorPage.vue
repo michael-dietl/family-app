@@ -102,6 +102,10 @@ const initEditor = async () => {
     editorContainer.value,
     buildFilerobotConfig(imageSrc, language, {
       backgroundColor: '#1e1e1e',
+      Rotate: {
+        componentType: 'slider',  // <- smooth rotation aktivieren
+        angle: 0                  // optionaler Startwinkel
+      }
     })
   );
   editorInstance.render();

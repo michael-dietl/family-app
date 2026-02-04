@@ -1,5 +1,7 @@
 // Google Books API Service
 
+import { downloadRemoteCoverImage, normalizeRemoteCoverUrl } from '@/services/imageStorage';
+
 export interface GoogleBookInfo {
   isbn: string;
   title: string;
@@ -15,6 +17,7 @@ export interface GoogleBookInfo {
     thumbnail?: string;
     smallThumbnail?: string;
   };
+  localCoverUri?: string;
 }
 
 export interface BookLookupError {
@@ -159,6 +162,32 @@ export async function lookupBookByISBN(isbn: string, retryCount = 0): Promise<{ 
     }
     
     const volumeInfo = data.items[0].volumeInfo;
+    const coverCandidate = (
+      volumeInfo.imageLinks?.thumbnail
+      || volumeInfo.imageLinks?.smallThumbnail
+      || volumeInfo.imageLinks?.small
+      || volumeInfo.imageLinks?.medium
+      || volumeInfo.imageLinks?.large
+      || volumeInfo.imageLinks?.extraLarge
+    );
+
+    console.warn('Cover candidate:', coverCandidate);
+    const normalizedCoverUrl = normalizeRemoteCoverUrl(coverCandidate);
+    console.warn('Normalized Cover URL:', normalizedCoverUrl);
+    let localCoverUri: string | undefined;
+
+    if (normalizedCoverUrl) {
+      const cachedCover = await downloadRemoteCoverImage(normalizedCoverUrl, isbn);
+      if (cachedCover) {
+        localCoverUri = cachedCover;
+        console.log('📥 Cover cached for ISBN', isbn, '->', localCoverUri);
+      } else {
+        console.warn('⚠️ Cover could not be cached for ISBN', isbn);
+      }
+    }
+    else {
+      console.log('ℹ️ No normalized cover URL for ISBN', isbn, 'candidate:', coverCandidate);
+    }
     
     const bookInfo: GoogleBookInfo = {
       isbn,
@@ -171,7 +200,10 @@ export async function lookupBookByISBN(isbn: string, retryCount = 0): Promise<{ 
       pageCount: volumeInfo.pageCount,
       categories: volumeInfo.categories,
       language: volumeInfo.language,
-      imageLinks: volumeInfo.imageLinks
+      imageLinks: normalizedCoverUrl
+        ? { ...volumeInfo.imageLinks, thumbnail: normalizedCoverUrl }
+        : volumeInfo.imageLinks,
+      localCoverUri
     };
     
     // Speichere im Cache
@@ -204,4 +236,74 @@ export function formatAuthors(authors?: string[]): string {
 export function formatCategories(categories?: string[]): string {
   if (!categories || categories.length === 0) return '';
   return categories.join(', ');
+}
+
+const extractIsbnFromVolume = (volumeInfo: any): string | undefined => {
+  if (!volumeInfo?.industryIdentifiers) return undefined;
+  const identifier = volumeInfo.industryIdentifiers.find((id: any) => id.type === 'ISBN_13')
+    || volumeInfo.industryIdentifiers[0];
+  return identifier?.identifier;
+};
+
+const buildGoogleBookInfo = (volumeInfo: any, isbn: string): GoogleBookInfo => {
+  const coverCandidate = (
+    volumeInfo.imageLinks?.thumbnail
+    || volumeInfo.imageLinks?.smallThumbnail
+    || volumeInfo.imageLinks?.small
+    || volumeInfo.imageLinks?.medium
+    || volumeInfo.imageLinks?.large
+    || volumeInfo.imageLinks?.extraLarge
+  );
+
+  const normalizedCoverUrl = normalizeRemoteCoverUrl(coverCandidate);
+
+  return {
+    isbn,
+    title: volumeInfo.title || 'Unbekannter Titel',
+    subtitle: volumeInfo.subtitle,
+    authors: volumeInfo.authors,
+    publisher: volumeInfo.publisher,
+    publishedDate: volumeInfo.publishedDate,
+    description: volumeInfo.description,
+    pageCount: volumeInfo.pageCount,
+    categories: volumeInfo.categories,
+    language: volumeInfo.language,
+    imageLinks: normalizedCoverUrl
+      ? { ...volumeInfo.imageLinks, thumbnail: normalizedCoverUrl }
+      : volumeInfo.imageLinks,
+    localCoverUri: undefined
+  };
+};
+
+export async function searchBooksByTitle(title: string, maxResults = 6): Promise<GoogleBookInfo[]> {
+  const query = title.trim();
+  if (!query) return [];
+
+  const encodedQuery = encodeURIComponent(`intitle:${query}`);
+  const limitedResults = Math.min(Math.max(maxResults, 1), 12);
+  let apiUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodedQuery}&maxResults=${limitedResults}&projection=full`;
+
+  if (GOOGLE_BOOKS_API_KEY) {
+    apiUrl += `&key=${GOOGLE_BOOKS_API_KEY}`;
+  }
+
+  const response = await fetch(apiUrl);
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Google Books Suche fehlgeschlagen (${response.status}): ${errorBody}`);
+  }
+
+  const data = await response.json();
+  if (!Array.isArray(data.items)) return [];
+
+  const results: GoogleBookInfo[] = data.items
+    .map((item: any) => {
+      const volumeInfo = item.volumeInfo;
+      const isbn = extractIsbnFromVolume(volumeInfo) || item.id;
+      if (!isbn) return null;
+      return buildGoogleBookInfo(volumeInfo, isbn);
+    })
+    .filter(Boolean) as GoogleBookInfo[];
+
+  return results;
 }

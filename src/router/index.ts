@@ -15,6 +15,7 @@ import ShoppingListPage from '@/pages/ShoppingListPage.vue';
 import ShoppingListDetailPage from '@/pages/ShoppingListDetailPage.vue';
 import TodoPage from '@/pages/TodoPage.vue';
 import TodoDetailPage from '@/pages/TodoDetailPage.vue';
+import TodoTaskDetailPage from '@/pages/TodoTaskDetailPage.vue';
 
 
 const router = createRouter({
@@ -38,7 +39,8 @@ const router = createRouter({
     {path : '/shopping', component: ShoppingListPage},
     {path : '/shopping/:id', component: ShoppingListDetailPage},
     {path : '/todo', component: TodoPage},
-    {path : '/todo/:id', component: TodoDetailPage}
+    {path : '/todo/:id', component: TodoDetailPage},
+    {path : '/todo/:listId/item/:itemId', component: TodoTaskDetailPage}
     ]
 })
 

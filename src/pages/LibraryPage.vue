@@ -7,6 +7,9 @@
         </ion-buttons>
         <ion-title>{{ $t('auto.bibliothek') }}</ion-title>
         <ion-buttons slot="end">
+          <ion-button @click="openGoogleSearchModal">
+            <ion-icon :icon="searchOutline" />
+          </ion-button>
           <ion-button @click="scanBarcode">
             <ion-icon :icon="barcodeOutline" />
           </ion-button>
@@ -101,13 +104,78 @@
         </ion-item>
         
         <ion-item-options side="end">
-          <ion-item-option color="danger" @click="confirmDeleteBook(book)">
+          <ion-item-option color="danger" @click.stop="confirmDeleteBook(book)">
             <ion-icon :icon="trashOutline" slot="icon-only" />
           </ion-item-option>
         </ion-item-options>
       </ion-item-sliding>
       </ion-list>
     </ion-content>
+
+      <ion-modal :is-open="isGoogleSearchModalOpen" @didDismiss="closeGoogleSearchModal">
+        <ion-header>
+          <ion-toolbar>
+            <ion-title>Google Books Suche</ion-title>
+            <ion-buttons slot="end">
+              <ion-button @click="closeGoogleSearchModal">
+                <ion-icon :icon="closeOutline" />
+              </ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
+        <ion-content class="ion-padding">
+          <section class="google-search-card">
+            <ion-card>
+              <ion-card-content>
+                <ion-item lines="full">
+                  <ion-input
+                    v-model="googleTitleQuery"
+                    placeholder="Titel oder Stichwort"
+                    @keyup.enter="handleGoogleSearch"
+                  />
+                  <ion-button
+                    slot="end"
+                    fill="outline"
+                    :disabled="isGoogleSearching || !googleTitleQuery.trim()"
+                    @click="handleGoogleSearch"
+                  >
+                    <ion-spinner slot="icon-only" size="small" name="crescent" v-if="isGoogleSearching" />
+                    <ion-icon slot="icon-only" :icon="searchOutline" v-else />
+                    <span>{{ isGoogleSearching ? 'Suche...' : 'Suchen' }}</span>
+                  </ion-button>
+                </ion-item>
+                <p v-if="googleSearchError" class="search-error">{{ googleSearchError }}</p>
+                <ion-list v-if="googleSearchResults.length > 0">
+                  <ion-item
+                    v-for="result in googleSearchResults"
+                    :key="result.isbn + result.title"
+                  >
+                    <ion-label>
+                      <h3>{{ result.title }}</h3>
+                      <p v-if="result.subtitle" class="search-subtitle">{{ result.subtitle }}</p>
+                      <p class="search-meta">{{ formatAuthors(result.authors) }}</p>
+                    </ion-label>
+                    <ion-button
+                      slot="end"
+                      fill="clear"
+                      size="small"
+                      @click="addBookFromSearchResult(result)"
+                    >
+                      Hinzufügen
+                    </ion-button>
+                  </ion-item>
+                </ion-list>
+                <p v-else-if="!isGoogleSearching && googleTitleQuery.trim()" class="search-hint">
+                  Keine Treffer gefunden
+                </p>
+                <p v-else class="search-hint">
+                  Gib einen Titel ein und starte die Suche
+                </p>
+              </ion-card-content>
+            </ion-card>
+          </section>
+        </ion-content>
+      </ion-modal>
   </ion-page>
 </template>
 
@@ -137,6 +205,12 @@ import {
   IonSpinner,
   IonSegment,
   IonSegmentButton,
+  IonCard,
+  IonCardHeader,
+  IonCardTitle,
+  IonCardContent,
+  IonInput,
+  IonModal,
   toastController,
   actionSheetController,
   alertController,
@@ -151,14 +225,24 @@ import {
   add,
   folderOutline,
   keyOutline,
-  trashOutline
+  trashOutline,
+  searchOutline,
+  closeOutline
 } from 'ionicons/icons';
 import { BarcodeScanner, BarcodeFormat, LensFacing } from '@capacitor-mlkit/barcode-scanning';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { db, type Book, type BookCategory } from '@/services/database';
-import { lookupBookByISBN, formatAuthors, formatCategories, setGoogleBooksApiKey, getGoogleBooksApiKey } from '@/services/books';
+import { downloadRemoteCoverImage, isRemoteImageUrl, normalizeRemoteCoverUrl } from '@/services/imageStorage';
+import {
+  lookupBookByISBN,
+  formatAuthors,
+  setGoogleBooksApiKey,
+  getGoogleBooksApiKey,
+  searchBooksByTitle,
+  type GoogleBookInfo
+} from '@/services/books';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 
 const router = useRouter();
@@ -169,7 +253,20 @@ const isLoading = ref(false);
 const isLookingUp = ref(false);
 const selectedCategoryId = ref<number | null>(null);
 const searchQuery = ref('');
+const googleTitleQuery = ref('');
+const googleSearchResults = ref<GoogleBookInfo[]>([]);
+const isGoogleSearching = ref(false);
+const googleSearchError = ref<string | null>(null);
+const isGoogleSearchModalOpen = ref(false);
 const { autoSyncIfEnabled } = usePocketbaseSync();
+
+const openGoogleSearchModal = () => {
+  isGoogleSearchModalOpen.value = true;
+};
+
+const closeGoogleSearchModal = () => {
+  isGoogleSearchModalOpen.value = false;
+};
 
 const filteredBooks = computed(() => {
   let result = books.value;
@@ -365,6 +462,56 @@ const handleSearch = (event: CustomEvent) => {
   searchQuery.value = event.detail.value || '';
 };
 
+const handleGoogleSearch = async () => {
+  const query = googleTitleQuery.value.trim();
+  if (!query) {
+    googleSearchResults.value = [];
+    googleSearchError.value = null;
+    return;
+  }
+
+  isGoogleSearching.value = true;
+  googleSearchError.value = null;
+  try {
+    const results = await searchBooksByTitle(query, 6);
+    googleSearchResults.value = results;
+    if (results.length === 0) {
+      googleSearchError.value = 'Keine Treffer gefunden';
+    }
+  } catch (error) {
+    googleSearchError.value = error instanceof Error ? error.message : 'Fehler bei der Suche';
+  } finally {
+    isGoogleSearching.value = false;
+  }
+};
+
+const addBookFromSearchResult = async (bookInfo: GoogleBookInfo) => {
+  try {
+    const existing = await db.getBookByISBN(bookInfo.isbn);
+    if (existing) {
+      const toast = await toastController.create({
+        message: `"${bookInfo.title}" ist bereits vorhanden`,
+        duration: 2000,
+        color: 'warning',
+        position: 'bottom'
+      });
+      await toast.present();
+      return;
+    }
+
+    await importGoogleBookInfo(bookInfo);
+    googleSearchResults.value = googleSearchResults.value.filter(item => item.isbn !== bookInfo.isbn);
+  } catch (error) {
+    console.error('Error adding book from search', error);
+    const toast = await toastController.create({
+      message: 'Fehler beim Hinzufügen',
+      duration: 2000,
+      color: 'danger'
+    });
+    await toast.present();
+  }
+};
+
 const scanBarcode = async () => {
   const isNative = Capacitor.getPlatform() !== 'web';
   
@@ -492,6 +639,84 @@ const stopScanning = async () => {
     await BarcodeScanner.stopScan();
   } catch (error) {
     console.error('Error stopping scanner:', error);
+  }
+};
+
+const importGoogleBookInfo = async (bookInfo: GoogleBookInfo) => {
+  let mappedCategoryId: number | undefined = selectedCategoryId.value || undefined;
+
+  if (!mappedCategoryId && bookInfo.categories && categories.value.length > 0) {
+    const googleCats = bookInfo.categories.map(c => c.toLowerCase());
+    const found = categories.value.find(local => googleCats.includes(local.name.toLowerCase()));
+    if (found) mappedCategoryId = found.id;
+  }
+
+  const remoteCoverUrl = normalizeRemoteCoverUrl(
+    bookInfo.imageLinks?.thumbnail || bookInfo.imageLinks?.smallThumbnail
+  );
+  const initialCoverUri = bookInfo.localCoverUri || remoteCoverUrl;
+
+  const bookData: Omit<Book, 'id' | 'created'> = {
+    isbn: bookInfo.isbn,
+    title: bookInfo.title,
+    subtitle: bookInfo.subtitle,
+    authors: formatAuthors(bookInfo.authors),
+    publisher: bookInfo.publisher,
+    publishedDate: bookInfo.publishedDate,
+    description: bookInfo.description,
+    pageCount: bookInfo.pageCount,
+    categories: undefined,
+    language: bookInfo.language,
+    coverImage: initialCoverUri,
+    categoryId: mappedCategoryId || undefined,
+    read: false,
+    quantity: 1
+  };
+
+  console.log('📚 Speichere Buch mit categoryId:', selectedCategoryId.value, 'bookData:', bookData);
+  const bookId = await db.createBook(bookData);
+
+  if (!bookInfo.localCoverUri && remoteCoverUrl && isRemoteImageUrl(remoteCoverUrl)) {
+    try {
+      const localCoverUri = await downloadRemoteCoverImage(remoteCoverUrl, bookId);
+      if (localCoverUri) {
+        await db.updateBook(bookId, { coverImage: localCoverUri });
+        bookData.coverImage = localCoverUri;
+      }
+    } catch (error) {
+      console.warn('Unable to cache cover during import', { bookId, coverUrl: bookData.coverImage, error });
+    }
+  }
+
+  const toast = await toastController.create({
+    message: `"${bookInfo.title}" hinzugefügt`,
+    duration: 2000,
+    color: 'success'
+  });
+  await toast.present();
+
+  await loadBooks();
+
+  if (!bookData.coverImage) {
+    const alert = await alertController.create({
+      header: 'Kein Cover gefunden',
+      message: `Für "${bookInfo.title}" wurde kein Cover-Bild gefunden. Möchtest du jetzt ein Foto vom Buchcover machen?`,
+      buttons: [
+        {
+          text: 'Später',
+          role: 'cancel'
+        },
+        {
+          text: 'Foto machen',
+          handler: async () => {
+            setTimeout(async () => {
+              await takeCoverPhotoForBook(bookId);
+            }, 300);
+          }
+        }
+      ]
+    });
+    await alert.present();
   }
 };
 
@@ -633,27 +858,44 @@ const lookupAndSaveBook = async (isbn: string) => {
       if (found) mappedCategoryId = found.id;
     }
 
-    // Save to database - prefer storing local category via categoryId. Do not persist raw Google categories by default to avoid showing incorrect defaults.
-    const bookData: Omit<Book, 'id' | 'created'> = {
-      isbn: bookInfo.isbn,
-      title: bookInfo.title,
-      subtitle: bookInfo.subtitle,
-      authors: formatAuthors(bookInfo.authors),
-      publisher: bookInfo.publisher,
-      publishedDate: bookInfo.publishedDate,
-      description: bookInfo.description,
-      pageCount: bookInfo.pageCount,
-      categories: undefined,
-      language: bookInfo.language,
-      coverImage: bookInfo.imageLinks?.thumbnail || bookInfo.imageLinks?.smallThumbnail,
-      categoryId: mappedCategoryId || undefined,
-      read: false,
-      quantity: 1
-    };
+      // Save to database - prefer storing local category via categoryId. Do not persist raw Google categories by default to avoid showing incorrect defaults.
+      const remoteCoverUrl = normalizeRemoteCoverUrl(
+        bookInfo.imageLinks?.thumbnail || bookInfo.imageLinks?.smallThumbnail
+      );
+      const initialCoverUri = bookInfo.localCoverUri || remoteCoverUrl;
 
-    console.log('📚 Speichere Buch mit categoryId:', selectedCategoryId.value, 'bookData:', bookData);
+      const bookData: Omit<Book, 'id' | 'created'> = {
+        isbn: bookInfo.isbn,
+        title: bookInfo.title,
+        subtitle: bookInfo.subtitle,
+        authors: formatAuthors(bookInfo.authors),
+        publisher: bookInfo.publisher,
+        publishedDate: bookInfo.publishedDate,
+        description: bookInfo.description,
+        pageCount: bookInfo.pageCount,
+        categories: undefined,
+        language: bookInfo.language,
+        coverImage: initialCoverUri,
+        categoryId: mappedCategoryId || undefined,
+        read: false,
+        quantity: 1
+      };
 
-    const bookId = await db.createBook(bookData);
+      console.log('📚 Speichere Buch mit categoryId:', selectedCategoryId.value, 'bookData:', bookData);
+
+      const bookId = await db.createBook(bookData);
+
+      if (!bookInfo.localCoverUri && remoteCoverUrl && isRemoteImageUrl(remoteCoverUrl)) {
+        try {
+          const localCoverUri = await downloadRemoteCoverImage(remoteCoverUrl, bookId);
+          if (localCoverUri) {
+            await db.updateBook(bookId, { coverImage: localCoverUri });
+            bookData.coverImage = localCoverUri;
+          }
+        } catch (error) {
+          console.warn('Unable to cache cover during import', { bookId, coverUrl: bookData.coverImage, error });
+        }
+      }
 
     const toast = await toastController.create({
       message: `"${bookInfo.title}" hinzugefügt`,
@@ -863,6 +1105,37 @@ const handleImageError = (event: Event, book: Book) => {
 .empty-state p {
   color: var(--ion-color-medium);
   margin-bottom: 1rem;
+}
+
+.google-search-card {
+  margin-top: 1rem;
+}
+
+.google-search-card ion-card {
+  border-radius: 12px;
+}
+
+.search-error {
+  color: var(--ion-color-danger);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.search-hint {
+  font-size: 0.85rem;
+  color: var(--ion-color-medium);
+  margin-top: 0.5rem;
+}
+
+.search-subtitle {
+  margin: 0.1rem 0;
+  font-size: 0.9rem;
+  color: var(--ion-color-medium);
+}
+
+.search-meta {
+  font-size: 0.8rem;
+  color: var(--ion-color-medium);
 }
 
 ion-thumbnail {

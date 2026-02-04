@@ -152,6 +152,8 @@ export interface TodoItem {
   description?: string;
   completed: boolean;
   photoPath?: string;
+  dueDate?: string | null;
+  completionDate?: string | null;
   created: string;
 }
 
@@ -481,6 +483,8 @@ class DatabaseService {
         description TEXT,
         completed INTEGER DEFAULT 0,
         photoPath TEXT,
+        dueDate TEXT,
+        completionDate TEXT,
         created TEXT NOT NULL,
         FOREIGN KEY (listId) REFERENCES todo_lists(id) ON DELETE CASCADE
       );
@@ -523,6 +527,21 @@ class DatabaseService {
     await this.db.execute(todoIndexes);
     await this.db.execute(todoPhotosTable);
     await this.db.execute(todoPhotosIndexes);
+
+    const runAlter = async (statement: string) => {
+      try {
+        await this.db!.execute(statement);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (!/duplicate column name/i.test(message)) {
+          console.warn('Todo column migration skipped:', message);
+          return;
+        }
+      }
+    };
+
+    await runAlter('ALTER TABLE todo_items ADD COLUMN dueDate TEXT;');
+    await runAlter('ALTER TABLE todo_items ADD COLUMN completionDate TEXT;');
   }
 
   // Galerie CRUD Operationen
@@ -1448,14 +1467,15 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
-    const sql = 'INSERT INTO todo_items (listId, title, description, completed, photoPath, created) VALUES (?, ?, ?, ?, ?, ?);';
+    const sql = 'INSERT INTO todo_items (listId, title, description, completed, photoPath, dueDate, completionDate, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?);';
     const result = await this.db.run(sql, [
       item.listId,
       item.title,
       item.description || null,
       item.completed ? 1 : 0,
-      // photoPath may be undefined/null
       (item as any).photoPath || null,
+      item.dueDate || null,
+      item.completionDate || null,
       now
     ]);
     
@@ -1474,6 +1494,22 @@ class DatabaseService {
       ...row,
       completed: row.completed === 1
     }));
+  }
+
+  async getTodoItemById(id: number): Promise<TodoItem | null> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return null;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'SELECT * FROM todo_items WHERE id = ?;';
+    const result = await this.db.query(sql, [id]);
+    const row = (result.values || [])[0];
+    if (!row) return null;
+
+    return {
+      ...row,
+      completed: row.completed === 1
+    };
   }
 
   // Todo Photo CRUD
@@ -1537,6 +1573,14 @@ class DatabaseService {
     if ((updates as any).photoPath !== undefined) {
       fields.push('photoPath = ?');
       values.push((updates as any).photoPath ?? null);
+    }
+    if ((updates as any).dueDate !== undefined) {
+      fields.push('dueDate = ?');
+      values.push((updates as any).dueDate ?? null);
+    }
+    if ((updates as any).completionDate !== undefined) {
+      fields.push('completionDate = ?');
+      values.push((updates as any).completionDate ?? null);
     }
 
     if (fields.length === 0) return;
