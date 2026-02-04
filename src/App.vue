@@ -93,10 +93,14 @@ onMounted(async () => {
 
 
   // Beispiel: Heller App-Farbton -> dunkle Buttons
-  await NavigationBar.setNavigationBarColor({
-    color: '#FFFFFF',
-    darkButtons: true,   // dunkle Icons (schwarz)
-  });
+  try {
+    await NavigationBar.setNavigationBarColor({
+      color: '#FFFFFF',
+      darkButtons: true
+    });
+  } catch (error) {
+    console.warn('NavigationBar plugin not available:', error);
+  }
 
   document.addEventListener('ionBackButton', handler as EventListener);
   onUnmounted(() => document.removeEventListener('ionBackButton', handler as EventListener));
