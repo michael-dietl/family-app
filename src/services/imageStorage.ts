@@ -30,7 +30,7 @@ export const findLocalCoverImage = async (bookId: number): Promise<string | null
 
     const entries = (directory.files ?? [])
       .map((entry) => (typeof entry === 'string' ? entry : (entry as any).name))
-      .filter((fileName) => fileName?.startsWith(`${COVER_PREFIX}${bookId}_`));
+      .filter((fileName) => fileName && fileName.includes(`book_cover_${bookId}`));
 
     if (entries.length === 0) return null;
 
