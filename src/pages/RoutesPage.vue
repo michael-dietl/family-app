@@ -16,7 +16,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content :fullscreen="true" class="routes-content">
+    <ion-content class="routes-content safe-area">
       <ion-header collapse="condense">
         <ion-toolbar>
           <ion-title size="large">{{ $t('auto.routen') }}</ion-title>

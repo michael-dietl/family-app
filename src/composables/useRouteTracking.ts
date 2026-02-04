@@ -1,6 +1,8 @@
 import { ref, computed } from 'vue';
 import { Geolocation, type Position } from '@capacitor/geolocation';
 import { db, type Route, type Waypoint } from '@/services/database';
+import { PositionSmoother, type LatLonPoint } from '@/services/positionSmoothing';
+import { matchPositionsWithValhalla } from '@/services/valhalla';
 
 export interface TrackingState {
   isTracking: boolean;
@@ -20,11 +22,21 @@ export function useRouteTracking() {
     duration: 0,
     waypoints: []
   });
+  const matchedPath = ref<LatLonPoint[]>([]);
+  const smoother = new PositionSmoother();
+  const routePoints: LatLonPoint[] = [];
+  const MAX_ROUTE_POINTS = 1600;
+  const MIN_MATCH_POINTS = 6;
+  const MATCH_DELAY_MS = 2500;
+  const MIN_PERSIST_DISTANCE_METERS = 1;
+  let matchTimeout: number | null = null;
+  let matchInFlight = false;
 
   let watchId: string | null = null;
   let startTime: Date | null = null;
   let lastPosition: Position | null = null;
   let durationInterval: number | null = null;
+  let positionWaypointCount = 0;
   let currentRouteId: number | null = null;
 
   const isTracking = computed(() => state.value.isTracking);
@@ -50,6 +62,81 @@ export function useRouteTracking() {
     return R * c; // Distance in meters
   };
 
+  const matchRouteWithValhalla = async () => {
+    if (matchInFlight || routePoints.length < MIN_MATCH_POINTS) {
+      return;
+    }
+    matchInFlight = true;
+    try {
+      const matched = await matchPositionsWithValhalla(routePoints);
+      if (matched.length >= MIN_MATCH_POINTS) {
+        matchedPath.value = matched;
+      }
+    } finally {
+      matchInFlight = false;
+    }
+  };
+
+  const scheduleValhallaMatch = () => {
+    if (matchTimeout) {
+      clearTimeout(matchTimeout);
+    }
+    matchTimeout = window.setTimeout(() => {
+      matchTimeout = null;
+      void matchRouteWithValhalla();
+    }, MATCH_DELAY_MS);
+  };
+
+  const flushValhallaMatch = async () => {
+    if (matchTimeout) {
+      clearTimeout(matchTimeout);
+      matchTimeout = null;
+    }
+    await matchRouteWithValhalla();
+  };
+
+  const pushRoutePoint = (point: LatLonPoint) => {
+    routePoints.push(point);
+    if (routePoints.length > MAX_ROUTE_POINTS) {
+      routePoints.shift();
+    }
+    if (routePoints.length >= MIN_MATCH_POINTS) {
+      scheduleValhallaMatch();
+    }
+  };
+
+  const persistRoutePoints = async () => {
+    if (!currentRouteId || routePoints.length === 0) return;
+
+    //await db.deletePositionWaypoints(currentRouteId);
+
+    let lastSavedPoint: LatLonPoint | null = null;
+    for (const point of routePoints) {
+      if (lastSavedPoint) {
+        const distanceSinceLast = calculateDistance(
+          lastSavedPoint.latitude,
+          lastSavedPoint.longitude,
+          point.latitude,
+          point.longitude
+        );
+        if (distanceSinceLast < MIN_PERSIST_DISTANCE_METERS) {
+          continue;
+        }
+      }
+
+      const waypoint: Omit<Waypoint, 'id'> = {
+        routeId: currentRouteId,
+        type: 'position',
+        latitude: point.latitude,
+        longitude: point.longitude,
+        timestamp: new Date(point.timestamp ?? Date.now()).toISOString()
+      };
+
+      await db.createWaypoint(waypoint);
+      lastSavedPoint = point;
+    }
+  };
+
   const startTracking = async (routeId: number) => {
     try {
       // Request permissions
@@ -66,6 +153,14 @@ export function useRouteTracking() {
       state.value.duration = 0;
       state.value.waypoints = [];
       lastPosition = null;
+      routePoints.length = 0;
+      matchedPath.value = [];
+      positionWaypointCount = 0;
+      if (matchTimeout) {
+        clearTimeout(matchTimeout);
+        matchTimeout = null;
+      }
+      matchInFlight = false;
 
       // Start duration counter
       durationInterval = window.setInterval(() => {
@@ -89,29 +184,45 @@ export function useRouteTracking() {
 
           if (!position || state.value.isPaused) return;
 
-          state.value.currentPosition = position;
+          const smoothedPoint = smoother.smooth(position);
+          const normalizedPosition: Position = {
+            ...position,
+            coords: {
+              ...position.coords,
+              latitude: smoothedPoint.latitude,
+              longitude: smoothedPoint.longitude
+            }
+          };
+
+          state.value.currentPosition = normalizedPosition;
 
           // Calculate distance if we have a previous position
-          if (lastPosition && position.coords) {
+          if (lastPosition && normalizedPosition.coords) {
             const distanceIncrement = calculateDistance(
               lastPosition.coords.latitude,
               lastPosition.coords.longitude,
-              position.coords.latitude,
-              position.coords.longitude
+              normalizedPosition.coords.latitude,
+              normalizedPosition.coords.longitude
             );
 
-            // Only add distance if movement is significant (> 2 meters) to filter GPS noise
+            // Only add distance if movement is significant (> 2 meters)
             if (distanceIncrement > 2) {
               state.value.distance += distanceIncrement;
-              
+
               // Create waypoint every ~20 meters
-              if (state.value.distance - (state.value.waypoints.length * 20) >= 20) {
+              const distanceSinceLastWaypoint = state.value.distance - (positionWaypointCount * 20);
+              if (positionWaypointCount === 0 || distanceSinceLastWaypoint >= 20) {
                 await addPositionWaypoint(position);
               }
             }
           }
 
-          lastPosition = position;
+          lastPosition = normalizedPosition;
+          pushRoutePoint({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            timestamp: position.timestamp
+          });
         }
       );
 
@@ -137,6 +248,15 @@ export function useRouteTracking() {
       await Geolocation.clearWatch({ id: watchId });
       watchId = null;
     }
+
+    await flushValhallaMatch();
+
+    try {
+      await persistRoutePoints();
+    } catch (error) {
+      console.error('Error persisting full route track:', error);
+    }
+    routePoints.length = 0;
 
     // Stop duration counter
     if (durationInterval) {
@@ -175,6 +295,7 @@ export function useRouteTracking() {
 
     const waypointId = await db.createWaypoint(waypoint);
     state.value.waypoints.push({ ...waypoint, id: waypointId });
+    positionWaypointCount += 1;
   };
 
   const addManualWaypoint = async (name: string, description?: string) => {
@@ -215,6 +336,7 @@ export function useRouteTracking() {
 
   const loadWaypoints = async (routeId: number) => {
     state.value.waypoints = await db.getWaypointsByRoute(routeId);
+    positionWaypointCount = state.value.waypoints.filter((wp) => wp.type === 'position').length;
   };
 
   return {
@@ -225,6 +347,7 @@ export function useRouteTracking() {
     distance,
     duration,
     waypoints,
+    matchedPath,
     
     // Methods
     startTracking,

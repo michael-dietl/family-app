@@ -4,9 +4,7 @@
       <ion-toolbar>
         <template #start>
           <ion-buttons>
-            <ion-button @click="router.back()" :aria-label="$t('auto.zurueck')">
-              <ion-icon :icon="arrowBackOutline" />
-            </ion-button>
+            <ion-back-button default-href="router.back()" />
           </ion-buttons>
         </template>
         <ion-title>{{ routeData?.name || $t('auto.route') }}</ion-title>
@@ -19,7 +17,7 @@
         </template>
       </ion-toolbar>
     </ion-header>
-    <ion-content :fullscreen="true">
+    <ion-content>
       <div v-if="isLoading" class="loading-container">
         <ion-spinner name="crescent" />
       </div>
@@ -289,6 +287,7 @@ const { t } = useI18n();
 
 let map: L.Map | null = null;
 let routeLine: L.Polyline | null = null;
+let matchedLine: L.Polyline | null = null;
 const waypointMarkers: Map<number, L.Marker> = new Map();
 let currentPositionMarker: L.Marker | null = null;
 let positionWatchInterval: number | null = null;
@@ -314,6 +313,7 @@ const {
   distance: trackingDistance,
   duration: trackingDuration,
   waypoints: trackingWaypoints,
+  matchedPath,
   startTracking,
   pauseTracking,
   resumeTracking,
@@ -709,7 +709,15 @@ watch(waypoints, () => {
   void preloadWaypointPhotos(waypoints.value);
 });
 
+watch(matchedPath, () => {
+  drawRoute();
+}, { deep: true });
+
 onUnmounted(() => {
+  if (matchedLine && map) {
+    map.removeLayer(matchedLine);
+    matchedLine = null;
+  }
   if (map) {
     map.remove();
     map = null;
@@ -828,6 +836,10 @@ function drawRoute() {
     map.removeLayer(routeLine);
     routeLine = null;
   }
+  if (matchedLine) {
+    map.removeLayer(matchedLine);
+    matchedLine = null;
+  }
   // Entferne alte Marker
   waypointMarkers.forEach(marker => {
     if (map) map.removeLayer(marker);
@@ -837,7 +849,7 @@ function drawRoute() {
   if (waypoints.value.length === 0) return;
 
   // Route-Polyline aus Positions-Wegpunkten
-  const positionWaypoints = waypoints.value.filter(wp => wp.type === 'position');
+  const positionWaypoints = waypoints.value.filter(wp => wp.type !== 'position');
   if (positionWaypoints.length > 0) {
     const latlngs = positionWaypoints.map(wp => L.latLng(wp.latitude, wp.longitude));
     routeLine = L.polyline(latlngs, {
@@ -846,6 +858,15 @@ function drawRoute() {
       opacity: 0.7
     }).addTo(map);
     map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+    if (matchedPath.value.length > 1) {
+      const matchedLatLngs = matchedPath.value.map(p => L.latLng(p.latitude, p.longitude));
+      matchedLine = L.polyline(matchedLatLngs, {
+        color: '#eb445a',
+        weight: 3,
+        opacity: 0.9,
+        dashArray: '6 6'
+      }).addTo(map);
+    }
   } else {
     // Kein Track: Karte auf ersten manuellen Wegpunkt zentrieren
     const manual = waypoints.value.find(wp => wp.type === 'manual');

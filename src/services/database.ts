@@ -1104,6 +1104,15 @@ class DatabaseService {
     await this.db.run(sql, [id]);
   }
 
+  async deletePositionWaypoints(routeId: number): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = "DELETE FROM waypoints WHERE routeId = ? AND type = 'position';";
+    await this.db.run(sql, [routeId]);
+  }
+
   // ==================== Wine Management ====================
 
   async createWine(wine: Omit<Wine, 'id' | 'created' | 'updated'>): Promise<number> {

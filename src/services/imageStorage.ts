@@ -1,4 +1,3 @@
-import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 
 const REMOTE_IMAGE_RE = /^https?:\/\//i;
@@ -17,6 +16,35 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
 
 export const isRemoteImageUrl = (value?: string): value is string => {
   return Boolean(value && REMOTE_IMAGE_RE.test(value));
+};
+
+export const COVER_BASE_PATH = 'books';
+export const COVER_PREFIX = 'book_cover_';
+
+export const findLocalCoverImage = async (bookId: number): Promise<string | null> => {
+  try {
+    const directory = await Filesystem.readdir({
+      directory: Directory.Data,
+      path: COVER_BASE_PATH
+    });
+
+    const entries = (directory.files ?? [])
+      .map((entry) => (typeof entry === 'string' ? entry : (entry as any).name))
+      .filter((fileName) => fileName?.startsWith(`${COVER_PREFIX}${bookId}_`));
+
+    if (entries.length === 0) return null;
+
+    entries.sort();
+    const latestFile = entries[entries.length - 1];
+    const { uri } = await Filesystem.getUri({
+      directory: Directory.Data,
+      path: `${COVER_BASE_PATH}/${latestFile}`
+    });
+
+    return uri;
+  } catch (error) {
+    return null;
+  }
 };
 
 export const downloadRemoteCoverImage = async (url: string, bookId: number): Promise<string | null> => {

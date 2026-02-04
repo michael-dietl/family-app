@@ -39,6 +39,12 @@ http://ionicframework.com/docs/theming/ */
   --ion-color-step-50: #fff9f6;
   --ion-color-step-100: #fff3ee;
   --ion-color-step-150: #ffe9e0;
+
+
+  --ion-safe-area-top: env(safe-area-inset-top, 0px);
+  --ion-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --ion-safe-area-left: env(safe-area-inset-left, 0px);
+  --ion-safe-area-right: env(safe-area-inset-right, 0px);
 }
 
 /** Alternative Theme: Wine Red **/

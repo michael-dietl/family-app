@@ -13,6 +13,7 @@ import { onUnmounted } from 'vue';
 import { alertController, toastController } from '@ionic/vue';
 import { App as CapacitorApp } from '@capacitor/app';
 import { NavigationBar } from '@capgo/capacitor-navigation-bar';
+import i18n from '@/i18n/i18n';
 
 // Datenbank beim App-Start initialisieren
 onMounted(async () => {
@@ -46,15 +47,15 @@ onMounted(async () => {
 
         if (activeRecording) {
           const alert = await alertController.create({
-            header: 'Aufzeichnung läuft',
-            message: 'Eine Routenaufzeichnung läuft. Möchtest du die App beenden oder im Hintergrund weiterlaufen lassen?',
+            header: i18n.global.t('aufzeichnung-laeuft'),
+            message: i18n.global.t('eine-routenaufzeichnung-laeuft-moechtest'),
             buttons: [
-              { text: 'Abbrechen', role: 'cancel' },
+              { text: i18n.global.t('abbrechen'), role: 'cancel' },
               {
-                text: 'Im Hintergrund weiterlaufen',
+                text: i18n.global.t('im-hintergrund-weiterlaufen'),
                 handler: async () => {
                   const toast = await toastController.create({
-                    message: 'Die App läuft weiter. Drücke Home, um sie zu minimieren.',
+                    message: i18n.global.t('die-app-laeuft-weiter-druecke-home-um-si'),
                     duration: 2500,
                     position: 'bottom'
                   });
@@ -62,7 +63,7 @@ onMounted(async () => {
                 }
               },
               {
-                text: 'Beenden',
+                text: i18n.global.t('beenden'),
                 role: 'destructive',
                 handler: async () => {
                   try {

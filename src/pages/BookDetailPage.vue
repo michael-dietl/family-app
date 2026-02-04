@@ -185,7 +185,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { db, type Book, type BookCategory } from '@/services/database';
-import { downloadRemoteCoverImage, isRemoteImageUrl } from '@/services/imageStorage';
+import { downloadRemoteCoverImage, findLocalCoverImage, isRemoteImageUrl } from '@/services/imageStorage';
 
 const route = useRoute();
 const router = useRouter();
@@ -212,13 +212,27 @@ const loadCategories = async () => {
 };
 
 const ensureLocalCoverDownloaded = async (loadedBook: Book) => {
-  if (!loadedBook.coverImage || !loadedBook.id || !isRemoteImageUrl(loadedBook.coverImage)) return;
+  if (!loadedBook.coverImage || !loadedBook.id) return false;
+
+  if (!isRemoteImageUrl(loadedBook.coverImage)) {
+    return true;
+  }
+
+  const existingLocal = await findLocalCoverImage(loadedBook.id);
+  if (existingLocal) {
+    await db.updateBook(loadedBook.id, { coverImage: existingLocal });
+    loadedBook.coverImage = existingLocal;
+    return true;
+  }
 
   const localUri = await downloadRemoteCoverImage(loadedBook.coverImage, loadedBook.id);
   if (localUri) {
     await db.updateBook(loadedBook.id, { coverImage: localUri });
     loadedBook.coverImage = localUri;
+    return true;
   }
+
+  return false;
 };
 
 const loadBook = async () => {
@@ -492,9 +506,22 @@ const confirmDelete = async () => {
   await alert.present();
 };
 
-const editCoverPhoto = () => {
+const editCoverPhoto = async () => {
   if (!book.value || !book.value.coverImage) return;
-  
+
+  if (isRemoteImageUrl(book.value.coverImage)) {
+    const converted = await ensureLocalCoverDownloaded(book.value);
+    if (!converted) {
+      const toast = await toastController.create({
+        message: 'Cover konnte nicht lokal gespeichert werden. Bitte versuche es später erneut.',
+        duration: 2000,
+        color: 'warning'
+      });
+      await toast.present();
+      return;
+    }
+  }
+
   router.push({
     path: '/editor-cover',
     query: {
