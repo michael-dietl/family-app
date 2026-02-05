@@ -8,7 +8,7 @@
         <ion-title>{{ $t('auto.bibliothek') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button @click="openGoogleSearchModal">
-            <ion-icon :icon="searchOutline" />
+            <ion-icon :icon="libraryOutline" />
           </ion-button>
           <ion-button @click="scanBarcode">
             <ion-icon :icon="barcodeOutline" />
@@ -89,6 +89,14 @@
             <p v-if="book.publishedDate" class="book-meta">
               {{ book.publisher }} • {{ book.publishedDate }}
             </p>
+              <div v-if="parseCategoryTags(book.categories).length" class="book-category-tags">
+                <ion-chip
+                  v-for="tag in parseCategoryTags(book.categories)"
+                  :key="`${book.id}_${tag}`"
+                >
+                  <ion-label>{{ tag }}</ion-label>
+                </ion-chip>
+              </div>
             <div class="book-badges">
               <ion-badge v-if="book.quantity && book.quantity > 1" color="primary">
                 {{ book.quantity }}x
@@ -202,6 +210,7 @@ import {
   IonLabel,
   IonThumbnail,
   IonBadge,
+  IonChip,
   IonSpinner,
   IonSegment,
   IonSegmentButton,
@@ -226,6 +235,7 @@ import {
   folderOutline,
   keyOutline,
   trashOutline,
+  libraryOutline,
   searchOutline,
   closeOutline
 } from 'ionicons/icons';
@@ -307,6 +317,14 @@ const getImageSrc = (coverImage: string): string => {
   }
   
   return coverImage;
+};
+
+const parseCategoryTags = (categories: string | undefined): string[] => {
+  if (!categories) return [];
+  return categories
+    .split(',')
+    .map(tag => tag.trim())
+    .filter(Boolean);
 };
 
 const takeCoverPhotoForBook = async (bookId: number) => {
@@ -1176,6 +1194,19 @@ ion-item p {
   display: flex;
   gap: 0.5rem;
   margin-top: 0.5rem;
+}
+
+.book-category-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+}
+
+.book-category-tags ion-chip {
+  --padding-start: 0.6rem;
+  --padding-end: 0.6rem;
+  font-size: 0.75rem;
 }
 
 .book-badges ion-badge {
