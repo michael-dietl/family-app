@@ -304,6 +304,7 @@ import { Capacitor } from '@capacitor/core';
 import { useGallery } from '@/composables/useGallery';
 import { usePhoto } from '@/composables/usePhoto';
 import { useLightbox } from '@/composables/useLightbox';
+import { useWakeLock } from '@/composables/useWakeLock';
 import { extractExifFromUri, extractExifFromImage } from '@/services/exif';
 import GalleryMap from '@/components/GalleryMap.vue';
 import LocationPickerModal from '@/components/LocationPickerModal.vue';
@@ -315,6 +316,7 @@ const router = useRouter();
 const { currentGallery, photos, isLoading, loadGallery, deleteGallery } = useGallery();
 const { takePhoto, pickSinglePhoto, pickMultiplePhotos, savePhoto, saveMultiplePhotos, deletePhoto: removePhoto, isProcessing, extractExifData } = usePhoto();
 const { initLightbox, openLightbox, destroyLightbox, startAutoplay, stopAutoplay, autoplayActive, isLightboxOpen } = useLightbox();
+const { activate: activateWakeLock, deactivate: deactivateWakeLock } = useWakeLock();
 
 const uploadProgress = ref({ current: 0, total: 0 });
 const currentView = ref<'grid' | 'map'>('grid');
@@ -498,6 +500,8 @@ onActivated(async () => {
 });
 
 // Initialisiere Lightbox wenn Fotos geladen sind
+
+// Lightbox initialisieren und WakeLock an Lightbox-Status koppeln
 watch(photos, (newPhotos) => {
   if (newPhotos.length > 0) {
     setTimeout(() => {
@@ -505,6 +509,14 @@ watch(photos, (newPhotos) => {
     }, 100);
   }
 }, { immediate: true });
+
+watch([isLightboxOpen, autoplayActive], ([open, auto]) => {
+  if (open || auto) {
+    activateWakeLock();
+  } else {
+    deactivateWakeLock();
+  }
+});
 
 onBeforeUnmount(() => {
   destroyLightbox();
@@ -528,10 +540,6 @@ const showPhotoOptions = async () => {
         text: 'Mehrere Fotos auswählen',
         icon: images,
         handler: () => handleAddMultiplePhotos()
-      },
-      {
-        text: 'Abbrechen',
-        role: 'cancel'
       }
     ]
   });
