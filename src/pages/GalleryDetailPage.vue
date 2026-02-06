@@ -120,7 +120,7 @@
                 class="photo-item"
                 :class="{ 'photo-selected': selectedPhoto?.id === photo.id }"
               >
-              <div v-if="photo.isVideo" class="video-thumbnail-wrapper">
+              <div v-if="isVideoPhoto(photo)" class="video-thumbnail-wrapper">
                 <video 
                   :src="getImageSrc(photo.filepath)"
                   :poster="getVideoPoster(photo.id)"
@@ -141,7 +141,7 @@
                 class="photo-img"
               />
               </a>
-              <div v-if="!selectionMode && !photo.isVideo" class="photo-actions">
+              <div v-if="!selectionMode && !isVideoPhoto(photo)" class="photo-actions">
                 <ion-button
                   fill="clear"
                   size="small"
@@ -159,7 +159,7 @@
                 class="photo-item selectable"
                 :class="{ 'selected': selectedPhotos.has(photo.id!) }"
               >
-                <div v-if="photo.isVideo" class="video-thumbnail-wrapper">
+                <div v-if="isVideoPhoto(photo)" class="video-thumbnail-wrapper">
                   <video 
                     :src="getImageSrc(photo.filepath)"
                     :poster="getVideoPoster(photo.id)"
@@ -310,9 +310,24 @@ const selectedPhoto = ref<Photo | null>(null);
 const selectionMode = ref(false);
 const selectedPhotos = ref<Set<number>>(new Set());
 
+const videoExtensions = ['mp4', 'mov', 'webm', 'mkv', 'avi', '3gp', 'm4v'];
+
 const getImageSrc = (path: string | undefined) => {
   if (!path) return '';
+  if (path.startsWith('data:') || path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
   return Capacitor.convertFileSrc(path);
+};
+
+const isVideoPhoto = (photo: Photo) => {
+  if (photo.isVideo) return true;
+  if (photo.mimeType?.startsWith('video/')) return true;
+  const filenameExt = photo.filename?.split('.').pop()?.toLowerCase() || '';
+  if (videoExtensions.includes(filenameExt)) return true;
+  const cleanPath = (photo.filepath || '').split('?')[0].split('#')[0];
+  const pathExt = cleanPath.split('.').pop()?.toLowerCase() || '';
+  return videoExtensions.includes(pathExt);
 };
 
 // Manuelle GPS-Eingabe
@@ -343,6 +358,11 @@ const handlePhotoClick = (photo: Photo, index: number, event: Event) => {
   
   // Wenn Foto selektiert ist, nichts tun (Editor wird über Button geöffnet)
   if (selectedPhoto.value?.id === photo.id) {
+    return;
+  }
+
+  if (isVideoPhoto(photo)) {
+    openVideoPreview(photo);
     return;
   }
   
@@ -719,7 +739,7 @@ const clearSelection = () => {
 const openSelectedEditor = () => {
   if (!selectedPhoto.value) return;
   
-  if (selectedPhoto.value.isVideo) {
+  if (isVideoPhoto(selectedPhoto.value)) {
     openVideoEditor(selectedPhoto.value);
   } else {
     openImageEditor(selectedPhoto.value);
@@ -734,8 +754,13 @@ const openPhoto = (index: number) => {
 
 const getVideoPoster = (photoId: number | undefined) => {
   const photo = photos.value.find(p => p.id === photoId);
-  // Verwende thumbnail falls vorhanden, sonst filepath
-  return photo?.thumbnail || photo?.filepath || '';
+  if (!photo) return '';
+  if (photo.thumbnail) {
+    return photo.thumbnail.startsWith('data:')
+      ? photo.thumbnail
+      : `data:image/jpeg;base64,${photo.thumbnail}`;
+  }
+  return '';
 };
 
 const openVideoEditor = (video: Photo) => {

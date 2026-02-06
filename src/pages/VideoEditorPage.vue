@@ -25,7 +25,7 @@
         <div v-else-if="videoPath" class="video-preview">
           <video 
             ref="videoElement"
-            :src="videoPath"
+            :src="previewVideoSrc"
             controls
             playsinline
             class="preview-video"
@@ -91,7 +91,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { 
   IonPage, 
@@ -126,6 +126,13 @@ const videoId = route.query.videoId as string;
 const isLoading = ref(true);
 const isSaving = ref(false);
 const videoPath = ref('');
+const previewVideoSrc = computed(() => {
+  if (!videoPath.value) return '';
+  if (videoPath.value.startsWith('file://') || videoPath.value.startsWith('content://')) {
+    return Capacitor.convertFileSrc(videoPath.value);
+  }
+  return videoPath.value;
+});
 const videoElement = ref<HTMLVideoElement | null>(null);
 const duration = ref(0);
 const trimStart = ref(0);

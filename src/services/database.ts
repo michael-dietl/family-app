@@ -317,6 +317,7 @@ class DatabaseService {
         height INTEGER,
         filesize INTEGER,
         mimeType TEXT,
+        isVideo INTEGER DEFAULT 0,
         latitude REAL,
         longitude REAL,
         dateTaken TEXT,
@@ -528,6 +529,18 @@ class DatabaseService {
     await this.db.execute(todoPhotosTable);
     await this.db.execute(todoPhotosIndexes);
 
+    // Migration: ensure photos.isVideo exists for video handling
+    try {
+      const columns = await this.db.query("PRAGMA table_info(photos);");
+      const hasIsVideo = columns.values?.some((col: any) => col.name === 'isVideo');
+      if (!hasIsVideo) {
+        await this.db.execute('ALTER TABLE photos ADD COLUMN isVideo INTEGER DEFAULT 0;');
+        await this.db.execute("UPDATE photos SET isVideo = 1 WHERE mimeType LIKE 'video/%';");
+      }
+    } catch (error) {
+      console.warn('Photo isVideo migration skipped:', error);
+    }
+
     const runAlter = async (statement: string) => {
       try {
         await this.db!.execute(statement);
@@ -658,10 +671,10 @@ class DatabaseService {
     const now = new Date().toISOString();
     const sql = `
       INSERT INTO photos (
-        galleryId, filename, filepath, thumbnail, width, height, filesize, mimeType,
+        galleryId, filename, filepath, thumbnail, width, height, filesize, mimeType, isVideo,
         latitude, longitude, dateTaken, camera, lens, focalLength, aperture, 
         shutterSpeed, iso, created
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
 
     const result = await this.db.run(sql, [
@@ -673,6 +686,7 @@ class DatabaseService {
       photo.height || null,
       photo.filesize || null,
       photo.mimeType || null,
+      photo.isVideo ? 1 : 0,
       photo.latitude || null,
       photo.longitude || null,
       photo.dateTaken || null,

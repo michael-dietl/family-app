@@ -174,6 +174,18 @@ export function usePhoto() {
     });
   };
 
+  const guessMimeFromBlob = async (blob: Blob) => {
+    if (blob.type) return blob.type;
+    try {
+      const headerBlob = blob.slice(0, 32);
+      const headerBase64 = await blobToBase64(headerBlob);
+      return guessMimeFromBase64(headerBase64);
+    } catch (error) {
+      console.warn('⚠️ Could not sniff blob header:', error);
+      return undefined;
+    }
+  };
+
   // Hilfsfunktion: File zu Data URL
   const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -295,7 +307,9 @@ export function usePhoto() {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
           // EXIF-Daten extrahieren (falls vorhanden)
-          const exifData = extractExifFromImage(dataUrlToArrayBuffer(videoDataUrl));
+          const exifData = videoDataUrl.startsWith('data:')
+            ? extractExifFromImage(dataUrlToArrayBuffer(videoDataUrl))
+            : null;
 
           // Blob statt DataURL verwenden
           canvas.toBlob((blob) => {
@@ -398,8 +412,9 @@ export function usePhoto() {
         }
       }
       
-      const isVideo = blob.type ? blob.type.startsWith('video/') : inferredIsVideo;
-      const mimeType = blob.type || (isVideo ? 'video/mp4' : 'image/jpeg');
+      const sniffedMime = await guessMimeFromBlob(blob);
+      const mimeType = blob.type || sniffedMime || (inferredIsVideo ? 'video/mp4' : 'image/jpeg');
+      const isVideo = mimeType.startsWith('video/');
       
       console.log('🖼️ Blob loaded:', { type: blob.type, size: blob.size, isVideo, mimeType });
 
@@ -531,7 +546,10 @@ export function usePhoto() {
       }
 
       // 2. Dateiname generieren falls nicht vorhanden
-      const extension = isVideo ? '.mp4' : '.jpg';
+      const inferredExt = getExtensionFromUri(photoUri);
+      const extension = isVideo
+        ? (videoExtensions.includes(inferredExt) ? `.${inferredExt}` : '.mp4')
+        : '.jpg';
       const finalFilename = filename || `${isVideo ? 'video' : 'photo'}_${Date.now()}${extension}`;
 
       // 3. Foto/Video konvertieren
@@ -585,10 +603,30 @@ export function usePhoto() {
         }
       }
 
-      // 5. In Datenbank speichern (OHNE Thumbnail - wird bei Bedarf aus Datei generiert)
+      // 4.6 Thumbnail generieren und speichern
+      let thumbnailPath: string | undefined;
+      try {
+        if (isVideo) {
+          const videoSrc = isNative ? Capacitor.convertFileSrc(filePath) : dataUrl;
+          const { thumbnailBlob: vidThumb } = await generateVideoThumbnail(videoSrc);
+          if (vidThumb) {
+            const thumbBase64 = await blobToBase64(vidThumb);
+            thumbnailPath = `data:image/jpeg;base64,${thumbBase64}`;
+          }
+        } else {
+          const { thumbnailBlob: photoThumb } = await generatePhotoThumbnail(dataUrl);
+          const thumbBase64 = await blobToBase64(photoThumb);
+          thumbnailPath = `data:image/jpeg;base64,${thumbBase64}`;
+        }
+      } catch (thumbError) {
+        console.warn('⚠️ Could not generate thumbnail:', thumbError);
+      }
+
+      // 5. In Datenbank speichern (MIT Thumbnail)
       console.log('💿 Saving to database with EXIF data:');
       console.log('   - Gallery ID:', galleryId);
       console.log('   - Filename:', finalFilename);
+      console.log('   - Thumbnail:', thumbnailPath ? 'generated' : 'skipped');
       console.log('   - GPS Latitude:', exifData.latitude);
       console.log('   - GPS Longitude:', exifData.longitude);
       console.log('   - Camera:', exifData.camera);
@@ -598,7 +636,9 @@ export function usePhoto() {
         galleryId,
         filename: finalFilename,
         filepath: filePath,  // Nur der Pfad zur Datei
+        thumbnail: thumbnailPath,
         mimeType,
+        isVideo,
         filesize: blob.size,
         ...exifData
       });

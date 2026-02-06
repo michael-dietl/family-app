@@ -8,6 +8,18 @@ export interface MediaItem extends Photo {
   videoUrl?: string;
 }
 
+const videoExtensions = ['mp4', 'mov', 'webm', 'mkv', 'avi', '3gp', 'm4v'];
+
+const isVideoItem = (photo: MediaItem) => {
+  if (photo.isVideo) return true;
+  if (photo.mimeType?.startsWith('video/')) return true;
+  const filenameExt = photo.filename?.split('.').pop()?.toLowerCase() || '';
+  if (videoExtensions.includes(filenameExt)) return true;
+  const cleanPath = (photo.filepath || '').split('?')[0].split('#')[0];
+  const pathExt = cleanPath.split('.').pop()?.toLowerCase() || '';
+  return videoExtensions.includes(pathExt);
+};
+
 export function useLightbox() {
   const lightbox = ref<any>(null);
   const isPlaying = ref(false);
@@ -36,7 +48,7 @@ export function useLightbox() {
       
       // Lade Bildabmessungen dynamisch
       dataSource: photos.map((photo) => {
-        if (photo.isVideo) {
+        if (isVideoItem(photo)) {
           return {
             type: 'video',
             width: 1920,
