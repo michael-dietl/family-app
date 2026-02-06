@@ -110,15 +110,15 @@
               <template v-if="!selectionMode">
                 <a
                   :href="getImageSrc(photo.filepath)"
-                  :data-pswp-width="photo.width || 1920"
-                  :data-pswp-height="photo.height || 1080"
+                  :data-type="isVideoPhoto(photo) ? 'video' : 'image'"
+                  :data-poster="isVideoPhoto(photo) ? getVideoPoster(photo.id) : undefined"
                   target="_blank"
                   @click="handlePhotoClick(photo, index, $event)"
                   @touchstart.passive="handleTouchStart(photo, $event)"
                   @touchend.passive="handleTouchEnd"
                   @touchmove.passive="handleTouchEnd"
                   class="photo-item"
-                  :class="{ 'photo-selected': selectedPhoto?.id === photo.id }"
+                  :class="{ glightbox: true, 'photo-selected': selectedPhoto?.id === photo.id }"
                 >
                   <div v-if="isVideoPhoto(photo)" class="video-thumbnail-wrapper">
                     <video 
@@ -129,7 +129,7 @@
                       muted
                       playsinline
                     ></video>
-                    <div class="video-overlay" @click.stop.prevent="openVideoPreview(photo)">
+                    <div class="video-overlay" @click.stop.prevent="openLightbox(index)">
                       <ion-icon :icon="playCircle" />
                     </div>
                   </div>
@@ -362,12 +362,7 @@ const handlePhotoClick = (photo: Photo, index: number, event: Event) => {
     return;
   }
 
-  if (isVideoPhoto(photo)) {
-    openVideoPreview(photo);
-    return;
-  }
-  
-  // Sonst: Öffne Lightbox
+  // Öffne Lightbox (Bilder und Videos)
   openLightbox(index);
 };
 
