@@ -47,6 +47,26 @@ http://ionicframework.com/docs/theming/ */
   --ion-safe-area-right: env(safe-area-inset-right, 0px);
 }
 
+.glightbox-timeline {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 18px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.glightbox-timeline-progress {
+  height: 100%;
+  width: 0%;
+  background: var(--ion-color-primary, #ff7a18);
+  border-radius: inherit;
+  transition: width 50ms linear;
+}
+
 /** Alternative Theme: Wine Red **/
 :root[data-theme="wine"] {
   --ion-color-primary: #8b2635;

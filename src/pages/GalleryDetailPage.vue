@@ -193,6 +193,17 @@
       <div v-else-if="currentView === 'map'" class="map-view ion-padding">
         <GalleryMap :photos="photos" @photo-click="openPhoto" />
       </div>
+
+      <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+        <ion-fab-button
+          color="primary"
+          class="gallery-autoplay-fab"
+          :disabled="photos.length === 0"
+          @click="handleAutoplayToggle"
+        >
+          <ion-icon :icon="autoplayActive ? pause : playCircle" />
+        </ion-fab-button>
+      </ion-fab>
     </ion-content>
     
     <!-- Location Picker Modal -->
@@ -264,6 +275,8 @@ import {
   IonSegmentButton,
   IonCheckbox,
   IonLabel,
+  IonFab,
+  IonFabButton,
   actionSheetController,
   alertController
 } from '@ionic/vue';
@@ -277,6 +290,7 @@ import {
   mapOutline,
   trashOutline,
   playCircle,
+  pause,
   create,
   closeCircle,
   close,
@@ -300,7 +314,7 @@ const route = useRoute();
 const router = useRouter();
 const { currentGallery, photos, isLoading, loadGallery, deleteGallery } = useGallery();
 const { takePhoto, pickSinglePhoto, pickMultiplePhotos, savePhoto, saveMultiplePhotos, deletePhoto: removePhoto, isProcessing, extractExifData } = usePhoto();
-const { initLightbox, openLightbox, destroyLightbox } = useLightbox();
+const { initLightbox, openLightbox, destroyLightbox, startAutoplay, stopAutoplay, autoplayActive, isLightboxOpen } = useLightbox();
 
 const uploadProgress = ref({ current: 0, total: 0 });
 const currentView = ref<'grid' | 'map'>('grid');
@@ -364,6 +378,18 @@ const handlePhotoClick = (photo: Photo, index: number, event: Event) => {
 
   // Öffne Lightbox (Bilder und Videos)
   openLightbox(index);
+};
+
+const handleAutoplayToggle = () => {
+  if (autoplayActive.value) {
+    stopAutoplay();
+    return;
+  }
+  if (photos.value.length === 0) {
+    return;
+  }
+  openLightbox(0);
+  startAutoplay();
 };
 
 const handleTouchStart = (photo: Photo, event: TouchEvent) => {

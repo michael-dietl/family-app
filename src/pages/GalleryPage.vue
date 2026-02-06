@@ -23,6 +23,14 @@
         </ion-toolbar>
       </ion-header>
 
+      <!-- Search -->
+      <ion-searchbar
+        v-if="galleries.length > 0"
+        v-model="searchQuery"
+        placeholder="Gallerien durchsuchen..."
+        :debounce="200"
+      />
+
       <!-- Loading State -->
       <div v-if="isLoading" class="loading-container">
         <ion-spinner />
@@ -35,11 +43,18 @@
         <p>{{ $t('auto.erstelle_deine_erste_gallerie_mit_dem_button') }}</p>
       </div>
 
+      <!-- No Results -->
+      <div v-else-if="filteredGalleries.length === 0" class="empty-state">
+        <ion-icon :icon="imagesOutline" size="large" />
+        <h2>Keine Treffer</h2>
+        <p>Keine Gallerien für "{{ searchQuery }}" gefunden.</p>
+      </div>
+
       <!-- Gallery Grid -->
       <ion-grid v-else>
         <ion-row>
           <ion-col 
-            v-for="gallery in galleries" 
+            v-for="gallery in filteredGalleries" 
             :key="gallery.id" 
             size="6" 
             size-md="4" 
@@ -129,7 +144,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue';
+import { ref, onMounted, nextTick, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   IonPage,
@@ -149,6 +164,7 @@ import {
   IonCardTitle,
   IonCardSubtitle,
   IonImg,
+  IonSearchbar,
   IonSpinner,
   IonModal,
   IonItem,
@@ -173,6 +189,7 @@ const newGalleryDescription = ref('');
 const newGalleryColor = ref('#3880ff'); // Ionic Blue als Standard
 const photoCounts = ref<Record<number, number>>({});
 const galleryCoverPhotos = ref<Record<number, string>>({});
+const searchQuery = ref('');
 
 // Vordefinierte Farben für schnelle Auswahl
 const presetColors = [
@@ -192,6 +209,16 @@ const presetColors = [
   '#00b894', // Grün
   '#2d3436', // Dunkelgrau
 ];
+
+const filteredGalleries = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase();
+  if (!query) return galleries.value;
+  return galleries.value.filter(gallery => {
+    const name = gallery.name?.toLowerCase() || '';
+    const description = gallery.description?.toLowerCase() || '';
+    return name.includes(query) || description.includes(query);
+  });
+});
 
 onMounted(async () => {
   await loadGalleries();
