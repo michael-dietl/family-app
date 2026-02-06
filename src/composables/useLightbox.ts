@@ -22,6 +22,7 @@ const isVideoItem = (photo: MediaItem) => {
 
 export function useLightbox() {
   const lightbox = ref<any>(null);
+  let autoplayInterval: ReturnType<typeof setInterval> | null = null;
 
   const initLightbox = (
     gallerySelector: string,
@@ -48,6 +49,20 @@ export function useLightbox() {
 
     lightbox.value = GLightbox(options);
 
+    lightbox.value.on('open', () => {
+      if (autoplayInterval) return;
+      autoplayInterval = setInterval(() => {
+        lightbox.value?.nextSlide();
+      }, 3000);
+    });
+
+    lightbox.value.on('close', () => {
+      if (autoplayInterval) {
+        clearInterval(autoplayInterval);
+        autoplayInterval = null;
+      }
+    });
+
     if (onPhotoChange) {
       lightbox.value.on('slide_changed', (payload: any) => {
         if (payload?.current?.index !== undefined) {
@@ -65,6 +80,10 @@ export function useLightbox() {
   };
 
   const destroyLightbox = () => {
+    if (autoplayInterval) {
+      clearInterval(autoplayInterval);
+      autoplayInterval = null;
+    }
     if (lightbox.value) {
       lightbox.value.destroy();
       lightbox.value = null;
