@@ -9,7 +9,7 @@ export interface MediaItem extends Photo {
 }
 
 export function useLightbox() {
-  const lightbox = ref<PhotoSwipeLightbox | null>(null);
+  const lightbox = ref<any>(null);
   const isPlaying = ref(false);
   let autoplayInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -73,7 +73,7 @@ export function useLightbox() {
     });
 
     // Custom Content für Videos
-    lightbox.value.on('contentLoad', (e) => {
+    lightbox.value.on('contentLoad', (e: any) => {
       const { content } = e;
       
       // Handle Video Content
@@ -136,7 +136,7 @@ export function useLightbox() {
         order: 9,
         isButton: true,
         html: '<svg class="pswp__icn" viewBox="0 0 32 32" width="32" height="32"><path d="M8 5v22l18-11L8 5z" fill="currentColor"/></svg>',
-        onClick: (event, el) => {
+        onClick: (event: MouseEvent, el: HTMLElement) => {
           event.preventDefault();
           toggleAutoplay();
           updatePlayButton(el);

@@ -7,6 +7,60 @@ import { db, type Photo } from '@/services/database';
 import { extractExifFromUri, extractGPSFromCameraExif, extractExifFromImage } from '@/services/exif';
 import { readContentUri } from '@/services/contentReader';
 
+const videoExtensions = ['mp4', 'mov', 'webm', 'mkv', 'avi', '3gp', 'm4v'];
+
+const getExtensionFromUri = (uri: string) => {
+  if (!uri) return '';
+  const clean = uri.split('?')[0].split('#')[0];
+  const parts = clean.split('.');
+  if (parts.length <= 1) return '';
+  return parts.pop()?.toLowerCase() || '';
+};
+
+const isUriLikelyVideo = (uri?: string) => {
+  if (!uri) return false;
+  const normalized = uri.toLowerCase();
+  if (normalized.startsWith('data:video')) return true;
+  if (normalized.includes('/video/')) return true;
+  if (normalized.includes('/videos/')) return true;
+  if (normalized.includes(':video')) return true;
+  if (normalized.includes('mime=video')) return true;
+  const ext = getExtensionFromUri(uri);
+  return videoExtensions.includes(ext);
+};
+
+const guessMimeFromBase64 = (base64: string) => {
+  if (!base64) return undefined;
+  try {
+    const headerLength = 24;
+    const slice = base64.slice(0, headerLength);
+    const binary = atob(slice);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+
+    if (bytes.length >= 12) {
+      const signature = String.fromCharCode(...bytes.slice(4, 8));
+      const brand = String.fromCharCode(...bytes.slice(8, 12));
+      if (signature === 'ftyp') {
+        if (brand.startsWith('qt')) return 'video/quicktime';
+        if (brand.startsWith('3g')) return 'video/3gpp';
+        return 'video/mp4';
+      }
+    }
+
+    if (bytes.length >= 4) {
+      if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+      if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'image/png';
+      if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return 'image/gif';
+    }
+  } catch (error) {
+    console.warn('⚠️ Could not sniff base64 header:', error);
+  }
+  return undefined;
+};
+
 export function usePhoto() {
   const isProcessing = ref(false);
 
@@ -315,11 +369,12 @@ export function usePhoto() {
       
       // Lade Datei als Blob (oder verwende provided base64Data direkt)
       let blob: Blob;
+      const inferredIsVideo = isUriLikelyVideo(photoUri);
 
-      if (base64Data) {
+      if (base64Data && !inferredIsVideo) {
         // base64Data is raw base64 without data: prefix
         console.log('📥 Using base64 data provided by FilePicker (preserves EXIF)');
-        const mime = 'image/jpeg';
+        const mime = guessMimeFromBase64(base64Data) || 'image/jpeg';
         const binary = atob(base64Data);
         const len = binary.length;
         const buffer = new Uint8Array(len);
@@ -343,9 +398,10 @@ export function usePhoto() {
         }
       }
       
-      const isVideo = blob.type.startsWith('video/');
+      const isVideo = blob.type ? blob.type.startsWith('video/') : inferredIsVideo;
+      const mimeType = blob.type || (isVideo ? 'video/mp4' : 'image/jpeg');
       
-      console.log('🖼️ Blob loaded:', { type: blob.type, size: blob.size, isVideo });
+      console.log('🖼️ Blob loaded:', { type: blob.type, size: blob.size, isVideo, mimeType });
 
       // 2. Falls noch keine EXIF-Daten, versuche aus Blob
       if (!isVideo && !exifData.latitude && !exifData.longitude) {
@@ -481,7 +537,7 @@ export function usePhoto() {
       // 3. Foto/Video konvertieren
       // If base64Data was passed in, reuse it (already raw base64); otherwise create it from blob
       const finalBase64 = base64Data || await blobToBase64(blob);
-      const dataUrl = `data:${blob.type};base64,${finalBase64}`;
+      const dataUrl = `data:${mimeType};base64,${finalBase64}`;
 
       // 4. Speichere Datei im Filesystem (nur auf nativen Plattformen)
       const isNative = Capacitor.getPlatform() !== 'web';
@@ -542,7 +598,7 @@ export function usePhoto() {
         galleryId,
         filename: finalFilename,
         filepath: filePath,  // Nur der Pfad zur Datei
-        mimeType: blob.type,
+        mimeType,
         filesize: blob.size,
         ...exifData
       });
