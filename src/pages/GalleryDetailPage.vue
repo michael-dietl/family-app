@@ -107,51 +107,52 @@
             size-lg="2"
           >
             <div class="photo-container">
-              <a
-                v-if="!selectionMode"
-                :href="getImageSrc(photo.filepath)"
-                :data-pswp-width="photo.width || 1920"
-                :data-pswp-height="photo.height || 1080"
-                target="_blank"
-                @click="handlePhotoClick(photo, index, $event)"
-                @touchstart.passive="handleTouchStart(photo, $event)"
-                @touchend.passive="handleTouchEnd"
-                @touchmove.passive="handleTouchEnd"
-                class="photo-item"
-                :class="{ 'photo-selected': selectedPhoto?.id === photo.id }"
-              >
-              <div v-if="isVideoPhoto(photo)" class="video-thumbnail-wrapper">
-                <video 
-                  :src="getImageSrc(photo.filepath)"
-                  :poster="getVideoPoster(photo.id)"
-                  class="video-thumbnail"
-                  preload="none"
-                  muted
-                  playsinline
-                ></video>
-                <div class="video-overlay" @click.stop.prevent="openVideoPreview(photo)">
-                  <ion-icon :icon="playCircle" />
-                </div>
-              </div>
-              <img 
-                v-else
-                :src="getImageSrc(photo.filepath)" 
-                :alt="photo.filename"
-                loading="lazy"
-                class="photo-img"
-              />
-              </a>
-              <div v-if="!selectionMode && !isVideoPhoto(photo)" class="photo-actions">
-                <ion-button
-                  fill="clear"
-                  size="small"
-                  class="action-button"
-                  @click.stop.prevent="openImageEditor(photo)"
+              <template v-if="!selectionMode">
+                <a
+                  :href="getImageSrc(photo.filepath)"
+                  :data-pswp-width="photo.width || 1920"
+                  :data-pswp-height="photo.height || 1080"
+                  target="_blank"
+                  @click="handlePhotoClick(photo, index, $event)"
+                  @touchstart.passive="handleTouchStart(photo, $event)"
+                  @touchend.passive="handleTouchEnd"
+                  @touchmove.passive="handleTouchEnd"
+                  class="photo-item"
+                  :class="{ 'photo-selected': selectedPhoto?.id === photo.id }"
                 >
-                  <ion-icon :icon="pencilOutline" />
-                </ion-button>
-              </div>
-              
+                  <div v-if="isVideoPhoto(photo)" class="video-thumbnail-wrapper">
+                    <video 
+                      :src="getImageSrc(photo.filepath)"
+                      :poster="getVideoPoster(photo.id)"
+                      class="video-thumbnail"
+                      preload="none"
+                      muted
+                      playsinline
+                    ></video>
+                    <div class="video-overlay" @click.stop.prevent="openVideoPreview(photo)">
+                      <ion-icon :icon="playCircle" />
+                    </div>
+                  </div>
+                  <img 
+                    v-else
+                    :src="getImageSrc(photo.filepath)" 
+                    :alt="photo.filename"
+                    loading="lazy"
+                    class="photo-img"
+                  />
+                </a>
+                <div class="photo-actions">
+                  <ion-button
+                    fill="clear"
+                    size="small"
+                    class="action-button"
+                    @click.stop.prevent="isVideoPhoto(photo) ? openVideoEditor(photo) : openImageEditor(photo)"
+                  >
+                    <ion-icon :icon="pencilOutline" />
+                  </ion-button>
+                </div>
+              </template>
+
               <!-- Mehrfachselektion Modus -->
               <div
                 v-else
