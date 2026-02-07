@@ -45,6 +45,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import i18n from '@/i18n/i18n';
 import { Preferences } from '@capacitor/preferences';
 
+
 const app = createApp(App)
   .use(IonicVue)
   .use(router);
@@ -56,11 +57,11 @@ const initializeLocale = async () => {
     const res = await Preferences.get({ key: 'locale' });
     const saved = res.value;
     if (saved) {
-      // @ts-ignore - global locale is a Ref
+      // @ts-expect-error global locale ist ein Ref und wird dynamisch gesetzt
       i18n.global.locale.value = saved;
     } else if (typeof navigator !== 'undefined' && navigator.language) {
       const nav = navigator.language.split('-')[0];
-      // @ts-ignore
+      // @ts-expect-error global locale ist ein Ref und wird dynamisch gesetzt
       i18n.global.locale.value = nav;
     }
   } catch (e) {
@@ -72,11 +73,14 @@ const initializeLocale = async () => {
 router.isReady().then(async () => {
   await initializeLocale();
   // Set app status bar color to a lighter orange (Android/iOS where supported)
+  app.mount('#app');
+
   try {
-    await StatusBar.setBackgroundColor({ color: '#ffe6b3' }); // sehr helles Orange
+    await StatusBar.setOverlaysWebView({ overlay: false });
+    await StatusBar.setBackgroundColor({ color: '#666666' }); // sehr helles Orange
     await StatusBar.setStyle({ style: Style.Dark });
   } catch (e) {
     // ignore if not supported in current environment
   }
-  app.mount('#app');
+
 });

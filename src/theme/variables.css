@@ -67,6 +67,40 @@ http://ionicframework.com/docs/theming/ */
   transition: width 50ms linear;
 }
 
+/* GLightbox responsive media fixes for Android rotation */
+.glightbox-container,
+.glightbox-open {
+  background: rgba(0, 0, 0, 0.92);
+  z-index: 10000;
+}
+
+.glightbox-container,
+.glightbox-container .ginner-container,
+.glightbox-container .gslide,
+.glightbox-container .gslide-inner-content {
+  width: 100vw;
+  height: 100vh;
+}
+
+.glightbox-container .gslide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.glightbox-container .gslide-media {
+  max-width: 100vw;
+  max-height: 100vh;
+}
+
+.glightbox-container .gslide-media img,
+.glightbox-container .gslide-media video,
+.glightbox-container .gslide-media iframe {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 /** Alternative Theme: Wine Red **/
 :root[data-theme="wine"] {
   --ion-color-primary: #8b2635;
@@ -217,3 +251,5 @@ ion-fab.app-fab.fab-vertical-bottom:dir(rtl) {
 .app-fab {
   /* no-op: marker class for global FAB styling */
 }
+
+.page-content { padding-top: var(--ion-safe-area-top); padding-bottom: var(--ion-safe-area-bottom); }

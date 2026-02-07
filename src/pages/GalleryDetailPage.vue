@@ -2,10 +2,10 @@
   <ion-page>
     <ion-header :translucent="true">
       <ion-toolbar>
-        <ion-buttons slot="start">
-          <ion-back-button v-if="!selectionMode" default-href="/gallery" />
+        <ion-buttons>
+          <ion-back-button v-if="!selectionMode" default-href="/gallery" slot="start"/>
           <ion-button v-else @click="cancelSelectionMode">
-            <ion-icon :icon="close" />
+            <ion-icon :icon="close"/>
           </ion-button>
         </ion-buttons>
         <ion-title v-if="!selectionMode">{{ currentGallery?.name || 'Gallerie' }}</ion-title>
@@ -27,15 +27,15 @@
       </ion-toolbar>
       <!-- Mehrfachselektion Toolbar -->
       <ion-toolbar v-if="selectionMode" color="primary">
-        <ion-buttons slot="start">
+        <ion-buttons>
           <ion-button @click="selectAllPhotos">
-            <ion-icon slot="start" :icon="checkmarkCircle" />
+            <ion-icon :icon="checkmarkCircle" />
             {{ $t('auto.alle_auswählen') }}
           </ion-button>
         </ion-buttons>
-        <ion-buttons slot="end">
+        <ion-buttons>
           <ion-button @click="deleteSelectedPhotos" :disabled="selectedPhotos.size === 0">
-            <ion-icon slot="start" :icon="trashOutline" />
+            <ion-icon :icon="trashOutline" />
             {{ $t('auto.löschen') }}
           </ion-button>
         </ion-buttons>
@@ -92,7 +92,7 @@
         <ion-row v-if="!selectionMode && photos.length > 0">
           <ion-col size="12">
             <ion-button expand="block" fill="outline" @click="startSelectionMode">
-              <ion-icon slot="start" :icon="checkmarkCircle" />
+              <ion-icon :icon="checkmarkCircle" />
               {{ $t('auto.mehrfachauswahl') }}
             </ion-button>
           </ion-col>
@@ -112,7 +112,6 @@
                   :href="getImageSrc(photo.filepath)"
                   :data-type="isVideoPhoto(photo) ? 'video' : 'image'"
                   :data-poster="isVideoPhoto(photo) ? getVideoPoster(photo.id) : undefined"
-                  target="_blank"
                   @click="handlePhotoClick(photo, index, $event)"
                   @touchstart.passive="handleTouchStart(photo, $event)"
                   @touchend.passive="handleTouchEnd"
@@ -158,7 +157,7 @@
                 v-else
                 @click="togglePhotoSelection(photo)"
                 class="photo-item selectable"
-                :class="{ 'selected': selectedPhotos.has(photo.id!) }"
+                :class="{ 'selected': selectedPhotos.has(typeof photo.id === 'number' ? photo.id : -1) }"
               >
                 <div v-if="isVideoPhoto(photo)" class="video-thumbnail-wrapper">
                   <video 
@@ -181,7 +180,7 @@
                   class="photo-img"
                 />
                 <div class="selection-checkbox">
-                  <ion-checkbox :checked="selectedPhotos.has(photo.id!)" />
+                  <ion-checkbox :checked="selectedPhotos.has(typeof photo.id === 'number' ? photo.id : -1)" />
                 </div>
               </div>
             </div>
@@ -194,7 +193,7 @@
         <GalleryMap :photos="photos" @photo-click="openPhoto" />
       </div>
 
-      <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+      <ion-fab vertical="bottom" horizontal="end">
         <ion-fab-button
           color="primary"
           class="gallery-autoplay-fab"
@@ -212,12 +211,31 @@
       @confirm="handleLocationConfirm"
       @cancel="handleLocationCancel"
     />
-    <ImageEditor
-      :is-open="photoEditorOpen"
-      :image-src="photoEditorSrc"
-      @close="closeImageEditor"
-      @save="handleImageEditorSave"
-    />
+    <ion-modal :is-open="photoEditorOpen" @didDismiss="closeImageEditor">
+      <ion-header>
+        <ion-toolbar>
+          <ion-buttons>
+            <ion-button slot="start" @click="closeImageEditor">{{ $t('auto.abbrechen') }}</ion-button>
+          </ion-buttons>
+          <ion-title>{{ $t('auto.bild_bearbeiten') }}</ion-title>
+          <ion-buttons>
+            <ion-button slot="end" :strong="true" @click="saveImageEditor" :disabled="isSaving">
+              <ion-icon v-if="!isSaving" :icon="checkmark" />
+              <ion-spinner v-else name="crescent" />
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-no-padding">
+        <ImageEditor
+          :is-open="true"
+          :image-src="photoEditorSrc"
+          :compact="true"
+          @close="closeImageEditor"
+          @save="handleImageEditorSave"
+        />
+      </ion-content>
+    </ion-modal>
     <ion-modal
       :is-open="videoPreviewOpen"
       @did-dismiss="closeVideoPreview"
@@ -227,7 +245,7 @@
     >
       <ion-header>
         <ion-toolbar>
-          <ion-buttons slot="start">
+          <ion-buttons>
             <ion-button @click="closeVideoPreview">
               <ion-icon :icon="close" />
             </ion-button>
@@ -254,6 +272,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onBeforeUnmount, onActivated } from 'vue';
+import { checkmark } from 'ionicons/icons';
 import { useRoute, useRouter } from 'vue-router';
 import {
   IonPage,
@@ -306,9 +325,10 @@ import { usePhoto } from '@/composables/usePhoto';
 import { useLightbox } from '@/composables/useLightbox';
 import { useWakeLock } from '@/composables/useWakeLock';
 import { extractExifFromUri, extractExifFromImage } from '@/services/exif';
-import GalleryMap from '@/components/GalleryMap.vue';
-import LocationPickerModal from '@/components/LocationPickerModal.vue';
-import ImageEditor from '@/components/ImageEditor.vue';
+import { default as GalleryMap } from '@/components/GalleryMap.vue';
+import { default as LocationPickerModal } from '@/components/LocationPickerModal.vue';
+import { default as ImageEditor } from '@/components/ImageEditor.vue';
+// import { extractExifFromUri, extractExifFromImage } from '@/services/exif'; // ungenutzt
 import { db, type Photo } from '@/services/database';
 
 const route = useRoute();
@@ -369,6 +389,7 @@ const videoPreviewRef = ref<HTMLVideoElement | null>(null);
 
 let longPressTimer: ReturnType<typeof setTimeout> | null = null;
 let longPressPhoto: Photo | null = null;
+// let longPressPhoto: Photo | null = null; // ungenutzt
 
 const handlePhotoClick = (photo: Photo, index: number, event: Event) => {
   event.preventDefault();
@@ -424,9 +445,25 @@ const openImageEditor = (photo: Photo) => {
   photoBeingEdited.value = photo;
   photoEditorOpen.value = true;
 };
+
+const isSaving = ref(false);
 const closeImageEditor = () => {
+  if (isSaving.value) return;
   photoEditorOpen.value = false;
   photoBeingEdited.value = null;
+};
+
+const saveImageEditor = async () => {
+  if (isSaving.value) return;
+  isSaving.value = true;
+  try {
+    // Trigger save in ImageEditor via ref or event (ImageEditor emits 'save' with imageBlob)
+    // Hier wird handleImageEditorSave aufgerufen, wenn ImageEditor speichert
+    // Falls direkter Zugriff nötig: ggf. $refs nutzen
+    // (ImageEditor ruft handleImageEditorSave auf, das schließt das Modal und setzt isSaving=false)
+  } finally {
+    isSaving.value = false;
+  }
 };
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -469,7 +506,8 @@ const handleImageEditorSave = async (blob: Blob) => {
   }
 };
 const openVideoPreview = (photo: Photo) => {
-  videoPreviewSrc.value = getImageSrc(photo.filepath);
+// const openVideoPreview = (photo: Photo) => {
+//   videoPreviewSrc.value = getImageSrc(photo.filepath);
   videoPreviewOpen.value = true;
 };
 const closeVideoPreview = () => {
@@ -482,11 +520,39 @@ const closeVideoPreview = () => {
   videoPreviewSrc.value = null;
 };
 
+
 onMounted(async () => {
-  const galleryId = parseInt(route.params.id as string);
-  if (galleryId) {
+  try {
+    const galleryId = parseInt(route.params.id as string);
+    if (!galleryId || isNaN(galleryId)) {
+      throw new Error('Ungültige oder fehlende Galerie-ID in Route!');
+    }
     await loadGallery(galleryId);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    alert('Fehler beim Laden der Galerie: ' + msg);
+    console.error('Fehler beim Laden der Galerie/DB:', err);
   }
+
+  // Orientation/Resize-Handling für Lightbox/Video-Preview
+  const handleOrientationOrResize = () => {
+    // Video-Preview: NICHT neu laden, einfach Layout anpassen
+    // Lightbox: Schließe und öffne sie neu, falls offen
+    if (isLightboxOpen.value && typeof destroyLightbox === 'function' && typeof openLightbox === 'function') {
+      destroyLightbox();
+      setTimeout(() => {
+        initLightbox('#photo-gallery', photos.value);
+      }, 100);
+    }
+  };
+  window.addEventListener('orientationchange', handleOrientationOrResize);
+  window.addEventListener('resize', handleOrientationOrResize);
+
+  // Cleanup
+  onBeforeUnmount(() => {
+    window.removeEventListener('orientationchange', handleOrientationOrResize);
+    window.removeEventListener('resize', handleOrientationOrResize);
+  });
 });
 
 // Reload gallery when returning from editor
@@ -1132,14 +1198,20 @@ const deleteSelectedPhotos = async () => {
   align-items: center;
   justify-content: center;
   padding: 1rem;
+  width: 100vw;
+  height: 100vh;
+  box-sizing: border-box;
+  background: #0d0d0d;
 }
 
 .video-preview-player {
-  width: 100%;
-  max-width: 100%;
-  max-height: 70vh;
-  border-radius: 12px;
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  border-radius: 0;
   background: #000;
+  object-fit: contain;
 }
 </style>
 

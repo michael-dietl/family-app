@@ -12,6 +12,7 @@ import org.json.JSONArray;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import androidx.core.view.WindowCompat;
 
 public class MainActivity extends BridgeActivity {
 	@Override
@@ -19,6 +20,9 @@ public class MainActivity extends BridgeActivity {
 		super.onCreate(savedInstanceState);
 
 		try {
+			// WICHTIG: verhindert, dass das WebView hinter die Statusbar rutscht 
+			WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+
 			// Add a lightweight JS bridge to read content:// URIs using ContentResolver
 			this.bridge.getWebView().addJavascriptInterface(new Object() {
 				@android.webkit.JavascriptInterface

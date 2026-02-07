@@ -14,7 +14,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content>
+    <ion-content  class="page-content">
       <!-- Loading State -->
       <div v-if="isLoading" class="loading-container">
         <ion-spinner />
@@ -54,6 +54,11 @@ import { Capacitor } from '@capacitor/core';
 import { db, type Photo, type Wine } from '@/services/database';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { StatusBar, Style } from '@capacitor/status-bar';
+
+StatusBar.setOverlaysWebView({ overlay: false });
+StatusBar.setStyle({ style: Style.Dark });
+
 
 // Fix Leaflet Default Marker Icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;

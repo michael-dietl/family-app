@@ -9,7 +9,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content :fullscreen="true">
+    <ion-content :fullscreen="false">
       <ion-header collapse="condense">
         <ion-toolbar>
           <ion-title size="large">{{ currentList?.name || 'ToDo' }}</ion-title>
@@ -33,12 +33,6 @@
                   placeholder="Titel der Aufgabe"
                   @keyup.enter="handleAddItem"
                 />
-                <ion-button
-                  slot="end"
-                  :disabled="!newItemTitle.trim()"
-                  @click="handleAddItem"
-                >
-                  <ion-icon slot="icon-only" :icon="add" />
                 </ion-button>
               </ion-item>
               <ion-item lines="full">
@@ -80,68 +74,12 @@
           </div>
         </div>
 
-        <ion-segment v-model="activeSegment" scrollable class="todo-segment">
-          <ion-segment-button value="pending">
-            {{ $t('auto.offene_aufgaben') }}
-          </ion-segment-button>
-          <ion-segment-button value="completed">
-            {{ $t('auto.erledigte_aufgaben') }}
-          </ion-segment-button>
-        </ion-segment>
-
         <div v-if="visibleItems.length === 0" class="empty-state small">
           <ion-icon :icon="checkboxOutline" size="large" />
           <p>
             {{ activeSegment === 'pending' ? 'Keine offenen Aufgaben' : 'Keine erledigten Aufgaben' }}
           </p>
         </div>
-
-        <ion-list v-else class="todo-list">
-          <ion-item
-            v-for="item in visibleItems"
-            :key="item.id"
-            class="todo-row"
-            lines="full"
-          >
-            <ion-checkbox
-              slot="start"
-              :checked="item.completed"
-              @ionChange="toggleItemCompleted(item.id!, !item.completed, listId)"
-            />
-            <ion-label class="todo-item-content">
-              <div class="todo-title">{{ item.title }}</div>
-              <p v-if="item.description" class="todo-description">{{ item.description }}</p>
-              <div class="todo-meta">
-                <span v-if="item.dueDate">Fällig {{ formatDate(item.dueDate) }}</span>
-                <span v-if="item.completed && item.completionDate">Erledigt {{ formatDate(item.completionDate) }}</span>
-              </div>
-            </ion-label>
-            <div class="item-actions" slot="end">
-              <div v-if="getPhotosForItem(item.id).length > 0" class="thumb-row">
-                <img
-                  v-for="photo in getPhotosForItem(item.id).slice(0, 3)"
-                  :key="photo.id"
-                  :src="getImageSrc(photo.filepath)"
-                />
-              </div>
-              <ion-button
-                fill="clear"
-                size="small"
-                @click.stop="openItemDetail(item)"
-              >
-                <ion-icon :icon="chevronForwardOutline" />
-              </ion-button>
-              <ion-button
-                fill="clear"
-                color="danger"
-                size="small"
-                @click.stop="deleteItem(item.id!, listId)"
-              >
-                <ion-icon slot="icon-only" :icon="trashOutline" />
-              </ion-button>
-            </div>
-          </ion-item>
-        </ion-list>
       </template>
     </ion-content>
   </ion-page>

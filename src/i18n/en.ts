@@ -387,6 +387,8 @@ export default {
     "alle_einträge_dieser_liste_werden_ebenfalls_gelöscht": "Alle Einträge dieser Liste werden ebenfalls gelöscht.",
     "keine_aufgaben_in_der_liste": "Keine Aufgaben in der Liste",
     "todo": "ToDo",
+    "neue_aufgabe": "New task",
+    "fotos_hinzufuegen": "Add photos",
     "keine_todo_listen": "Keine ToDo-Listen",
     "erstelle_deine_erste_aufgabenliste": "Erstelle deine erste Aufgabenliste",
     "alle_aufgaben_dieser_liste_werden_ebenfalls_gelöscht": "Alle Aufgaben dieser Liste werden ebenfalls gelöscht.",

@@ -1,14 +1,20 @@
 <template>
-  <ion-modal :is-open="isOpen" @did-dismiss="handleClose" :initial-breakpoint="0.95" :breakpoints="[0.2, 0.5, 0.95]">
+  <ion-modal
+    :is-open="isOpen"
+    @did-dismiss="handleClose"
+    :initial-breakpoint="compact ? 0.7 : 1"
+    :breakpoints="compact ? [0.5, 0.7, 0.95] : [1]"
+    :class="{ 'compact-modal': compact }"
+  >
     <ion-header>
       <ion-toolbar>
-        <ion-buttons slot="start">
+        <ion-buttons>
           <ion-button @click="handleClose">
             <ion-icon :icon="close" />
           </ion-button>
         </ion-buttons>
         <ion-title>{{ $t('auto.bild_bearbeiten') }}</ion-title>
-        <ion-buttons slot="end">
+        <ion-buttons>
           <ion-button @click="saveImage" color="primary" :disabled="isSaving">
             <ion-icon v-if="!isSaving" :icon="checkmark" />
             <ion-spinner v-else name="crescent" />
@@ -17,7 +23,11 @@
       </ion-toolbar>
     </ion-header>
     <ion-content class="ion-no-padding">
-      <div ref="editorContainer" class="image-editor-container"></div>
+      <div
+        ref="editorContainer"
+        class="image-editor-container"
+        :class="{ compact: compact }"
+      ></div>
     </ion-content>
   </ion-modal>
 </template>
@@ -37,9 +47,11 @@ import {
   unloadFilerobotStyles,
 } from '@/utils/filerobotEditor';
 
+
 interface Props {
   isOpen: boolean;
   imageSrc: string;
+  compact?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -187,14 +199,96 @@ onBeforeUnmount(() => {
 });
 </script>
 
+
 <style scoped>
+
 .image-editor-container {
-  width: 100%;
-  height: calc(100vh - 56px - env(safe-area-inset-bottom, 16px));
+  width: 100vw;
+  height: calc(100vh - env(safe-area-inset-bottom, 0px));
   background: #1e1e1e;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-sizing: border-box;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  transition: height 0.2s;
+}
+
+
+.image-editor-container.compact {
+  width: 96vw;
+  max-width: 600px;
+  height: 90vh;
+  max-height: 600px;
+  margin: 0 auto;
+  border-radius: 0 0 18px 18px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+}
+
+
+.compact-modal .modal-wrapper,
+.compact-modal::part(content) {
+  top: 0 !important;
+  transform: none !important;
+  border-radius: 0 0 18px 18px !important;
+  margin: 0 auto !important;
+  max-width: 600px;
+  width: 96vw;
+  height: 100vh !important;
+  min-height: 0 !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.compact-modal ion-header {
+  border-radius: 0 0 12px 12px;
+  padding-bottom: 0;
+  min-height: 48px;
+}
+
+.compact-modal ion-toolbar {
+  min-height: 44px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.compact-modal ion-title {
+  font-size: 1.08rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  flex: 1 1 auto;
+  margin: 0 8px;
+}
+
+.compact-modal ion-buttons {
+  flex: 0 0 auto;
+}
+
+.compact-modal ion-button,
+.compact-modal ion-icon {
+  --padding-start: 0;
+  --padding-end: 0;
+  font-size: 1.1em;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.image-editor-container.compact {
+  width: 100%;
+  max-width: 100%;
+  height: calc(100% - 30px);
+  max-height: calc(100% - 30px);
+  margin: 0 0 30px 0;
+  border-radius: 0 0 18px 18px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+}
+
+.compact-modal::part(backdrop) {
+  background: rgba(0,0,0,0.7) !important;
 }
 
 ion-content {

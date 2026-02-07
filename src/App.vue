@@ -14,9 +14,14 @@ import { alertController, toastController } from '@ionic/vue';
 import { App as CapacitorApp } from '@capacitor/app';
 import { NavigationBar } from '@capgo/capacitor-navigation-bar';
 import i18n from '@/i18n/i18n';
+import { StatusBar, Style } from '@capacitor/status-bar';
+
 
 // Datenbank beim App-Start initialisieren
 onMounted(async () => {
+
+  StatusBar.setOverlaysWebView({ overlay: false });
+  StatusBar.setStyle({ style: Style.Dark });
   try {
     await db.initialize();
     console.log('✅ Database initialized successfully');
