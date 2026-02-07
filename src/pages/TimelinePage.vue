@@ -378,10 +378,15 @@ const timelineBounds = computed(() => {
     if (!Number.isNaN(end)) points.push(end);
   });
 
+  const FUTURE_PADDING = 5 * 24 * 60 * 60 * 1000; // extend axis five days beyond today
   const baseline = Date.now();
   const min = points.length ? Math.min(...points) : baseline;
-  const max = points.length ? Math.max(...points) : baseline + 60_000;
-  return { min, max: min === max ? min + 60_000 : max };
+  let max = points.length ? Math.max(...points) : baseline;
+  if (max === min) {
+    max += 60_000;
+  }
+  max = Math.max(max, baseline + FUTURE_PADDING);
+  return { min, max };
 });
 
 const calculatePosition = (value: number, min: number, span: number) => Math.min(100, Math.max(0, ((value - min) / span) * 100));
