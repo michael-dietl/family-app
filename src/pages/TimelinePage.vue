@@ -61,6 +61,30 @@
               <div class="timeline-axis" :style="{ minWidth: '1200px', width: timelineAxisWidth }">
                 <div class="timeline-middle-line" />
                 <div class="axis-line" />
+                  <div class="timeline-month-grid">
+                    <div
+                      v-for="segment in timelineMonthSegments"
+                      :key="`line-${segment.start}`"
+                      class="timeline-month-boundary"
+                      :style="{ left: segment.left }"
+                    />
+                    <span
+                      v-for="segment in timelineMonthSegments"
+                      :key="`label-${segment.start}`"
+                      class="timeline-month-label"
+                      :style="{ left: segment.labelPosition }"
+                    >
+                      {{ segment.monthLabel }}
+                    </span>
+                    <span
+                      v-for="segment in timelineYearSegments"
+                      :key="`year-${segment.start}`"
+                      class="timeline-year-label"
+                      :style="{ left: segment.left }"
+                    >
+                      {{ segment.yearLabel }}
+                    </span>
+                  </div>
                 <div
                   v-for="bar in timelineGalleryBars"
                   :key="bar.key"
@@ -228,6 +252,8 @@ interface TimelineEvent {
 
 type PickedPhoto = { path: string | null; data?: string | null };
 
+const shortMonths = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+
 const { t: $t } = useI18n();
 const router = useRouter();
 const activeTab = ref<'timeline' | 'events'>('timeline');
@@ -347,6 +373,62 @@ const timelineBounds = computed(() => {
 });
 
 const calculatePosition = (value: number, min: number, span: number) => Math.min(100, Math.max(0, ((value - min) / span) * 100));
+
+const timelineMonthSegments = computed(() => {
+  const { min, max } = timelineBounds.value;
+  const span = Math.max(max - min, 1);
+  const startOfFirstMonth = new Date(min);
+  startOfFirstMonth.setDate(1);
+  startOfFirstMonth.setHours(0, 0, 0, 0);
+  let pointer = startOfFirstMonth.getTime();
+  const segments: Array<{
+    start: number;
+    end: number;
+    monthLabel: string;
+    yearLabel?: string;
+  }> = [];
+
+  while (pointer < max) {
+    const chunkStart = new Date(pointer);
+    const nextMonth = new Date(chunkStart);
+    nextMonth.setMonth(chunkStart.getMonth() + 1);
+    nextMonth.setHours(0, 0, 0, 0);
+    const chunkEnd = Math.min(nextMonth.getTime(), max);
+    segments.push({
+      start: pointer,
+      end: Math.max(chunkEnd, pointer + 1),
+      monthLabel: shortMonths[chunkStart.getMonth()],
+      yearLabel: chunkStart.getMonth() === 0 ? String(chunkStart.getFullYear()) : undefined
+    });
+    pointer = nextMonth.getTime();
+  }
+
+  if (!segments.length) {
+    const fallbackStart = startOfFirstMonth.getTime();
+    const fallbackNext = new Date(startOfFirstMonth);
+    fallbackNext.setMonth(startOfFirstMonth.getMonth() + 1);
+    fallbackNext.setHours(0, 0, 0, 0);
+    segments.push({
+      start: fallbackStart,
+      end: Math.max(fallbackStart + 1, fallbackNext.getTime()),
+      monthLabel: shortMonths[startOfFirstMonth.getMonth()],
+      yearLabel: startOfFirstMonth.getMonth() === 0 ? String(startOfFirstMonth.getFullYear()) : undefined
+    });
+  }
+
+  return segments.map(segment => {
+    const leftValue = calculatePosition(Math.max(min, segment.start), min, span);
+    const endValue = calculatePosition(Math.min(max, segment.end), min, span);
+    const center = Math.min(99.5, Math.max(0.5, (leftValue + endValue) / 2));
+    return {
+      ...segment,
+      left: `${leftValue}%`,
+      labelPosition: `${center}%`
+    };
+  });
+});
+
+const timelineYearSegments = computed(() => timelineMonthSegments.value.filter(segment => segment.yearLabel));
 
 const timelineGalleryBars = computed(() => {
   if (!activeFilterGallery.value) return [];
@@ -579,6 +661,45 @@ watch([timelineBounds], scrollToToday, { immediate: true });
   background: orange;
   z-index: 1;
   transform: translateY(-2px);
+}
+
+.timeline-month-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.timeline-month-boundary {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #303030;
+  opacity: 0.45;
+  z-index: 1;
+}
+
+.timeline-month-label {
+  position: absolute;
+  top: 55%;
+  transform: translate(-50%, -50%);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ion-color-medium);
+  letter-spacing: 0.15em;
+  z-index: 3;
+}
+
+.timeline-year-label {
+  position: absolute;
+  top: 12px;
+  transform: translate(-50%, 0);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: rgba(48, 48, 48, 0.35);
+  letter-spacing: 0.4em;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .timeline-bar,
