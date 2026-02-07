@@ -329,6 +329,9 @@ export default {
     "timeline_create_event": "Enregistrer l’événement",
     "timeline_no_manual_events": "Aucun événement manuel pour l’instant",
     "timeline_no_gallery_matches": "Aucune galerie ne correspond à la recherche.",
-    "timeline_no_event_matches": "Aucun événement ne correspond à la recherche."
+    "timeline_no_event_matches": "Aucun événement ne correspond à la recherche.",
+    "timeline_gallery": "Galerie",
+    "timeline_routes": "Itinéraires",
+    "timeline_events": "Événements"
   }
 };

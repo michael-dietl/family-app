@@ -153,7 +153,10 @@ export default {
     wegpunkt_konnte_nicht_geloescht_werden: 'Impossibile eliminare il punto di passaggio',
     möchtest_du_diesen_wegpunkt_wirklich_löschen: 'Vuoi davvero eliminare questo punto di percorso?',
     aufzeichnung_pausiert: 'Registrazione in pausa',
-    aufzeichnung_fortgesetzt: 'Registrazione ripresa'
+    aufzeichnung_fortgesetzt: 'Registrazione ripresa',
+    timeline_gallery: 'Galleria',
+    timeline_routes: 'Percorsi',
+    timeline_events: 'Eventi'
   },
   languageNames: {
     bar: 'Bavarese',

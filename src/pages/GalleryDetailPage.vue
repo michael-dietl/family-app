@@ -8,7 +8,7 @@
             <ion-icon :icon="close"/>
           </ion-button>
         </ion-buttons>
-        <ion-title v-if="!selectionMode">{{ currentGallery?.name || 'Gallerie' }}</ion-title>
+        <ion-title v-if="!selectionMode" slot="middle">{{ currentGallery?.name || 'Gallerie' }}</ion-title>
         <ion-title v-else>{{ selectedPhotos.size }} ausgewählt</ion-title>
         <ion-buttons slot="end">
           <ion-button v-if="selectedPhoto && !selectionMode" @click="clearSelection">

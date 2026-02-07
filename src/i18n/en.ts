@@ -556,5 +556,8 @@ export default {
     "timeline_create_event": "Save event",
     "timeline_no_manual_events": "No manual events yet.",
     "timeline_no_gallery_matches": "No galleries match your search.",
-    "timeline_no_event_matches": "No events match your search."
+    "timeline_no_event_matches": "No events match your search.",
+    "timeline_gallery": "Gallery",
+    "timeline_routes": "Routes",
+    "timeline_events": "Events"
   }};

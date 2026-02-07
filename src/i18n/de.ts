@@ -558,7 +558,9 @@ export default {
     "timeline_no_gallery_matches": "Keine Gallerien passen zur Suche.",
     "timeline_no_event_matches": "Keine Ereignisse passen zur Suche.",
     "timeline_gallery": "Gallerie",
+    "timeline_routes": "Routen",
     "timeline_event": "Ereignis",
+    "timeline_events": "Ereignisse",
     "timeline_date": "Datum",
     "timeline_photos": "Fotos"
   }};

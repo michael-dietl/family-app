@@ -552,5 +552,8 @@ export default {
     "timeline_create_event": "Ereignis speichan",
     "timeline_no_manual_events": "Noch koa manuelle Einträge",
     "timeline_no_gallery_matches": "Koa Gallerie passt zur Suchanfrage.",
-    "timeline_no_event_matches": "Koa Ereignis passt zur Suchanfrage."
+    "timeline_no_event_matches": "Koa Ereignis passt zur Suchanfrage.",
+    "timeline_gallery": "Gallerie",
+    "timeline_routes": "Routen",
+    "timeline_events": "Evente"
   }};
