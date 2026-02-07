@@ -58,13 +58,25 @@
               class="timeline-scroll-container"
               @wheel.prevent="handleTimelineWheel"
             >
-              <div class="timeline-axis" :style="{ minWidth: '1200px', width: timelineAxisWidth }">
-                <div class="timeline-middle-line" />
-                <div class="axis-line" />
-                  <div class="timeline-month-grid">
+                <div class="timeline-axis" :style="{ minWidth: '1200px', width: timelineAxisWidth }">
+                  <div class="timeline-middle-line" />
+                  <div class="axis-line" />
+                  <div class="timeline-grid-lines">
+                    <div
+                      v-for="segment in timelineDaySegments"
+                      :key="`day-${segment.start}`"
+                      class="timeline-day-boundary"
+                      :style="{ left: segment.left }"
+                    />
+                    <div
+                      v-for="segment in timelineWeekSegments"
+                      :key="`week-${segment.start}`"
+                      class="timeline-week-boundary"
+                      :style="{ left: segment.left }"
+                    />
                     <div
                       v-for="segment in timelineMonthSegments"
-                      :key="`line-${segment.start}`"
+                      :key="`month-${segment.start}`"
                       class="timeline-month-boundary"
                       :style="{ left: segment.left }"
                     />
@@ -428,6 +440,43 @@ const timelineMonthSegments = computed(() => {
   });
 });
 
+const timelineDaySegments = computed(() => {
+  const { min, max } = timelineBounds.value;
+  const span = Math.max(max - min, 1);
+  const startOfDay = new Date(min);
+  startOfDay.setHours(0, 0, 0, 0);
+  let pointer = startOfDay.getTime();
+  const segments: Array<{ start: number }> = [];
+  while (pointer <= max) {
+    segments.push({ start: pointer });
+    pointer += 24 * 60 * 60 * 1000;
+  }
+  return segments.map(segment => ({
+    ...segment,
+    left: `${calculatePosition(Math.max(min, segment.start), min, span)}%`
+  }));
+});
+
+const timelineWeekSegments = computed(() => {
+  const { min, max } = timelineBounds.value;
+  const span = Math.max(max - min, 1);
+  const startOfWeek = new Date(min);
+  const dayOfWeek = startOfWeek.getDay();
+  const offset = ((dayOfWeek + 6) % 7) * -1; // Monday as start
+  startOfWeek.setDate(startOfWeek.getDate() + offset);
+  startOfWeek.setHours(0, 0, 0, 0);
+  let pointer = startOfWeek.getTime();
+  const segments: Array<{ start: number }> = [];
+  while (pointer <= max) {
+    segments.push({ start: pointer });
+    pointer += 7 * 24 * 60 * 60 * 1000;
+  }
+  return segments.map(segment => ({
+    ...segment,
+    left: `${calculatePosition(Math.max(min, segment.start), min, span)}%`
+  }));
+});
+
 const timelineYearSegments = computed(() => timelineMonthSegments.value.filter(segment => segment.yearLabel));
 
 const timelineGalleryBars = computed(() => {
@@ -663,7 +712,7 @@ watch([timelineBounds], scrollToToday, { immediate: true });
   transform: translateY(-2px);
 }
 
-.timeline-month-grid {
+.timeline-grid-lines {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -676,6 +725,34 @@ watch([timelineBounds], scrollToToday, { immediate: true });
   width: 1px;
   background: #303030;
   opacity: 0.45;
+  z-index: 1;
+}
+
+.timeline-day-boundary {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(48, 48, 48, 0.2);
+  z-index: 0;
+}
+
+.timeline-week-boundary {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(48, 48, 48, 0.35);
+  z-index: 0;
+}
+
+.timeline-month-boundary {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #303030;
+  opacity: 0.55;
   z-index: 1;
 }
 
