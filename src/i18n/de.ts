@@ -556,5 +556,9 @@ export default {
     "timeline_create_event": "Ereignis speichern",
     "timeline_no_manual_events": "Noch keine manuellen Ereignisse",
     "timeline_no_gallery_matches": "Keine Gallerien passen zur Suche.",
-    "timeline_no_event_matches": "Keine Ereignisse passen zur Suche."
+    "timeline_no_event_matches": "Keine Ereignisse passen zur Suche.",
+    "timeline_gallery": "Gallerie",
+    "timeline_event": "Ereignis",
+    "timeline_date": "Datum",
+    "timeline_photos": "Fotos"
   }};
