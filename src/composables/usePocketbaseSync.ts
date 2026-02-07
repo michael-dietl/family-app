@@ -46,6 +46,8 @@ export function usePocketbaseSync() {
             name: gallery.name,
             description: gallery.description || '',
             coverPhotoId: gallery.coverPhotoId,
+            startDate: gallery.startDate || null,
+            endDate: gallery.endDate || null,
             updated: gallery.updated
           };
 
@@ -75,14 +77,18 @@ export function usePocketbaseSync() {
             await db.createGallery({
               name: remote.name,
               description: remote.description || undefined,
-              coverPhotoId: remote.coverPhotoId || undefined
+              coverPhotoId: remote.coverPhotoId || undefined,
+              startDate: remote.startDate || undefined,
+              endDate: remote.endDate || undefined
             });
           } else if (new Date(remote.updated) > new Date(localGallery.updated)) {
             // Update local if remote is newer
             await db.updateGallery(localGallery.id!, {
               name: remote.name,
               description: remote.description || undefined,
-              coverPhotoId: remote.coverPhotoId || undefined
+              coverPhotoId: remote.coverPhotoId || undefined,
+              startDate: remote.startDate || undefined,
+              endDate: remote.endDate || undefined
             });
           }
         } catch (error) {

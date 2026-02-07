@@ -6,6 +6,8 @@ export interface Gallery {
   description?: string;
   coverPhotoId?: number;
   color?: string;  // Hex-Farbe für Map-Marker (z.B. '#FF5733')
+  startDate?: string;
+  endDate?: string;
   created: string;
   updated: string;
 }
@@ -39,6 +41,23 @@ export interface BookCategory {
   id?: number;
   name: string;
   description?: string;
+  created: string;
+}
+
+export interface TimelineEvent {
+  id?: number;
+  title: string;
+  description?: string;
+  startDate: string;
+  endDate?: string | null;
+  created: string;
+}
+
+export interface TimelineEventPhoto {
+  id?: number;
+  eventId: number;
+  filename: string;
+  filepath: string;
   created: string;
 }
 
@@ -173,6 +192,10 @@ class InMemoryStorage {
   private photos: Photo[] = [];
   private galleryIdCounter = 1;
   private photoIdCounter = 1;
+  private timelineEvents: TimelineEvent[] = [];
+  private timelineEventPhotos: TimelineEventPhoto[] = [];
+  private timelineEventIdCounter = 1;
+  private timelineEventPhotoIdCounter = 1;
 
   createGallery(gallery: Omit<Gallery, 'id' | 'created' | 'updated'>): number {
     const id = this.galleryIdCounter++;
@@ -241,6 +264,34 @@ class InMemoryStorage {
   getPhotoCount(galleryId: number): number {
     return this.photos.filter(p => p.galleryId === galleryId).length;
   }
+
+  createTimelineEvent(event: Omit<TimelineEvent, 'id' | 'created'>): number {
+    const id = this.timelineEventIdCounter++;
+    const now = new Date().toISOString();
+    this.timelineEvents.push({ ...event, id, created: now });
+    return id;
+  }
+
+  getTimelineEvents(): TimelineEvent[] {
+    return [...this.timelineEvents].sort((a, b) => {
+      const dateA = Date.parse(a.startDate || a.created);
+      const dateB = Date.parse(b.startDate || b.created);
+      return dateB - dateA;
+    });
+  }
+
+  createTimelineEventPhoto(photo: Omit<TimelineEventPhoto, 'id' | 'created'>): number {
+    const id = this.timelineEventPhotoIdCounter++;
+    const now = new Date().toISOString();
+    this.timelineEventPhotos.push({ ...photo, id, created: now });
+    return id;
+  }
+
+  getTimelineEventPhotos(eventId: number): TimelineEventPhoto[] {
+    return this.timelineEventPhotos
+      .filter(photo => photo.eventId === eventId)
+      .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+  }
 }
 
 class DatabaseService {
@@ -301,6 +352,8 @@ class DatabaseService {
         description TEXT,
         coverPhotoId INTEGER,
         color TEXT,
+        startDate TEXT,
+        endDate TEXT,
         created TEXT NOT NULL,
         updated TEXT NOT NULL
       );
@@ -508,6 +561,30 @@ class DatabaseService {
     const todoIndexes = `
       CREATE INDEX IF NOT EXISTS idx_todo_items_list ON todo_items(listId);
     `;
+    const timelineEventsTable = `
+      CREATE TABLE IF NOT EXISTS timeline_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT,
+        startDate TEXT NOT NULL,
+        endDate TEXT,
+        created TEXT NOT NULL
+      );
+    `;
+    const timelineEventPhotosTable = `
+      CREATE TABLE IF NOT EXISTS timeline_event_photos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        eventId INTEGER NOT NULL,
+        filename TEXT NOT NULL,
+        filepath TEXT NOT NULL,
+        created TEXT NOT NULL,
+        FOREIGN KEY (eventId) REFERENCES timeline_events(id) ON DELETE CASCADE
+      );
+    `;
+    const timelineIndexes = `
+      CREATE INDEX IF NOT EXISTS idx_timeline_events_start ON timeline_events(startDate);
+      CREATE INDEX IF NOT EXISTS idx_timeline_event_photos_event ON timeline_event_photos(eventId);
+    `;
     if (!this.db) throw new Error('Database not initialized');
     await this.db.execute(galleriesTable);
     await this.db.execute(photosTable);
@@ -528,6 +605,9 @@ class DatabaseService {
     await this.db.execute(todoIndexes);
     await this.db.execute(todoPhotosTable);
     await this.db.execute(todoPhotosIndexes);
+    await this.db.execute(timelineEventsTable);
+    await this.db.execute(timelineEventPhotosTable);
+    await this.db.execute(timelineIndexes);
 
     // Migration: ensure photos.isVideo exists for video handling
     try {
@@ -553,6 +633,8 @@ class DatabaseService {
       }
     };
 
+    await runAlter('ALTER TABLE galleries ADD COLUMN startDate TEXT;');
+    await runAlter('ALTER TABLE galleries ADD COLUMN endDate TEXT;');
     await runAlter('ALTER TABLE todo_items ADD COLUMN dueDate TEXT;');
     await runAlter('ALTER TABLE todo_items ADD COLUMN completionDate TEXT;');
   }
@@ -569,8 +651,8 @@ class DatabaseService {
 
     const now = new Date().toISOString();
     const sql = `
-      INSERT INTO galleries (name, description, coverPhotoId, color, created, updated)
-      VALUES (?, ?, ?, ?, ?, ?);
+      INSERT INTO galleries (name, description, coverPhotoId, color, startDate, endDate, created, updated)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?);
     `;
 
     const result = await this.db.run(sql, [
@@ -578,6 +660,8 @@ class DatabaseService {
       gallery.description || null,
       gallery.coverPhotoId || null,
       gallery.color || null,
+      gallery.startDate || null,
+      gallery.endDate || null,
       now,
       now
     ]);
@@ -631,6 +715,8 @@ class DatabaseService {
           description = COALESCE(?, description),
           coverPhotoId = COALESCE(?, coverPhotoId),
           color = COALESCE(?, color),
+          startDate = COALESCE(?, startDate),
+          endDate = COALESCE(?, endDate),
           updated = ?
       WHERE id = ?;
     `;
@@ -640,6 +726,8 @@ class DatabaseService {
       updates.description || null,
       updates.coverPhotoId || null,
       updates.color || null,
+      updates.startDate || null,
+      updates.endDate || null,
       now,
       id
     ]);
@@ -656,6 +744,82 @@ class DatabaseService {
 
     const sql = 'DELETE FROM galleries WHERE id = ?;';
     await this.db.run(sql, [id]);
+  }
+
+  async createTimelineEvent(event: Omit<TimelineEvent, 'id' | 'created'>): Promise<number> {
+    if (!this.isInitialized) await this.initialize();
+    
+    if (this.useInMemory) {
+      return this.inMemory.createTimelineEvent(event);
+    }
+
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const sql = `
+      INSERT INTO timeline_events (title, description, startDate, endDate, created)
+      VALUES (?, ?, ?, ?, ?);
+    `;
+
+    const result = await this.db.run(sql, [
+      event.title,
+      event.description || null,
+      event.startDate,
+      event.endDate || null,
+      now
+    ]);
+
+    return result.changes?.lastId || 0;
+  }
+
+  async getTimelineEvents(): Promise<TimelineEvent[]> {
+    if (!this.isInitialized) await this.initialize();
+    
+    if (this.useInMemory) {
+      return this.inMemory.getTimelineEvents();
+    }
+
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'SELECT * FROM timeline_events ORDER BY startDate DESC, created DESC;';
+    const result = await this.db.query(sql);
+    return result.values as TimelineEvent[] || [];
+  }
+
+  async createTimelineEventPhoto(photo: Omit<TimelineEventPhoto, 'id' | 'created'>): Promise<number> {
+    if (!this.isInitialized) await this.initialize();
+    
+    if (this.useInMemory) {
+      return this.inMemory.createTimelineEventPhoto(photo);
+    }
+
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const sql = 'INSERT INTO timeline_event_photos (eventId, filename, filepath, created) VALUES (?, ?, ?, ?);';
+
+    const result = await this.db.run(sql, [
+      photo.eventId,
+      photo.filename,
+      photo.filepath,
+      now
+    ]);
+
+    return result.changes?.lastId || 0;
+  }
+
+  async getTimelineEventPhotos(eventId: number): Promise<TimelineEventPhoto[]> {
+    if (!this.isInitialized) await this.initialize();
+    
+    if (this.useInMemory) {
+      return this.inMemory.getTimelineEventPhotos(eventId);
+    }
+
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'SELECT * FROM timeline_event_photos WHERE eventId = ? ORDER BY created DESC;';
+    const result = await this.db.query(sql, [eventId]);
+    return result.values as TimelineEventPhoto[] || [];
   }
 
   // Foto CRUD Operationen

@@ -9,6 +9,13 @@
         </ion-buttons>
         <ion-title>{{ $t('auto.gallerien') }}</ion-title>
         <ion-buttons slot="end">
+          <ion-button
+            fill="clear"
+            @click="navigateToTimeline"
+            :title="$t('auto.timeline_title')"
+          >
+            <ion-icon :icon="calendarNumber" />
+          </ion-button>
           <ion-button @click="showCreateDialog = true">
             <ion-icon :icon="add" />
           </ion-button>
@@ -128,6 +135,30 @@
               </div>
             </div>
           </ion-item>
+          <ion-item lines="none" class="gallery-date-row">
+            <ion-label>
+              <span class="date-label">{{ $t('auto.startdatum') }}</span>
+              <span class="date-value">{{ formattedStartDate }}</span>
+            </ion-label>
+            <ion-datetime
+              class="calendar-icon-only"
+              v-model="newGalleryStartDate"
+              presentation="date"
+              display-format="DD.MM.YYYY"
+            />
+          </ion-item>
+          <ion-item lines="none" class="gallery-date-row">
+            <ion-label>
+              <span class="date-label">{{ $t('auto.enddatum') }}</span>
+              <span class="date-value">{{ formattedEndDate }}</span>
+            </ion-label>
+            <ion-datetime
+              class="calendar-icon-only"
+              v-model="newGalleryEndDate"
+              presentation="date"
+              display-format="DD.MM.YYYY"
+            />
+          </ion-item>
           
           <ion-button 
             expand="block" 
@@ -171,9 +202,10 @@ import {
   IonInput,
   IonTextarea,
   IonLabel,
+  IonDatetime,
   alertController
 } from '@ionic/vue';
-import { add, close, imagesOutline, imageOutline } from 'ionicons/icons';
+import { add, close, imagesOutline, imageOutline, calendarNumber } from 'ionicons/icons';
 import { Capacitor } from '@capacitor/core';
 import { useGallery } from '@/composables/useGallery';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
@@ -187,6 +219,8 @@ const showCreateDialog = ref(false);
 const newGalleryName = ref('');
 const newGalleryDescription = ref('');
 const newGalleryColor = ref('#3880ff'); // Ionic Blue als Standard
+const newGalleryStartDate = ref('');
+const newGalleryEndDate = ref('');
 const photoCounts = ref<Record<number, number>>({});
 const galleryCoverPhotos = ref<Record<number, string>>({});
 const searchQuery = ref('');
@@ -264,6 +298,10 @@ const openGallery = (galleryId: number) => {
   router.push(`/gallery/${galleryId}`);
 };
 
+const navigateToTimeline = () => {
+  router.push('/timeline');
+};
+
 const getImageSrc = (path: string | undefined) => {
   if (!path) return '';
   return Capacitor.convertFileSrc(path);
@@ -274,7 +312,13 @@ const handleCreateGallery = async () => {
 
   try {
     // Galerie erstellen (lädt automatisch die Galerie-Liste neu in useGallery)
-    await createGallery(newGalleryName.value, newGalleryDescription.value, newGalleryColor.value);
+    await createGallery(
+      newGalleryName.value,
+      newGalleryDescription.value,
+      newGalleryColor.value,
+      newGalleryStartDate.value || undefined,
+      newGalleryEndDate.value || undefined
+    );
     
     // Photo counts laden (verwendet die aktualisierte galleries-Liste aus useGallery)
     await loadPhotoCounts();
@@ -286,6 +330,8 @@ const handleCreateGallery = async () => {
     newGalleryName.value = '';
     newGalleryDescription.value = '';
     newGalleryColor.value = '#3880ff';
+    newGalleryStartDate.value = '';
+    newGalleryEndDate.value = '';
     
     console.log('✅ Galerie erfolgreich erstellt, Dialog geschlossen und Liste aktualisiert');
   } catch (error) {
@@ -298,6 +344,19 @@ const handleCreateGallery = async () => {
     await alert.present();
   }
 };
+
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
+
+const previewDateValue = (value?: string) => (value ? formatDate(value) : '-');
+const formattedStartDate = computed(() => previewDateValue(newGalleryStartDate.value));
+const formattedEndDate = computed(() => previewDateValue(newGalleryEndDate.value));
 </script>
 
 <style scoped>
@@ -424,6 +483,48 @@ ion-card-subtitle ion-icon {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 0.5rem;
+}
+
+.gallery-date-row {
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+}
+
+.gallery-date-row ion-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.75rem;
+  color: var(--ion-color-medium);
+}
+
+.gallery-date-row .date-label {
+  font-weight: 500;
+}
+
+.gallery-date-row .date-value {
+  font-size: 0.85rem;
+  color: var(--ion-color-dark);
+}
+
+.calendar-icon-only {
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  min-width: 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.calendar-icon-only::part(text) {
+  display: none;
+}
+
+.calendar-icon-only::part(icon) {
+  font-size: 1.25rem;
 }
 
 .color-button {

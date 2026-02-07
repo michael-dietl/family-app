@@ -319,6 +319,16 @@ export default {
     "die_google_books_api_hat_zu_viele_anfragen_in_kurzer_zeit_er": "L’API Google Books a détecté trop de requêtes en peu de temps. Veuillez patienter.",
     "api_endpunkt_nicht_gefunden": "Point d’accès API introuvable",
     "api_fehler_response_status": "Erreur API (${response.status})",
-    "unerwarteter_fehler": "Erreur inattendue"
+    "unerwarteter_fehler": "Erreur inattendue",
+    "timeline_title": "Chronologie",
+    "timeline_gallery_hint": "Les galeries avec des dates de début et de fin apparaissent ici.",
+    "timeline_manual_events": "Événements manuels",
+    "timeline_start_date": "Date de début",
+    "timeline_end_date": "Date de fin",
+    "timeline_attach_photos": "Ajouter des photos",
+    "timeline_create_event": "Enregistrer l’événement",
+    "timeline_no_manual_events": "Aucun événement manuel pour l’instant",
+    "timeline_no_gallery_matches": "Aucune galerie ne correspond à la recherche.",
+    "timeline_no_event_matches": "Aucun événement ne correspond à la recherche."
   }
 };

@@ -27,25 +27,28 @@
               <ion-card-title>{{ $t('auto.neue_aufgabe') }}</ion-card-title>
             </ion-card-header>
             <ion-card-content>
-              <ion-item lines="none" class="task-input-row">
+              <div class="task-input-row">
                 <ion-input
                   v-model="newItemTitle"
-                  placeholder="Titel der Aufgabe"
+                  placeholder="$t('titel-der-aufgabe')"
                   @keyup.enter="handleAddItem"
                 />
-                </ion-button>
-              </ion-item>
+              </div>
               <ion-item lines="full">
                 <ion-textarea
                   v-model="newItemDescription"
-                  placeholder="Beschreibung (optional)"
+                  placeholder="$t('beschreibung-optional')"
                   :rows="2"
                   auto-grow
                 />
               </ion-item>
-              <ion-item lines="full" class="due-date-item">
-                <ion-label position="stacked">Fälligkeitsdatum</ion-label>
+              <ion-item lines="none" class="due-date-item">
+                <ion-label>
+                  <span class="date-label">{{ $t('faelligkeitsdatum') }}</span>
+                  <span class="date-value">{{ dueDateLabel }}</span>
+                </ion-label>
                 <ion-datetime
+                  class="calendar-icon-only"
                   v-model="newItemDueDate"
                   presentation="date"
                   display-format="DD.MM.YYYY"
@@ -69,7 +72,7 @@
           <div v-for="(p, idx) in tempPhotos" :key="idx" class="thumb">
             <img :src="getImageSrc(p.path || p.data)" />
             <ion-button fill="clear" color="danger" @click="removeTempPhoto(idx)">
-              ×
+              {{ $t('key') }}
             </ion-button>
           </div>
         </div>
@@ -86,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   IonPage,
@@ -96,10 +99,8 @@ import {
   IonContent,
   IonButtons,
   IonBackButton,
-  IonList,
   IonItem,
   IonLabel,
-  IonCheckbox,
   IonInput,
   IonButton,
   IonIcon,
@@ -109,17 +110,12 @@ import {
   IonCardHeader,
   IonCardTitle,
   IonCardContent,
-  IonSegment,
-  IonSegmentButton,
   IonDatetime
 } from '@ionic/vue';
 import {
-  add,
   checkboxOutline,
-  trashOutline,
   camera,
-  images,
-  chevronForwardOutline
+  images
 } from 'ionicons/icons';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
@@ -128,7 +124,10 @@ import { usePhoto } from '@/composables/usePhoto';
 
 const route = useRoute();
 const router = useRouter();
-const listId = Number(route.params.id);
+const numericListId = computed<number | null>(() => {
+  const parsedId = Number(route.params.id);
+  return Number.isFinite(parsedId) ? parsedId : null;
+});
 
 const {
   currentList,
@@ -137,9 +136,8 @@ const {
   loadList,
   loadItems,
   createItem,
-  toggleItemCompleted,
-  deleteItem,
-  photosMap,
+  // ...existing code...
+  // ...existing code...
   attachFilesToItem
 } = useTodoList();
 
@@ -151,24 +149,59 @@ const newItemDueDate = ref('');
 const tempPhotos = ref<Array<{ path?: string | null; data?: string | null }>>([]);
 const activeSegment = ref<'pending' | 'completed'>('pending');
 
+const formatSimpleDate = (value?: string | null) => {
+  if (!value) return '';
+  return new Date(value).toLocaleDateString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
+
+const dueDateLabel = computed(() => formatSimpleDate(newItemDueDate.value) || '-');
+
 const pendingItems = computed(() => items.value.filter(item => !item.completed));
 const completedItems = computed(() => items.value.filter(item => item.completed));
 const visibleItems = computed(() =>
   activeSegment.value === 'pending' ? pendingItems.value : completedItems.value
 );
 
-onMounted(async () => {
-  await loadList(listId);
-  await loadItems(listId);
+const loadCurrentList = async (id: number) => {
+  await loadList(id);
+  await loadItems(id);
+};
+
+const hydrateList = async () => {
+  const id = numericListId.value;
+  if (id === null) {
+    router.replace('/todo');
+    return;
+  }
+  await loadCurrentList(id);
+};
+
+onMounted(() => {
+  void hydrateList();
 });
+
+watch(
+  () => numericListId.value,
+  (newId, oldId) => {
+    if (newId === oldId) return;
+    void hydrateList();
+  }
+);
 
 const handleAddItem = async () => {
   const title = newItemTitle.value.trim();
   if (!title) return;
 
   try {
+    const currentListId = numericListId.value;
+    if (currentListId === null) return;
+
     const id = await createItem(
-      listId,
+      currentListId,
       title,
       newItemDescription.value.trim() || undefined,
       newItemDueDate.value || undefined
@@ -239,24 +272,8 @@ const getImageSrc = (path: string | null | undefined) => {
   return Capacitor.convertFileSrc(path);
 };
 
-const getPhotosForItem = (itemId?: number) => {
-  if (!itemId) return [];
-  return photosMap.value[itemId] || [];
-};
+// ...existing code...
 
-const openItemDetail = (item: { id?: number }) => {
-  if (!item.id) return;
-  router.push(`/todo/${listId}/item/${item.id}`);
-};
-
-const formatDate = (value?: string | null) => {
-  if (!value) return '';
-  return new Date(value).toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
-};
 </script>
 
 <style scoped>
@@ -275,6 +292,48 @@ const formatDate = (value?: string | null) => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.due-date-item {
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 0.5rem;
+}
+
+.due-date-item ion-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.75rem;
+  color: var(--ion-color-medium);
+}
+
+.due-date-item .date-label {
+  font-weight: 500;
+}
+
+.due-date-item .date-value {
+  font-size: 0.85rem;
+  color: var(--ion-color-dark);
+}
+
+.calendar-icon-only {
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  min-width: 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.calendar-icon-only::part(text) {
+  display: none;
+}
+
+.calendar-icon-only::part(icon) {
+  font-size: 1.25rem;
 }
 
 .due-date-item ion-datetime {

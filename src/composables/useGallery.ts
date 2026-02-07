@@ -44,9 +44,21 @@ export function useGallery() {
     }
   };
 
-  const createGallery = async (name: string, description?: string, color?: string) => {
+  const createGallery = async (
+    name: string,
+    description?: string,
+    color?: string,
+    startDate?: string,
+    endDate?: string
+  ) => {
     try {
-      const id = await db.createGallery({ name, description, color });
+      const id = await db.createGallery({
+        name,
+        description,
+        color,
+        startDate,
+        endDate
+      });
       await loadGalleries();
       return id;
     } catch (error) {

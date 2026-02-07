@@ -16,7 +16,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content :fullscreen="true">
+    <ion-content :fullscreen="false">
       <ion-header collapse="condense">
         <ion-toolbar>
           <ion-title size="large">{{ $t('auto.todo') }}</ion-title>
@@ -73,9 +73,9 @@
         <ion-item>
           <ion-input
             v-model="newListName"
-            label="Listenname"
+            label="$t('listenname')"
             label-placement="stacked"
-            placeholder="z.B. Projekt X"
+            placeholder="$t('z-b-projekt-x')"
           />
         </ion-item>
         <ion-button expand="block" @click="handleCreate" :disabled="!newListName.trim()">
@@ -96,12 +96,14 @@ import {
 } from '@ionic/vue';
 import { add, checkboxOutline, trashOutline, arrowBack } from 'ionicons/icons';
 import { useTodoList } from '@/composables/useTodoList';
+import { useI18n } from 'vue-i18n';
 
 const router = useRouter();
 const { lists, isLoading, loadLists, createList, deleteList } = useTodoList();
 
 const showCreateModal = ref(false);
 const newListName = ref('');
+const { t } = useI18n();
 
 onMounted(() => {
   loadLists();
@@ -118,12 +120,12 @@ const handleCreate = async () => {
 
 const confirmDelete = async (id: number) => {
   const alert = await alertController.create({
-    header: 'Liste löschen?',
-    message: 'Alle Aufgaben dieser Liste werden ebenfalls gelöscht.',
+    header: t('liste-loeschen'),
+    message: t('alle-aufgaben-dieser-liste-werden-ebenfa'),
     buttons: [
-      { text: 'Abbrechen', role: 'cancel' },
+      { text: t('abbrechen'), role: 'cancel' },
       {
-        text: 'Löschen',
+        text: t('loeschen'),
         role: 'destructive',
         handler: () => deleteList(id)
       }

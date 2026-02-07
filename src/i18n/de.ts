@@ -546,5 +546,15 @@ export default {
     "blank": "Blank",
     "ready_to_create_an_app": "Ready to create an app?",
     "start_with_ionic": "Start with Ionic",
-    "ui_components": "UI Components"
+    "ui_components": "UI Components",
+    "timeline_title": "Zeitachse",
+    "timeline_gallery_hint": "Gallerien mit Start- und Enddaten erscheinen hier.",
+    "timeline_manual_events": "Manuelle Ereignisse",
+    "timeline_start_date": "Startdatum",
+    "timeline_end_date": "Endedatum",
+    "timeline_attach_photos": "Fotos anhängen",
+    "timeline_create_event": "Ereignis speichern",
+    "timeline_no_manual_events": "Noch keine manuellen Ereignisse",
+    "timeline_no_gallery_matches": "Keine Gallerien passen zur Suche.",
+    "timeline_no_event_matches": "Keine Ereignisse passen zur Suche."
   }};

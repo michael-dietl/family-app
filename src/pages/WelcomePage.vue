@@ -33,6 +33,15 @@
             <ion-icon :icon="chevronForward" slot="end" />
           </ion-item>
 
+          <ion-item button @click="navigateTo('/timeline')" lines="full">
+            <ion-icon :icon="calendarOutline" slot="start" color="tertiary" />
+            <ion-label>
+              <h2>{{ $t('auto.timeline_title') }}</h2>
+              <p>{{ $t('auto.timeline_gallery_hint') }}</p>
+            </ion-label>
+            <ion-icon :icon="chevronForward" slot="end" />
+          </ion-item>
+
           <ion-item button @click="navigateTo('/library')" lines="full">
             <ion-icon :icon="bookOutline" slot="start" color="secondary" />
             <ion-label>
@@ -124,7 +133,8 @@ import {
   cloudOffline,
   syncOutline,
   cartOutline,
-  checkboxOutline
+  checkboxOutline,
+  calendarOutline
 } from 'ionicons/icons';
 import { Preferences } from '@capacitor/preferences';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';

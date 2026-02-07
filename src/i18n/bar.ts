@@ -542,5 +542,15 @@ export default {
     "blank": "Blank",
     "ready_to_create_an_app": "Ready to create an app?",
     "start_with_ionic": "Start with Ionic",
-    "ui_components": "UI Components"
+    "ui_components": "UI Components",
+    "timeline_title": "Zeitachse",
+    "timeline_gallery_hint": "Galleria mit Start- und Enddatum werdn do zeigt.",
+    "timeline_manual_events": "Manuelle Einträge",
+    "timeline_start_date": "Startdatum",
+    "timeline_end_date": "Enddatum",
+    "timeline_attach_photos": "Fotos anhängn",
+    "timeline_create_event": "Ereignis speichan",
+    "timeline_no_manual_events": "Noch koa manuelle Einträge",
+    "timeline_no_gallery_matches": "Koa Gallerie passt zur Suchanfrage.",
+    "timeline_no_event_matches": "Koa Ereignis passt zur Suchanfrage."
   }};

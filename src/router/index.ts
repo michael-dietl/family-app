@@ -16,6 +16,7 @@ import ShoppingListDetailPage from '@/pages/ShoppingListDetailPage.vue';
 import TodoPage from '@/pages/TodoPage.vue';
 import TodoDetailPage from '@/pages/TodoDetailPage.vue';
 import TodoTaskDetailPage from '@/pages/TodoTaskDetailPage.vue';
+import TimelinePage from '@/pages/TimelinePage.vue';
 
 
 const router = createRouter({
@@ -30,6 +31,7 @@ const router = createRouter({
     {path : '/gallery/:id', component: GalleryDetailPage},
     {path : '/gallery/:galleryId/editor', component: () => import('@/pages/EditorPage.vue')},
     {path : '/gallery/:galleryId/video-editor', component: () => import('@/pages/VideoEditorPage.vue')},
+    {path : '/timeline', component: TimelinePage},
     {path : '/map',  component: MapPage},
     {path : '/wine', component: WinePage},
     {path : '/wine/:id', component: WineDetailPage},
