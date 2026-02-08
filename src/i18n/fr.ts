@@ -94,6 +94,8 @@ export default {
     "das_foto_konnte_nicht_hinzugefügt_werden_n_ndetails_errormes": "La photo n’a pas pu être ajoutée.\n\nDétails : ${errorMessage}",
     "die_fotos_konnten_nicht_hinzugefügt_werden": "Les photos n’ont pas pu être ajoutées.",
     "gallerie_optionen": "Options de galerie",
+    "gallerie_bearbeiten": "Modifier la galerie",
+    "gallerie_bearbeiten_fehler": "La galerie n’a pas pu être mise à jour.",
     "gallerie_löschen": "Supprimer la galerie",
     "alle_fotos_in_dieser_gallerie_werden_ebenfalls_gelöscht_dies": "Toutes les photos de cette galerie seront également supprimées. Cette action est irréversible.",
     "fotos_löschen": "Supprimer les photos ?",

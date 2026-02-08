@@ -3,7 +3,7 @@
     <ion-header :translucent="true">
       <ion-toolbar>
         <ion-buttons>
-          <ion-back-button default-href="/" />
+          <ion-back-button default-href="/" slot="start"/>
         </ion-buttons>
         <ion-title>{{ $t('auto.timeline_title') }}</ion-title>
       </ion-toolbar>
@@ -112,6 +112,7 @@
                   :key="bar.key"
                   class="timeline-bar route-bar"
                   :style="{ left: bar.left, width: bar.width, backgroundColor: bar.color || '#6c5ce7', top: 'calc(50% - 18px)' }"
+                  @click="openRoute(bar.id)"
                 >
                   <ion-icon :icon="imagesOutline" size="small" />
                   <span class="gallery-label">{{ bar.name }}</span>
@@ -121,6 +122,7 @@
                   :key="event.id"
                   class="timeline-event-bar"
                   :style="{ left: eventBarStyle(event).left, width: 'auto', top: 'calc(50% + 16px)' }"
+                  @click="openEvent(event)"
                 >
                   <ion-icon :icon="calendarNumber" size="small" />
                   <span class="event-label">{{ event.title }}</span>
@@ -201,6 +203,39 @@
                 </ion-card-content>
               </ion-card>
             </section>
+              <section class="manual-event-list">
+                <header>
+                  <h3>{{ $t('auto.timeline_manual_events') }}</h3>
+                </header>
+                <div v-if="!manualEvents.length" class="empty-state">
+                  <ion-icon :icon="imagesOutline" size="large" />
+                  <p>
+                    <span v-if="eventsSearch">{{ $t('auto.timeline_no_event_matches') }}</span>
+                    <span v-else>{{ $t('auto.timeline_no_manual_events') }}</span>
+                  </p>
+                </div>
+                <article v-for="event in manualEvents" :key="event.id" class="event-row">
+                  <div class="event-content">
+                    <div class="event-title">{{ event.title }}</div>
+                    <div class="event-date">
+                      {{ formatDate(event.startDate) }}
+                      <span v-if="event.endDate">− {{ formatDate(event.endDate) }}</span>
+                    </div>
+                    <p v-if="event.description" class="event-description">{{ event.description }}</p>
+                  </div>
+                  <div class="event-meta">
+                    <ion-badge v-if="getAttachmentsForEvent(event.id)?.length">{{ getAttachmentsForEvent(event.id).length }}</ion-badge>
+                    <div class="attachment-preview" v-if="getAttachmentsForEvent(event.id).length">
+                      <img
+                        v-for="photo in getAttachmentsForEvent(event.id)"
+                        :key="photo.id"
+                        :src="getAttachmentSrc(photo.filepath)"
+                        loading="lazy"
+                      />
+                    </div>
+                  </div>
+                </article>
+              </section>
           </section>
         </div>
         <div v-else>
@@ -589,6 +624,16 @@ const toggleFilterEvents = () => {
 
 const openGallery = (galleryId?: number) => {
   if (galleryId) router.push(`/gallery/${galleryId}`);
+};
+
+const openRoute = (routeId?: number) => {
+  if (routeId) router.push(`/route/${routeId}`);
+};
+
+const openEvent = (event: TimelineEvent) => {
+  // Modal/Detail-Ansicht für manuelles Ereignis
+  // TODO: Modal implementieren, aktuell nur Alert
+  alert(`${event.title}\n${event.description || ''}`);
 };
 
 const handlePickPhotos = async () => {

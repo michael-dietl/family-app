@@ -201,6 +201,8 @@ export default {
     "das_foto_konnte_nicht_hinzugefügt_werden_n_ndetails_errormes": "Das Foto konnte nicht hinzugefügt werden.\\n\\nDetails: ${errorMessage}",
     "die_fotos_konnten_nicht_hinzugefügt_werden": "Die Fotos konnten nicht hinzugefügt werden.",
     "gallerie_optionen": "Gallerie-Optionen",
+    "gallerie_bearbeiten": "Gallerie bearbeiten",
+    "gallerie_bearbeiten_fehler": "Die Gallerie konn ned aktualisiert werdn",
     "gallerie_löschen": "Gallerie löschen",
     "alle_fotos_in_dieser_gallerie_werden_ebenfalls_gelöscht_dies": "Alle Fotos in dieser Gallerie werden ebenfalls gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
     "gallery_galleryid_editor": "/gallery/${galleryId}/editor",

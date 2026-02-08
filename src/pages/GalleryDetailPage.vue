@@ -3,14 +3,14 @@
     <ion-header :translucent="true">
       <ion-toolbar>
         <ion-buttons>
-          <ion-back-button v-if="!selectionMode" default-href="/gallery" slot="start"/>
+          <ion-back-button v-if="!selectionMode" :default-href="backHref" />
           <ion-button v-else @click="cancelSelectionMode">
             <ion-icon :icon="close"/>
           </ion-button>
         </ion-buttons>
-        <ion-title v-if="!selectionMode" slot="middle">{{ currentGallery?.name || 'Gallerie' }}</ion-title>
+        <ion-title v-if="!selectionMode">{{ currentGallery?.name || 'Gallerie' }}</ion-title>
         <ion-title v-else>{{ selectedPhotos.size }} ausgewählt</ion-title>
-        <ion-buttons slot="end">
+        <ion-buttons>
           <ion-button v-if="selectedPhoto && !selectionMode" @click="clearSelection">
             <ion-icon :icon="closeCircle" />
           </ion-button>
@@ -267,6 +267,86 @@
         </div>
       </ion-content>
     </ion-modal>
+    <ion-modal :is-open="showEditDialog" @did-dismiss="closeEditGalleryModal">
+      <ion-header>
+        <ion-toolbar>
+          <ion-buttons slot="start">
+            <ion-button @click="closeEditGalleryModal">
+              <ion-icon :icon="close" />
+            </ion-button>
+          </ion-buttons>
+          <ion-title>{{ $t('auto.gallerie_bearbeiten') }}</ion-title>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <ion-item>
+          <ion-input
+            v-model="editGalleryName"
+            label="Name"
+            label-placement="stacked"
+            placeholder="z.B. Urlaub 2026"
+          />
+        </ion-item>
+        <ion-item>
+          <ion-textarea
+            v-model="editGalleryDescription"
+            :label="$t('auto.beschreibung') + ' (optional)'"
+            label-placement="stacked"
+            :rows="4"
+            placeholder="Beschreibe deine Gallerie..."
+          />
+        </ion-item>
+        <ion-item>
+          <ion-label position="stacked">{{ $t('auto.marker_farbe') }}</ion-label>
+          <div class="color-picker-container">
+            <div class="color-preview" :style="{ backgroundColor: editGalleryColor }" />
+            <div class="preset-colors">
+              <button
+                v-for="color in colorPresets"
+                :key="color"
+                class="color-button"
+                :class="{ active: editGalleryColor === color }"
+                :style="{ backgroundColor: color }"
+                @click="editGalleryColor = color"
+                type="button"
+              />
+            </div>
+          </div>
+        </ion-item>
+        <ion-item lines="none" class="gallery-date-row">
+          <ion-label>
+            <span class="date-label">{{ $t('auto.startdatum') }}</span>
+            <span class="date-value">{{ formattedEditStartDate }}</span>
+          </ion-label>
+          <ion-datetime
+            class="calendar-icon-only"
+            v-model="editGalleryStartDate"
+            presentation="date"
+            display-format="DD.MM.YYYY"
+          />
+        </ion-item>
+        <ion-item lines="none" class="gallery-date-row">
+          <ion-label>
+            <span class="date-label">{{ $t('auto.enddatum') }}</span>
+            <span class="date-value">{{ formattedEditEndDate }}</span>
+          </ion-label>
+          <ion-datetime
+            class="calendar-icon-only"
+            v-model="editGalleryEndDate"
+            presentation="date"
+            display-format="DD.MM.YYYY"
+          />
+        </ion-item>
+        <ion-button
+          expand="block"
+          class="ion-margin-top"
+          :disabled="!editGalleryName.trim()"
+          @click="handleUpdateGallery"
+        >
+          {{ $t('auto.speichern') }}
+        </ion-button>
+      </ion-content>
+    </ion-modal>
   </ion-page>
 </template>
 
@@ -274,6 +354,7 @@
 import { ref, computed, onMounted, watch, onBeforeUnmount, onActivated } from 'vue';
 import { checkmark } from 'ionicons/icons';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import {
   IonPage,
   IonHeader,
@@ -294,6 +375,10 @@ import {
   IonSegmentButton,
   IonCheckbox,
   IonLabel,
+  IonItem,
+  IonInput,
+  IonTextarea,
+  IonDatetime,
   IonFab,
   IonFabButton,
   actionSheetController,
@@ -333,7 +418,8 @@ import { db, type Photo } from '@/services/database';
 
 const route = useRoute();
 const router = useRouter();
-const { currentGallery, photos, isLoading, loadGallery, deleteGallery } = useGallery();
+const { t } = useI18n();
+const { currentGallery, photos, isLoading, loadGallery, deleteGallery, updateGallery } = useGallery();
 const { takePhoto, pickSinglePhoto, pickMultiplePhotos, savePhoto, saveMultiplePhotos, deletePhoto: removePhoto, isProcessing, extractExifData } = usePhoto();
 const { initLightbox, openLightbox, destroyLightbox, startAutoplay, stopAutoplay, autoplayActive, isLightboxOpen } = useLightbox();
 const { activate: activateWakeLock, deactivate: deactivateWakeLock } = useWakeLock();
@@ -346,6 +432,43 @@ const selectedPhoto = ref<Photo | null>(null);
 // Mehrfachselektion
 const selectionMode = ref(false);
 const selectedPhotos = ref<Set<number>>(new Set());
+
+const showEditDialog = ref(false);
+const editGalleryName = ref('');
+const editGalleryDescription = ref('');
+const editGalleryColor = ref('#3880ff');
+const editGalleryStartDate = ref('');
+const editGalleryEndDate = ref('');
+
+const colorPresets = [
+  '#3880ff',
+  '#eb445a',
+  '#2dd36f',
+  '#ffc409',
+  '#92949c',
+  '#ff6b6b',
+  '#4ecdc4',
+  '#45b7d1',
+  '#f9ca24',
+  '#6c5ce7',
+  '#a29bfe',
+  '#fd79a8',
+  '#fdcb6e',
+  '#00b894',
+  '#2d3436'
+];
+const formatDateValue = (dateStr: string) => {
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
+const previewDateValue = (value?: string) => (value ? formatDateValue(value) : '-');
+const formattedEditStartDate = computed(() => previewDateValue(editGalleryStartDate.value));
+const formattedEditEndDate = computed(() => previewDateValue(editGalleryEndDate.value));
 
 const videoExtensions = ['mp4', 'mov', 'webm', 'mkv', 'avi', '3gp', 'm4v'];
 
@@ -584,6 +707,12 @@ watch([isLightboxOpen, autoplayActive], ([open, auto]) => {
   }
 });
 
+watch(currentGallery, (gallery) => {
+  if (gallery && !showEditDialog.value) {
+    populateEditFields();
+  }
+}, { immediate: true });
+
 onBeforeUnmount(() => {
   destroyLightbox();
 });
@@ -788,21 +917,71 @@ const handleAddMultiplePhotos = async () => {
 
 const showGalleryMenu = async () => {
   const actionSheet = await actionSheetController.create({
-    header: 'Gallerie-Optionen',
+    header: t('auto.gallerie_optionen'),
     buttons: [
       {
-        text: 'Gallerie löschen',
+        text: t('auto.gallerie_bearbeiten'),
+        icon: pencilOutline,
+        handler: openEditGalleryModal
+      },
+      {
+        text: t('auto.gallerie_löschen'),
         role: 'destructive',
         icon: trashOutline,
         handler: () => confirmDeleteGallery()
       },
       {
-        text: 'Abbrechen',
+        text: t('buttons.cancel'),
         role: 'cancel'
       }
     ]
   });
   await actionSheet.present();
+};
+
+function populateEditFields() {
+  if (!currentGallery.value) return;
+  editGalleryName.value = currentGallery.value.name || '';
+  editGalleryDescription.value = currentGallery.value.description || '';
+  editGalleryColor.value = currentGallery.value.color || '#3880ff';
+  editGalleryStartDate.value = currentGallery.value.startDate || '';
+  editGalleryEndDate.value = currentGallery.value.endDate || '';
+}
+
+function openEditGalleryModal() {
+  populateEditFields();
+  showEditDialog.value = true;
+}
+
+function closeEditGalleryModal() {
+  showEditDialog.value = false;
+}
+
+const handleUpdateGallery = async () => {
+  if (!currentGallery.value || !editGalleryName.value.trim()) return;
+
+  const galleryId = currentGallery.value.id;
+  if (!galleryId) return;
+
+  try {
+    const trimmedDescription = editGalleryDescription.value.trim();
+    await updateGallery(galleryId, {
+      name: editGalleryName.value.trim(),
+      description: trimmedDescription || undefined,
+      color: editGalleryColor.value,
+      startDate: editGalleryStartDate.value || undefined,
+      endDate: editGalleryEndDate.value || undefined
+    });
+    showEditDialog.value = false;
+  } catch (error) {
+    console.error('Error updating gallery:', error);
+    const errorAlert = await alertController.create({
+      header: t('auto.fehler'),
+      message: t('auto.gallerie_bearbeiten_fehler'),
+      buttons: ['OK']
+    });
+    await errorAlert.present();
+  }
 };
 
 const confirmDeleteGallery = async () => {
@@ -1064,6 +1243,89 @@ const deleteSelectedPhotos = async () => {
 
 .empty-state p {
   color: var(--ion-color-medium);
+}
+
+.gallery-date-row {
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+}
+
+.gallery-date-row ion-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.75rem;
+  color: var(--ion-color-medium);
+}
+
+.gallery-date-row .date-label {
+  font-weight: 500;
+}
+
+.gallery-date-row .date-value {
+  font-size: 0.85rem;
+  color: var(--ion-color-dark);
+}
+
+.calendar-icon-only {
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  min-width: 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.calendar-icon-only::part(text) {
+  display: none;
+}
+
+.calendar-icon-only::part(icon) {
+  font-size: 1.25rem;
+}
+
+.color-picker-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem 0;
+  width: 100%;
+}
+
+.color-preview {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  border: 3px solid var(--ion-color-light);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.preset-colors {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+}
+
+.color-button {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.color-button:hover {
+  transform: scale(1.1);
+}
+
+.color-button.active {
+  border-color: var(--ion-color-dark);
+  box-shadow: 0 0 0 2px var(--ion-background-color), 0 0 0 4px var(--ion-color-primary);
 }
 
 .photo-item {
