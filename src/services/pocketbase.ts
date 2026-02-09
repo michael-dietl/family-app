@@ -7,15 +7,28 @@ class PocketBaseService {
 
   async initialize() {
     const { value } = await Preferences.get({ key: 'pocketbase_url' });
-    
     if (value) {
       this.url = value;
       this.pb = new PocketBase(value);
-      
+
       // Restore auth token if available
       const { value: token } = await Preferences.get({ key: 'pocketbase_token' });
       if (token) {
         this.pb.authStore.save(token);
+      } else {
+        // Automatische Anmeldung mit gespeicherten Credentials
+        const [{ value: email }, { value: password }] = await Promise.all([
+          Preferences.get({ key: 'pocketbase_email' }),
+          Preferences.get({ key: 'pocketbase_password' })
+        ]);
+        if (email && password) {
+          try {
+            await this.pb.collection('users').authWithPassword(email, password);
+            // Token wird automatisch gespeichert
+          } catch (e) {
+            console.warn('PocketBase auto-login fehlgeschlagen:', e);
+          }
+        }
       }
 
       // Auto-refresh auth

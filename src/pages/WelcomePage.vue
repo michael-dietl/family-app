@@ -98,6 +98,12 @@
         </ion-list>
       </div>
     </ion-content>
+    <SyncProgressModal
+      :open="syncProgress.open"
+      :entity="syncProgress.entity"
+      :current="syncProgress.current"
+      :total="syncProgress.total"
+    />
   </ion-page>
 </template>
 
@@ -138,11 +144,12 @@ import {
 } from 'ionicons/icons';
 import { Preferences } from '@capacitor/preferences';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
+import SyncProgressModal from '@/components/SyncProgressModal.vue';
 
 const router = useRouter();
 const pocketbaseUrl = ref('');
 const isConnected = ref(false);
-const { isSyncing, syncAll } = usePocketbaseSync();
+const { isSyncing, syncAll, syncProgress } = usePocketbaseSync();
 
 onMounted(async () => {
   await loadSettings();

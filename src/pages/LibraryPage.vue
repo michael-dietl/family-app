@@ -688,7 +688,8 @@ const importGoogleBookInfo = async (bookInfo: GoogleBookInfo) => {
     coverImage: initialCoverUri,
     categoryId: mappedCategoryId || undefined,
     read: false,
-    quantity: 1
+    quantity: 1,
+    updated: new Date().toISOString()
   };
 
   console.log('📚 Speichere Buch mit categoryId:', selectedCategoryId.value, 'bookData:', bookData);
@@ -896,7 +897,8 @@ const lookupAndSaveBook = async (isbn: string) => {
         coverImage: initialCoverUri,
         categoryId: mappedCategoryId || undefined,
         read: false,
-        quantity: 1
+        quantity: 1,
+        updated: new Date().toISOString()
       };
 
       console.log('📚 Speichere Buch mit categoryId:', selectedCategoryId.value, 'bookData:', bookData);

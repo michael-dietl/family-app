@@ -663,7 +663,8 @@ const handleSaveManualEvent = async () => {
       title: manualTitle.value.trim(),
       description: manualDescription.value.trim() || undefined,
       startDate: manualStart.value || '',
-      endDate: manualEnd.value || null
+      endDate: manualEnd.value || null,
+      updated: new Date().toISOString()
     });
     if (pendingPhotos.value.length) {
       await addEventPhotos(createdId, pendingPhotos.value);

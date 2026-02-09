@@ -2,6 +2,7 @@ import { CapacitorSQLite, SQLiteConnection, SQLiteDBConnection } from '@capacito
 import { Capacitor } from '@capacitor/core';
 export interface Gallery {
   id?: number;
+  foreignID?: string;
   name: string;
   description?: string;
   coverPhotoId?: number;
@@ -14,6 +15,7 @@ export interface Gallery {
 
 export interface Photo {
   id?: number;
+  foreignID?: string;
   galleryId: number;
   filename: string;
   filepath: string;
@@ -35,30 +37,37 @@ export interface Photo {
   shutterSpeed?: string;
   iso?: number;
   created: string;
+  updated: string;
 }
 
 export interface BookCategory {
   id?: number;
+  foreignID?: string;
   name: string;
   description?: string;
   created: string;
+  updated: string;
 }
 
 export interface TimelineEvent {
   id?: number;
+  foreignID?: string;
   title: string;
   description?: string;
   startDate: string;
   endDate?: string | null;
   created: string;
+  updated: string;
 }
 
 export interface TimelineEventPhoto {
   id?: number;
+  foreignID?: string;
   eventId: number;
   filename: string;
   filepath: string;
   created: string;
+  updated: string;
 }
 
 export interface Book {
@@ -80,11 +89,14 @@ export interface Book {
   read?: boolean;
   quantity?: number;
   created: string;
+  updated: string;
+  foreignID?: string;
 }
 
 // Route Tracking Types
 export interface Route {
   id?: number;
+  foreignID?: string;
   name: string;
   description?: string;
   startTime: string;
@@ -93,6 +105,7 @@ export interface Route {
   duration?: number; // in seconds
   isRecording: boolean;
   created: string;
+  updated: string;
 }
 
 export interface Waypoint {
@@ -107,24 +120,29 @@ export interface Waypoint {
   description?: string;
   photoId?: number; // Reference to photo if type is photo/video
   timestamp: string;
+  foreignID?: string;
+  updated: string;
 }
 
 export interface WineCategory {
   id?: number;
+  foreignID?: string;
   name: string;
   description?: string;
   created: string;
+  updated: string;
 }
 
 export interface Wine {
   id?: number;
+  foreignID?: string;
   name: string;
   winery?: string; // Weingut
   region?: string; // Region (z.B. "Mosel", "Bordeaux")
   country?: string; // Land
   year?: number; // Jahrgang
   grapeVariety?: string; // Rebsorte (z.B. "Riesling", "Cabernet Sauvignon")
-  type?: string; // Weintyp (z.B. "Rotwein", "Weißwein", "Rosé")
+  type?: string; // z.B. "Rot", "Weiß", "Rosé"
   price?: number; // Kaufpreis
   quantity?: number; // Anzahl Flaschen
   rating?: number; // Bewertung 1-5
@@ -142,6 +160,7 @@ export interface Wine {
 // Shopping List Types
 export interface ShoppingList {
   id?: number;
+  foreignID?: string;
   name: string;
   created: string;
   updated: string;
@@ -154,11 +173,14 @@ export interface ShoppingItem {
   quantity?: number;
   completed: boolean;
   created: string;
+  updated: string;
+  foreignID?: string;
 }
 
 // Todo List Types
 export interface TodoList {
   id?: number;
+  foreignID?: string;
   name: string;
   created: string;
   updated: string;
@@ -174,17 +196,23 @@ export interface TodoItem {
   dueDate?: string | null;
   completionDate?: string | null;
   created: string;
+  updated: string;
+  foreignID?: string;
 }
 
 export interface TodoPhoto {
   id?: number;
+  foreignID?: string;
   todoItemId: number;
   filename: string;
   filepath: string;
   mimeType?: string;
   filesize?: number;
   created: string;
+  updated: string;
 }
+
+type CreationParams<T extends { updated: string }> = Omit<T, 'id' | 'created' | 'updated'> & Partial<Pick<T, 'updated'>>;
 
 // In-Memory Storage für Web-Development
 class InMemoryStorage {
@@ -197,10 +225,11 @@ class InMemoryStorage {
   private timelineEventIdCounter = 1;
   private timelineEventPhotoIdCounter = 1;
 
-  createGallery(gallery: Omit<Gallery, 'id' | 'created' | 'updated'>): number {
+  createGallery(gallery: CreationParams<Gallery>): number {
     const id = this.galleryIdCounter++;
     const now = new Date().toISOString();
-    this.galleries.push({ ...gallery, id, created: now, updated: now });
+    const updated = gallery.updated ?? now;
+    this.galleries.push({ ...gallery, id, created: now, updated });
     return id;
   }
 
@@ -230,10 +259,11 @@ class InMemoryStorage {
     this.photos = this.photos.filter(p => p.galleryId !== id);
   }
 
-  createPhoto(photo: Omit<Photo, 'id' | 'created'>): number {
+  createPhoto(photo: CreationParams<Photo>): number {
     const id = this.photoIdCounter++;
     const now = new Date().toISOString();
-    this.photos.push({ ...photo, id, created: now });
+    const updated = photo.updated ?? now;
+    this.photos.push({ ...photo, id, created: now, updated });
     return id;
   }
   getPhotosByGallery(galleryId: number): Photo[] {
@@ -253,7 +283,7 @@ class InMemoryStorage {
   updatePhoto(id: number, updates: Partial<Photo>): void {
     const index = this.photos.findIndex(p => p.id === id);
     if (index !== -1) {
-      this.photos[index] = { ...this.photos[index], ...updates };
+      this.photos[index] = { ...this.photos[index], ...updates, updated: new Date().toISOString() };
     }
   }
 
@@ -265,10 +295,11 @@ class InMemoryStorage {
     return this.photos.filter(p => p.galleryId === galleryId).length;
   }
 
-  createTimelineEvent(event: Omit<TimelineEvent, 'id' | 'created'>): number {
+  createTimelineEvent(event: CreationParams<TimelineEvent>): number {
     const id = this.timelineEventIdCounter++;
     const now = new Date().toISOString();
-    this.timelineEvents.push({ ...event, id, created: now });
+    const updated = event.updated ?? now;
+    this.timelineEvents.push({ ...event, id, created: now, updated });
     return id;
   }
 
@@ -280,10 +311,11 @@ class InMemoryStorage {
     });
   }
 
-  createTimelineEventPhoto(photo: Omit<TimelineEventPhoto, 'id' | 'created'>): number {
+  createTimelineEventPhoto(photo: CreationParams<TimelineEventPhoto>): number {
     const id = this.timelineEventPhotoIdCounter++;
     const now = new Date().toISOString();
-    this.timelineEventPhotos.push({ ...photo, id, created: now });
+    const updated = photo.updated ?? now;
+    this.timelineEventPhotos.push({ ...photo, id, created: now, updated });
     return id;
   }
 
@@ -348,6 +380,7 @@ class DatabaseService {
     const galleriesTable = `
       CREATE TABLE IF NOT EXISTS galleries (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
         name TEXT NOT NULL,
         description TEXT,
         coverPhotoId INTEGER,
@@ -362,6 +395,7 @@ class DatabaseService {
     const photosTable = `
       CREATE TABLE IF NOT EXISTS photos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
         galleryId INTEGER NOT NULL,
         filename TEXT NOT NULL,
         filepath TEXT NOT NULL,
@@ -381,6 +415,7 @@ class DatabaseService {
         shutterSpeed TEXT,
         iso INTEGER,
         created TEXT NOT NULL,
+        updated TEXT NOT NULL,
         FOREIGN KEY (galleryId) REFERENCES galleries(id) ON DELETE CASCADE
       );
     `;
@@ -393,15 +428,18 @@ class DatabaseService {
     const bookCategoriesTable = `
       CREATE TABLE IF NOT EXISTS book_categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
         name TEXT NOT NULL UNIQUE,
         description TEXT,
-        created TEXT NOT NULL
+        created TEXT NOT NULL,
+        updated TEXT NOT NULL
       );
     `;
     // Bücher Tabelle
     const booksTable = `
       CREATE TABLE IF NOT EXISTS books (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
         isbn TEXT NOT NULL UNIQUE,
         title TEXT NOT NULL,
         subtitle TEXT,
@@ -419,6 +457,7 @@ class DatabaseService {
         read INTEGER DEFAULT 0,
         quantity INTEGER DEFAULT 1,
         created TEXT NOT NULL,
+        updated TEXT NOT NULL,
         FOREIGN KEY (categoryId) REFERENCES book_categories(id) ON DELETE SET NULL
       );
     `;
@@ -431,6 +470,7 @@ class DatabaseService {
     const routesTable = `
       CREATE TABLE IF NOT EXISTS routes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
         name TEXT NOT NULL,
         description TEXT,
         startTime TEXT NOT NULL,
@@ -438,13 +478,15 @@ class DatabaseService {
         distance REAL,
         duration INTEGER,
         isRecording INTEGER DEFAULT 1,
-        created TEXT NOT NULL
+        created TEXT NOT NULL,
+        updated TEXT NOT NULL
       );
     `;
     // Wegpunkte Tabelle
     const waypointsTable = `
       CREATE TABLE IF NOT EXISTS waypoints (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
         routeId INTEGER NOT NULL,
         type TEXT NOT NULL CHECK(type IN ('photo', 'video', 'manual', 'position')),
         latitude REAL NOT NULL,
@@ -455,6 +497,7 @@ class DatabaseService {
         description TEXT,
         photoId INTEGER,
         timestamp TEXT NOT NULL,
+        updated TEXT NOT NULL,
         FOREIGN KEY (routeId) REFERENCES routes(id) ON DELETE CASCADE,
         FOREIGN KEY (photoId) REFERENCES photos(id) ON DELETE SET NULL
       );
@@ -469,6 +512,7 @@ class DatabaseService {
     const winesTable = `
       CREATE TABLE IF NOT EXISTS wines (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
         name TEXT NOT NULL,
         winery TEXT,
         region TEXT,
@@ -501,6 +545,7 @@ class DatabaseService {
     const shoppingListsTable = `
       CREATE TABLE IF NOT EXISTS shopping_lists (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
         name TEXT NOT NULL,
         created TEXT NOT NULL,
         updated TEXT NOT NULL
@@ -509,11 +554,13 @@ class DatabaseService {
     const shoppingItemsTable = `
       CREATE TABLE IF NOT EXISTS shopping_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
         listId INTEGER NOT NULL,
         name TEXT NOT NULL,
         quantity INTEGER,
         completed INTEGER DEFAULT 0,
         created TEXT NOT NULL,
+        updated TEXT NOT NULL,
         FOREIGN KEY (listId) REFERENCES shopping_lists(id) ON DELETE CASCADE
       );
     `;
@@ -524,6 +571,7 @@ class DatabaseService {
     const todoListsTable = `
       CREATE TABLE IF NOT EXISTS todo_lists (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
         name TEXT NOT NULL,
         created TEXT NOT NULL,
         updated TEXT NOT NULL
@@ -532,6 +580,7 @@ class DatabaseService {
     const todoItemsTable = `
       CREATE TABLE IF NOT EXISTS todo_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
         listId INTEGER NOT NULL,
         title TEXT NOT NULL,
         description TEXT,
@@ -540,18 +589,21 @@ class DatabaseService {
         dueDate TEXT,
         completionDate TEXT,
         created TEXT NOT NULL,
+        updated TEXT NOT NULL,
         FOREIGN KEY (listId) REFERENCES todo_lists(id) ON DELETE CASCADE
       );
     `;
     const todoPhotosTable = `
       CREATE TABLE IF NOT EXISTS todo_photos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
         todoItemId INTEGER NOT NULL,
         filename TEXT NOT NULL,
         filepath TEXT NOT NULL,
         mimeType TEXT,
         filesize INTEGER,
         created TEXT NOT NULL,
+        updated TEXT NOT NULL,
         FOREIGN KEY (todoItemId) REFERENCES todo_items(id) ON DELETE CASCADE
       );
     `;
@@ -564,20 +616,24 @@ class DatabaseService {
     const timelineEventsTable = `
       CREATE TABLE IF NOT EXISTS timeline_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
         title TEXT NOT NULL,
         description TEXT,
         startDate TEXT NOT NULL,
         endDate TEXT,
-        created TEXT NOT NULL
+        created TEXT NOT NULL,
+        updated TEXT NOT NULL
       );
     `;
     const timelineEventPhotosTable = `
       CREATE TABLE IF NOT EXISTS timeline_event_photos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
         eventId INTEGER NOT NULL,
         filename TEXT NOT NULL,
         filepath TEXT NOT NULL,
         created TEXT NOT NULL,
+        updated TEXT NOT NULL,
         FOREIGN KEY (eventId) REFERENCES timeline_events(id) ON DELETE CASCADE
       );
     `;
@@ -637,10 +693,36 @@ class DatabaseService {
     await runAlter('ALTER TABLE galleries ADD COLUMN endDate TEXT;');
     await runAlter('ALTER TABLE todo_items ADD COLUMN dueDate TEXT;');
     await runAlter('ALTER TABLE todo_items ADD COLUMN completionDate TEXT;');
+    await runAlter('ALTER TABLE galleries ADD COLUMN foreignID TEXT;');
+    await runAlter('ALTER TABLE galleries ADD COLUMN updated TEXT;');
+    await runAlter('ALTER TABLE photos ADD COLUMN foreignID TEXT;');
+    await runAlter('ALTER TABLE photos ADD COLUMN updated TEXT;');
+    await runAlter('ALTER TABLE book_categories ADD COLUMN foreignID TEXT;');
+    await runAlter('ALTER TABLE book_categories ADD COLUMN updated TEXT;');
+    await runAlter('ALTER TABLE books ADD COLUMN foreignID TEXT;');
+    await runAlter('ALTER TABLE books ADD COLUMN updated TEXT;');
+    await runAlter('ALTER TABLE routes ADD COLUMN foreignID TEXT;');
+    await runAlter('ALTER TABLE routes ADD COLUMN updated TEXT;');
+    await runAlter('ALTER TABLE waypoints ADD COLUMN foreignID TEXT;');
+    await runAlter('ALTER TABLE waypoints ADD COLUMN updated TEXT;');
+    await runAlter('ALTER TABLE wines ADD COLUMN foreignID TEXT;');
+    await runAlter('ALTER TABLE wines ADD COLUMN updated TEXT;');
+    await runAlter('ALTER TABLE shopping_lists ADD COLUMN foreignID TEXT;');
+    await runAlter('ALTER TABLE shopping_items ADD COLUMN foreignID TEXT;');
+    await runAlter('ALTER TABLE shopping_items ADD COLUMN updated TEXT;');
+    await runAlter('ALTER TABLE todo_lists ADD COLUMN foreignID TEXT;');
+    await runAlter('ALTER TABLE todo_items ADD COLUMN foreignID TEXT;');
+    await runAlter('ALTER TABLE todo_items ADD COLUMN updated TEXT;');
+    await runAlter('ALTER TABLE todo_photos ADD COLUMN foreignID TEXT;');
+    await runAlter('ALTER TABLE todo_photos ADD COLUMN updated TEXT;');
+    await runAlter('ALTER TABLE timeline_events ADD COLUMN foreignID TEXT;');
+    await runAlter('ALTER TABLE timeline_events ADD COLUMN updated TEXT;');
+    await runAlter('ALTER TABLE timeline_event_photos ADD COLUMN foreignID TEXT;');
+    await runAlter('ALTER TABLE timeline_event_photos ADD COLUMN updated TEXT;');
   }
 
   // Galerie CRUD Operationen
-  async createGallery(gallery: Omit<Gallery, 'id' | 'created' | 'updated'>): Promise<number> {
+  async createGallery(gallery: CreationParams<Gallery>): Promise<number> {
     if (!this.isInitialized) await this.initialize();
     
     if (this.useInMemory) {
@@ -651,11 +733,13 @@ class DatabaseService {
 
     const now = new Date().toISOString();
     const sql = `
-      INSERT INTO galleries (name, description, coverPhotoId, color, startDate, endDate, created, updated)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+      INSERT INTO galleries (foreignID, name, description, coverPhotoId, color, startDate, endDate, created, updated)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
 
+    const updated = gallery.updated ?? now;
     const result = await this.db.run(sql, [
+      gallery.foreignID || null,
       gallery.name,
       gallery.description || null,
       gallery.coverPhotoId || null,
@@ -663,7 +747,7 @@ class DatabaseService {
       gallery.startDate || null,
       gallery.endDate || null,
       now,
-      now
+      updated
     ]);
 
     return result.changes?.lastId || 0;
@@ -708,7 +792,7 @@ class DatabaseService {
 
     if (!this.db) throw new Error('Database not initialized');
 
-    const now = new Date().toISOString();
+    const updated = updates.updated ?? new Date().toISOString();
     const sql = `
       UPDATE galleries 
       SET name = COALESCE(?, name),
@@ -717,6 +801,7 @@ class DatabaseService {
           color = COALESCE(?, color),
           startDate = COALESCE(?, startDate),
           endDate = COALESCE(?, endDate),
+          foreignID = COALESCE(?, foreignID),
           updated = ?
       WHERE id = ?;
     `;
@@ -728,7 +813,8 @@ class DatabaseService {
       updates.color || null,
       updates.startDate || null,
       updates.endDate || null,
-      now,
+      updates.foreignID || null,
+      updated,
       id
     ]);
   }
@@ -746,7 +832,7 @@ class DatabaseService {
     await this.db.run(sql, [id]);
   }
 
-  async createTimelineEvent(event: Omit<TimelineEvent, 'id' | 'created'>): Promise<number> {
+  async createTimelineEvent(event: CreationParams<TimelineEvent>): Promise<number> {
     if (!this.isInitialized) await this.initialize();
     
     if (this.useInMemory) {
@@ -756,17 +842,20 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
+    const updated = event.updated ?? now;
     const sql = `
-      INSERT INTO timeline_events (title, description, startDate, endDate, created)
-      VALUES (?, ?, ?, ?, ?);
+      INSERT INTO timeline_events (foreignID, title, description, startDate, endDate, created, updated)
+      VALUES (?, ?, ?, ?, ?, ?, ?);
     `;
 
     const result = await this.db.run(sql, [
+      event.foreignID || null,
       event.title,
       event.description || null,
       event.startDate,
       event.endDate || null,
-      now
+      now,
+      updated
     ]);
 
     return result.changes?.lastId || 0;
@@ -786,9 +875,9 @@ class DatabaseService {
     return result.values as TimelineEvent[] || [];
   }
 
-  async createTimelineEventPhoto(photo: Omit<TimelineEventPhoto, 'id' | 'created'>): Promise<number> {
+  async createTimelineEventPhoto(photo: CreationParams<TimelineEventPhoto>): Promise<number> {
     if (!this.isInitialized) await this.initialize();
-    
+
     if (this.useInMemory) {
       return this.inMemory.createTimelineEventPhoto(photo);
     }
@@ -796,13 +885,16 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
-    const sql = 'INSERT INTO timeline_event_photos (eventId, filename, filepath, created) VALUES (?, ?, ?, ?);';
+    const updated = photo.updated ?? now;
+    const sql = 'INSERT INTO timeline_event_photos (foreignID, eventId, filename, filepath, created, updated) VALUES (?, ?, ?, ?, ?, ?);';
 
     const result = await this.db.run(sql, [
+      photo.foreignID || null,
       photo.eventId,
       photo.filename,
       photo.filepath,
-      now
+      now,
+      updated
     ]);
 
     return result.changes?.lastId || 0;
@@ -823,7 +915,7 @@ class DatabaseService {
   }
 
   // Foto CRUD Operationen
-  async createPhoto(photo: Omit<Photo, 'id' | 'created'>): Promise<number> {
+  async createPhoto(photo: CreationParams<Photo>): Promise<number> {
     if (!this.isInitialized) await this.initialize();
     
     if (this.useInMemory) {
@@ -833,15 +925,16 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
+    const updated = photo.updated ?? now;
     const sql = `
       INSERT INTO photos (
-        galleryId, filename, filepath, thumbnail, width, height, filesize, mimeType, isVideo,
-        latitude, longitude, dateTaken, camera, lens, focalLength, aperture, 
-        shutterSpeed, iso, created
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        foreignID, galleryId, filename, filepath, thumbnail, width, height, filesize, mimeType, isVideo,
+        latitude, longitude, dateTaken, camera, lens, focalLength, aperture, shutterSpeed, iso, created, updated
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
 
     const result = await this.db.run(sql, [
+      photo.foreignID || null,
       photo.galleryId,
       photo.filename,
       photo.filepath,
@@ -860,7 +953,8 @@ class DatabaseService {
       photo.aperture || null,
       photo.shutterSpeed || null,
       photo.iso || null,
-      now
+      now,
+      updated
     ]);
 
     return result.changes?.lastId || 0;
@@ -928,8 +1022,15 @@ class DatabaseService {
       fields.push('filesize = ?');
       values.push(updates.filesize);
     }
+    if (updates.foreignID !== undefined) {
+      fields.push('foreignID = ?');
+      values.push(updates.foreignID ?? null);
+    }
 
     if (fields.length === 0) return;
+
+    fields.push('updated = ?');
+    values.push(updates.updated ?? new Date().toISOString());
 
     values.push(id);
     const sql = `UPDATE photos SET ${fields.join(', ')} WHERE id = ?;`;
@@ -973,7 +1074,7 @@ class DatabaseService {
   }
 
   // Book Category CRUD Operations
-  async createBookCategory(category: Omit<BookCategory, 'id' | 'created'>): Promise<number> {
+  async createBookCategory(category: CreationParams<BookCategory>): Promise<number> {
     if (!this.isInitialized) await this.initialize();
 
     const now = new Date().toISOString();
@@ -985,8 +1086,15 @@ class DatabaseService {
 
     if (!this.db) throw new Error('Database not initialized');
 
-    const sql = 'INSERT INTO book_categories (name, description, created) VALUES (?, ?, ?);';
-    const result = await this.db.run(sql, [category.name, category.description || null, now]);
+    const updated = category.updated ?? now;
+    const sql = 'INSERT INTO book_categories (foreignID, name, description, created, updated) VALUES (?, ?, ?, ?, ?);';
+    const result = await this.db.run(sql, [
+      category.foreignID || null,
+      category.name,
+      category.description || null,
+      now,
+      updated
+    ]);
 
     return result.changes?.lastId || 0;
   }
@@ -1018,7 +1126,7 @@ class DatabaseService {
   }
 
   // Book CRUD Operations
-  async createBook(book: Omit<Book, 'id' | 'created'>): Promise<number> {
+  async createBook(book: CreationParams<Book>): Promise<number> {
     if (!this.isInitialized) await this.initialize();
 
     const now = new Date().toISOString();
@@ -1030,15 +1138,17 @@ class DatabaseService {
 
     if (!this.db) throw new Error('Database not initialized');
 
+    const updated = book.updated ?? now;
     const sql = `
       INSERT INTO books (
-        isbn, title, subtitle, authors, publisher, publishedDate, description,
+        foreignID, isbn, title, subtitle, authors, publisher, publishedDate, description,
         pageCount, categories, language, coverImage, categoryId,
-        notes, rating, read, quantity, created
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        notes, rating, read, quantity, created, updated
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
 
     const result = await this.db.run(sql, [
+      book.foreignID || null,
       book.isbn,
       book.title,
       book.subtitle || null,
@@ -1055,7 +1165,8 @@ class DatabaseService {
       book.rating || null,
       book.read ? 1 : 0,
       book.quantity || 1,
-      now
+      now,
+      updated
     ]);
 
     return result.changes?.lastId || 0;
@@ -1130,7 +1241,7 @@ class DatabaseService {
     const values: any[] = [];
 
     Object.entries(updates).forEach(([key, value]) => {
-      if (key === 'id' || key === 'created') return;
+      if (key === 'id' || key === 'created' || key === 'updated') return;
       
       fields.push(`${key} = ?`);
       
@@ -1142,6 +1253,9 @@ class DatabaseService {
     });
 
     if (fields.length === 0) return;
+
+    fields.push('updated = ?');
+    values.push(updates.updated ?? new Date().toISOString());
 
     values.push(id);
     const sql = `UPDATE books SET ${fields.join(', ')} WHERE id = ?;`;
@@ -1160,18 +1274,20 @@ class DatabaseService {
   }
 
   // Route CRUD Operationen
-  async createRoute(route: Omit<Route, 'id' | 'created'>): Promise<number> {
+  async createRoute(route: CreationParams<Route>): Promise<number> {
     if (!this.isInitialized) await this.initialize();
     if (this.useInMemory) throw new Error('Routes not supported in web mode');
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
+    const updated = route.updated ?? now;
     const sql = `
-      INSERT INTO routes (name, description, startTime, endTime, distance, duration, isRecording, created)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+      INSERT INTO routes (foreignID, name, description, startTime, endTime, distance, duration, isRecording, created, updated)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
     
     const result = await this.db.run(sql, [
+      route.foreignID || null,
       route.name,
       route.description || null,
       route.startTime,
@@ -1179,7 +1295,8 @@ class DatabaseService {
       route.distance || null,
       route.duration || null,
       route.isRecording ? 1 : 0,
-      now
+      now,
+      updated
     ]);
 
     return result.changes?.lastId || 0;
@@ -1225,7 +1342,7 @@ class DatabaseService {
     const values: any[] = [];
 
     Object.entries(updates).forEach(([key, value]) => {
-      if (key === 'id' || key === 'created') return;
+      if (key === 'id' || key === 'created' || key === 'updated') return;
       
       fields.push(`${key} = ?`);
       
@@ -1237,6 +1354,10 @@ class DatabaseService {
     });
 
     if (fields.length === 0) return;
+
+    const updated = updates.updated ?? new Date().toISOString();
+    fields.push('updated = ?');
+    values.push(updated);
 
     values.push(id);
     const sql = `UPDATE routes SET ${fields.join(', ')} WHERE id = ?;`;
@@ -1253,19 +1374,20 @@ class DatabaseService {
   }
 
   // Waypoint CRUD Operationen
-  async createWaypoint(waypoint: Omit<Waypoint, 'id'>): Promise<number> {
+  async createWaypoint(waypoint: CreationParams<Waypoint>): Promise<number> {
     if (!this.isInitialized) await this.initialize();
     if (this.useInMemory) throw new Error('Waypoints not supported in web mode');
     if (!this.db) throw new Error('Database not initialized');
 
     const sql = `
       INSERT INTO waypoints (
-        routeId, type, latitude, longitude, altitude, accuracy, 
-        name, description, photoId, timestamp
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        foreignID, routeId, type, latitude, longitude, altitude, accuracy, 
+        name, description, photoId, timestamp, updated
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
     
     const result = await this.db.run(sql, [
+      waypoint.foreignID || null,
       waypoint.routeId,
       waypoint.type,
       waypoint.latitude,
@@ -1275,7 +1397,8 @@ class DatabaseService {
       waypoint.name || null,
       waypoint.description || null,
       waypoint.photoId || null,
-      waypoint.timestamp
+      waypoint.timestamp,
+      waypoint.updated ?? waypoint.timestamp
     ]);
 
     return result.changes?.lastId || 0;
@@ -1312,18 +1435,20 @@ class DatabaseService {
 
   // ==================== Wine Management ====================
 
-  async createWine(wine: Omit<Wine, 'id' | 'created' | 'updated'>): Promise<number> {
+  async createWine(wine: CreationParams<Wine>): Promise<number> {
     if (!this.isInitialized) await this.initialize();
     if (this.useInMemory) return 0;
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
+    const updated = wine.updated ?? now;
     const sql = `
-      INSERT INTO wines (name, winery, region, country, year, grapeVariety, type, price, quantity, rating, notes, photoPath, latitude, longitude, purchaseDate, storageLocation, created, updated)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      INSERT INTO wines (foreignID, name, winery, region, country, year, grapeVariety, type, price, quantity, rating, notes, photoPath, latitude, longitude, purchaseDate, storageLocation, created, updated)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
     
     const result = await this.db.run(sql, [
+      wine.foreignID || null,
       wine.name,
       wine.winery || null,
       wine.region || null,
@@ -1341,7 +1466,7 @@ class DatabaseService {
       wine.purchaseDate || null,
       wine.storageLocation || null,
       now,
-      now
+      updated
     ]);
 
     return result.changes?.lastId || 0;
@@ -1384,12 +1509,11 @@ class DatabaseService {
     if (this.useInMemory) return;
     if (!this.db) throw new Error('Database not initialized');
 
-    const now = new Date().toISOString();
     const fields: string[] = [];
     const values: any[] = [];
 
     Object.entries(updates).forEach(([key, value]) => {
-      if (key === 'id' || key === 'created') return;
+      if (key === 'id' || key === 'created' || key === 'updated') return;
       
       fields.push(`${key} = ?`);
       values.push(value ?? null);
@@ -1397,8 +1521,10 @@ class DatabaseService {
 
     if (fields.length === 0) return;
 
+    const updated = updates.updated ?? new Date().toISOString();
     fields.push('updated = ?');
-    values.push(now);
+    values.push(updated);
+
     values.push(id);
 
     const sql = `UPDATE wines SET ${fields.join(', ')} WHERE id = ?;`;
@@ -1439,14 +1565,15 @@ class DatabaseService {
     }
 
   // Shopping List CRUD Operations
-  async createShoppingList(list: Omit<ShoppingList, 'id' | 'created' | 'updated'>): Promise<number> {
+  async createShoppingList(list: CreationParams<ShoppingList>): Promise<number> {
     if (!this.isInitialized) await this.initialize();
     if (this.useInMemory) return 0;
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
-    const sql = 'INSERT INTO shopping_lists (name, created, updated) VALUES (?, ?, ?);';
-    const result = await this.db.run(sql, [list.name, now, now]);
+    const updated = list.updated ?? now;
+    const sql = 'INSERT INTO shopping_lists (foreignID, name, created, updated) VALUES (?, ?, ?, ?);';
+    const result = await this.db.run(sql, [list.foreignID || null, list.name, now, updated]);
     
     return result.changes?.lastId || 0;
   }
@@ -1487,8 +1614,14 @@ class DatabaseService {
       values.push(updates.name);
     }
 
+    if (updates.foreignID !== undefined) {
+      fields.push('foreignID = ?');
+      values.push(updates.foreignID ?? null);
+    }
+
+    const updated = updates.updated ?? now;
     fields.push('updated = ?');
-    values.push(now);
+    values.push(updated);
     values.push(id);
 
     const sql = `UPDATE shopping_lists SET ${fields.join(', ')} WHERE id = ?;`;
@@ -1504,19 +1637,22 @@ class DatabaseService {
     await this.db.run(sql, [id]);
   }
 
-  async createShoppingItem(item: Omit<ShoppingItem, 'id' | 'created'>): Promise<number> {
+  async createShoppingItem(item: CreationParams<ShoppingItem>): Promise<number> {
     if (!this.isInitialized) await this.initialize();
     if (this.useInMemory) return 0;
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
-    const sql = 'INSERT INTO shopping_items (listId, name, quantity, completed, created) VALUES (?, ?, ?, ?, ?);';
+    const updated = item.updated ?? now;
+    const sql = 'INSERT INTO shopping_items (foreignID, listId, name, quantity, completed, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?);';
     const result = await this.db.run(sql, [
+      item.foreignID || null,
       item.listId,
       item.name,
       item.quantity || null,
       item.completed ? 1 : 0,
-      now
+      now,
+      updated
     ]);
     
     return result.changes?.lastId || 0;
@@ -1556,8 +1692,16 @@ class DatabaseService {
       fields.push('completed = ?');
       values.push(updates.completed ? 1 : 0);
     }
+    if (updates.foreignID !== undefined) {
+      fields.push('foreignID = ?');
+      values.push(updates.foreignID ?? null);
+    }
 
     if (fields.length === 0) return;
+
+    const updated = updates.updated ?? new Date().toISOString();
+    fields.push('updated = ?');
+    values.push(updated);
 
     values.push(id);
     const sql = `UPDATE shopping_items SET ${fields.join(', ')} WHERE id = ?;`;
@@ -1574,14 +1718,15 @@ class DatabaseService {
   }
 
   // Todo List CRUD Operations
-  async createTodoList(list: Omit<TodoList, 'id' | 'created' | 'updated'>): Promise<number> {
+  async createTodoList(list: CreationParams<TodoList>): Promise<number> {
     if (!this.isInitialized) await this.initialize();
     if (this.useInMemory) return 0;
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
-    const sql = 'INSERT INTO todo_lists (name, created, updated) VALUES (?, ?, ?);';
-    const result = await this.db.run(sql, [list.name, now, now]);
+    const updated = list.updated ?? now;
+    const sql = 'INSERT INTO todo_lists (foreignID, name, created, updated) VALUES (?, ?, ?, ?);';
+    const result = await this.db.run(sql, [list.foreignID || null, list.name, now, updated]);
     
     return result.changes?.lastId || 0;
   }
@@ -1622,8 +1767,14 @@ class DatabaseService {
       values.push(updates.name);
     }
 
+    if (updates.foreignID !== undefined) {
+      fields.push('foreignID = ?');
+      values.push(updates.foreignID ?? null);
+    }
+
+    const updated = updates.updated ?? new Date().toISOString();
     fields.push('updated = ?');
-    values.push(now);
+    values.push(updated);
     values.push(id);
 
     const sql = `UPDATE todo_lists SET ${fields.join(', ')} WHERE id = ?;`;
@@ -1639,14 +1790,16 @@ class DatabaseService {
     await this.db.run(sql, [id]);
   }
 
-  async createTodoItem(item: Omit<TodoItem, 'id' | 'created'>): Promise<number> {
+  async createTodoItem(item: CreationParams<TodoItem>): Promise<number> {
     if (!this.isInitialized) await this.initialize();
     if (this.useInMemory) return 0;
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
-    const sql = 'INSERT INTO todo_items (listId, title, description, completed, photoPath, dueDate, completionDate, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?);';
+    const updated = item.updated ?? now;
+    const sql = 'INSERT INTO todo_items (foreignID, listId, title, description, completed, photoPath, dueDate, completionDate, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);';
     const result = await this.db.run(sql, [
+      item.foreignID || null,
       item.listId,
       item.title,
       item.description || null,
@@ -1654,7 +1807,8 @@ class DatabaseService {
       (item as any).photoPath || null,
       item.dueDate || null,
       item.completionDate || null,
-      now
+      now,
+      updated
     ]);
     
     return result.changes?.lastId || 0;
@@ -1691,20 +1845,23 @@ class DatabaseService {
   }
 
   // Todo Photo CRUD
-  async createTodoPhoto(photo: Omit<TodoPhoto, 'id' | 'created'>): Promise<number> {
+  async createTodoPhoto(photo: CreationParams<TodoPhoto>): Promise<number> {
     if (!this.isInitialized) await this.initialize();
     if (this.useInMemory) return 0;
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
-    const sql = 'INSERT INTO todo_photos (todoItemId, filename, filepath, mimeType, filesize, created) VALUES (?, ?, ?, ?, ?, ?);';
+    const updated = photo.updated ?? now;
+    const sql = 'INSERT INTO todo_photos (foreignID, todoItemId, filename, filepath, mimeType, filesize, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?);';
     const result = await this.db.run(sql, [
+      photo.foreignID || null,
       photo.todoItemId,
       photo.filename,
       photo.filepath,
       photo.mimeType || null,
       photo.filesize || null,
-      now
+      now,
+      updated
     ]);
     return result.changes?.lastId || 0;
   }
@@ -1760,8 +1917,16 @@ class DatabaseService {
       fields.push('completionDate = ?');
       values.push((updates as any).completionDate ?? null);
     }
+    if (updates.foreignID !== undefined) {
+      fields.push('foreignID = ?');
+      values.push(updates.foreignID ?? null);
+    }
 
     if (fields.length === 0) return;
+
+    const updated = updates.updated ?? new Date().toISOString();
+    fields.push('updated = ?');
+    values.push(updated);
 
     values.push(id);
     const sql = `UPDATE todo_items SET ${fields.join(', ')} WHERE id = ?;`;

@@ -2,7 +2,7 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-buttons slot="start">
+        <ion-buttons>
           <ion-back-button default-href="/" />
         </ion-buttons>
         <ion-title>{{ $t('auto.einstellungen') }}</ion-title>
@@ -85,8 +85,8 @@
 
           <div class="button-group ion-margin-top">
             <ion-button expand="block" @click="testConnection" :disabled="!settings.pocketbaseUrl || isTesting">
-              <ion-spinner v-if="isTesting" slot="start" />
-              <ion-icon v-else :icon="flash" slot="start" />
+              <ion-spinner v-if="isTesting" />
+              <ion-icon v-else :icon="flash" />
               {{ $t('auto.verbindung_testen') }}
             </ion-button>
 
@@ -97,9 +97,15 @@
               @click="authenticateUser"
               :disabled="isAuthenticating"
             >
-              <ion-spinner v-if="isAuthenticating" slot="start" />
-              <ion-icon v-else :icon="lockClosed" slot="start" />
+              <ion-spinner v-if="isAuthenticating" />
+              <ion-icon v-else :icon="lockClosed" />
               {{ $t('auto.anmelden') }}
+            </ion-button>
+
+            <ion-button expand="block" color="primary" @click="handleBookSync" :disabled="isSyncing">
+              <ion-spinner v-if="isSyncing" />
+              <ion-icon v-else :icon="flash" />
+              {{ $t('auto.bücher_synchronisieren') }}
             </ion-button>
           </div>
 
@@ -177,12 +183,18 @@
         </div>
 
         <ion-button expand="block" @click="saveSettings" :disabled="isSaving" class="save-button">
-          <ion-spinner v-if="isSaving" slot="start" />
-          <ion-icon v-else :icon="save" slot="start" />
+          <ion-spinner v-if="isSaving" />
+          <ion-icon v-else :icon="save" />
           {{ t('settings.save') }}
         </ion-button>
       </div>
     </ion-content>
+    <SyncProgressModal
+      :open="syncProgress.open"
+      :entity="syncProgress.entity"
+      :current="syncProgress.current"
+      :total="syncProgress.total"
+    />
   </ion-page>
   </template>
 
@@ -211,14 +223,58 @@ import {
   IonSpinner,
   toastController
 } from '@ionic/vue';
-import { save, flash, lockClosed, checkmarkCircle, closeCircle, warning, timeOutline } from 'ionicons/icons';
+import { save, flash, lockClosed, checkmarkCircle, closeCircle, timeOutline } from 'ionicons/icons';
 import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
 import { useI18n } from 'vue-i18n';
 import i18n from '@/i18n/i18n';
 import PocketBase from 'pocketbase';
+import { pocketbase } from '@/services/pocketbase';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
-import { extractGPSFromSpecificPath } from '@/services/exif';
+import SyncProgressModal from '@/components/SyncProgressModal.vue';
+const { syncBooks, isSyncing, lastSyncTime, syncProgress } = usePocketbaseSync();
+
+async function handleBookSync() {
+  try {
+    await pocketbase.initialize();
+    if (!pocketbase.isConfigured()) {
+      const toast = await toastController.create({
+        message: 'PocketBase nicht konfiguriert!',
+        duration: 2000,
+        color: 'danger',
+        position: 'bottom'
+      });
+      await toast.present();
+      return;
+    }
+    if (!pocketbase.isAuthenticated()) {
+      const toast = await toastController.create({
+        message: 'Nicht bei PocketBase angemeldet - Mike!',
+        duration: 2000,
+        color: 'danger',
+        position: 'bottom'
+      });
+      await toast.present();
+      return;
+    }
+    await syncBooks();
+    const toast = await toastController.create({
+      message: 'Bücher erfolgreich synchronisiert!',
+      duration: 2000,
+      color: 'success',
+      position: 'bottom'
+    });
+    await toast.present();
+  } catch (error) {
+    const toast = await toastController.create({
+      message: 'Fehler beim Synchronisieren der Bücher',
+      duration: 2000,
+      color: 'danger',
+      position: 'bottom'
+    });
+    await toast.present();
+  }
+}
 
 const router = useRouter();
 
@@ -241,11 +297,9 @@ const connectionStatus = ref<{
   icon: string;
 } | null>(null);
 
-const { lastSyncTime } = usePocketbaseSync();
-
 const platform = Capacitor.getPlatform();
 const isWebPlatform = platform === 'web';
-  const { locale, t } = useI18n({ useScope: 'global' });
+const { locale, t } = useI18n({ useScope: 'global' });
 const selectedLocale = ref<string>(locale.value ?? 'de');
 
 onMounted(async () => {
@@ -335,6 +389,8 @@ const authenticateUser = async () => {
       value: pb.authStore.token
     });
 
+    // Nach Login: Service initialisieren, damit Token übernommen wird
+    await pocketbase.initialize();
     connectionStatus.value = {
       title: 'Anmeldung erfolgreich',
       message: `Angemeldet als ${settings.value.email}`,
@@ -372,6 +428,7 @@ const saveSettings = async () => {
     await Promise.all([
       Preferences.set({ key: 'pocketbase_url', value: settings.value.pocketbaseUrl }),
       Preferences.set({ key: 'pocketbase_email', value: settings.value.email }),
+      Preferences.set({ key: 'pocketbase_password', value: settings.value.password }),
       Preferences.set({ key: 'auto_sync', value: settings.value.autoSync.toString() }),
       Preferences.set({ key: 'sync_only_on_wifi', value: settings.value.syncOnlyOnWifi.toString() })
     ]);
@@ -410,7 +467,7 @@ const changeLocale = async (eventOrValue: any) => {
     if (!value) return;
     // update both the local `useI18n` ref and the global i18n instance
     locale.value = value;
-    // @ts-ignore - global locale is a Ref
+    // @ts-expect-error - global locale is a Ref
     i18n.global.locale.value = value;
     selectedLocale.value = value;
     await Preferences.set({ key: 'locale', value });
@@ -441,11 +498,6 @@ const formatSyncTime = (timestamp: string): string => {
   return `vor ${days} Tag${days > 1 ? 'en' : ''}`;
 };
 
-// --- GPS Extraction Test Button ---
-const testGPSExtraction = async () => {
-  console.log(await extractGPSFromSpecificPath('/sdcard/SdCardBackUp/DCIM/Camera/20240331_132252.jpg'));
-  // Beispiel: await extractGPSFromSpecificPath('/sdcard/SdCardBackUp/DCIM/Camera/20240331_132252.jpg');
-};
 </script>
 
 <style scoped>

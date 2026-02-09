@@ -562,7 +562,8 @@ const addManualWaypointImpl = async () => {
       longitude: position.coords.longitude,
       name: 'Manueller Wegpunkt',
       description: '',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      updated: new Date().toISOString()
     });
     await loadData();
     setTimeout(() => drawRoute(), 100); // Fix: Karte bleibt sichtbar
@@ -673,7 +674,8 @@ const addPhotoWaypointImpl = async () => {
       name: 'Foto-Wegpunkt',
       description: '',
       photoId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      updated: new Date().toISOString()
     });
     await loadData();
     drawRoute();

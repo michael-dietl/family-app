@@ -416,6 +416,9 @@ import { default as ImageEditor } from '@/components/ImageEditor.vue';
 // import { extractExifFromUri, extractExifFromImage } from '@/services/exif'; // ungenutzt
 import { db, type Photo } from '@/services/database';
 
+// Default Back-Link für ion-back-button
+const backHref = '/gallery';
+
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();

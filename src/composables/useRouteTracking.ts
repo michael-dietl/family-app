@@ -124,12 +124,14 @@ export function useRouteTracking() {
         }
       }
 
+      const timestamp = new Date(point.timestamp ?? Date.now()).toISOString();
       const waypoint: Omit<Waypoint, 'id'> = {
         routeId: currentRouteId,
         type: 'position',
         latitude: point.latitude,
         longitude: point.longitude,
-        timestamp: new Date(point.timestamp ?? Date.now()).toISOString()
+        timestamp,
+        updated: timestamp
       };
 
       await db.createWaypoint(waypoint);
@@ -283,6 +285,7 @@ export function useRouteTracking() {
   const addPositionWaypoint = async (position: Position) => {
     if (!currentRouteId) return;
 
+    const now = new Date().toISOString();
     const waypoint: Omit<Waypoint, 'id'> = {
       routeId: currentRouteId,
       type: 'position',
@@ -290,7 +293,8 @@ export function useRouteTracking() {
       longitude: position.coords.longitude,
       altitude: position.coords.altitude || undefined,
       accuracy: position.coords.accuracy,
-      timestamp: new Date(position.timestamp).toISOString()
+      timestamp: new Date(position.timestamp).toISOString(),
+      updated: now
     };
 
     const waypointId = await db.createWaypoint(waypoint);
@@ -302,6 +306,7 @@ export function useRouteTracking() {
     if (!currentRouteId || !state.value.currentPosition) return;
 
     const position = state.value.currentPosition;
+    const now = new Date().toISOString();
     const waypoint: Omit<Waypoint, 'id'> = {
       routeId: currentRouteId,
       type: 'manual',
@@ -311,7 +316,8 @@ export function useRouteTracking() {
       accuracy: position.coords.accuracy,
       name,
       description,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      updated: now
     };
 
     const waypointId = await db.createWaypoint(waypoint);
@@ -321,13 +327,15 @@ export function useRouteTracking() {
   const addPhotoWaypoint = async (photoId: number, latitude: number, longitude: number) => {
     if (!currentRouteId) return;
 
+    const now = new Date().toISOString();
     const waypoint: Omit<Waypoint, 'id'> = {
       routeId: currentRouteId,
       type: 'photo',
       latitude,
       longitude,
       photoId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      updated: now
     };
 
     const waypointId = await db.createWaypoint(waypoint);
