@@ -342,6 +342,7 @@ import type { Wine } from '@/services/database';
 import { db } from '@/services/database';
 import ImageEditor from '@/components/ImageEditor.vue';
 import { Capacitor } from '@capacitor/core';
+import { buildSharedStoragePath, getSharedStorageDirectory } from '@/services/storagePaths';
 
 const router = useRouter();
 const { wines, filteredWines, isLoading, searchTerm, loadWines, createWine, takeWinePhoto } = useWine();
@@ -430,23 +431,25 @@ const handleImageEditorSave = async (imageBlob: Blob) => {
     const fileName = `wine_${Date.now()}_edited.jpg`;
     
     // Speichere bearbeitetes Bild im Filesystem
-    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const { Filesystem } = await import('@capacitor/filesystem');
     
     // Stelle sicher, dass das wines-Verzeichnis existiert
+    const folderPath = buildSharedStoragePath('wines');
     try {
       await Filesystem.mkdir({
-        path: 'wines',
-        directory: Directory.Data,
+        path: folderPath,
+        directory: getSharedStorageDirectory(),
         recursive: true
       });
     } catch (e) {
       console.log('Directory already exists');
     }
     
+    const targetPath = buildSharedStoragePath('wines', fileName);
     const savedFile = await Filesystem.writeFile({
-      path: `wines/${fileName}`,
+      path: targetPath,
       data: base64Data,
-      directory: Directory.Data
+      directory: getSharedStorageDirectory()
     });
     
     console.log('Edited image saved:', savedFile.uri);

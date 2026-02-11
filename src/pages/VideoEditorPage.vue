@@ -115,6 +115,7 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { VideoEditor } from '@whiteguru/capacitor-plugin-video-editor';
 import { db } from '@/services/database';
+import { buildSharedStoragePath, getSharedStorageDirectory } from '@/services/storagePaths';
 
 const route = useRoute();
 const router = useRouter();
@@ -238,10 +239,17 @@ const saveVideo = async () => {
           const dataUrl = reader.result as string;
 
           // Speichere im Filesystem
+          const folderPath = buildSharedStoragePath('galleries', galleryId.toString());
+          const targetPath = buildSharedStoragePath('galleries', galleryId.toString(), outputFileName);
+          await Filesystem.mkdir({
+            directory: getSharedStorageDirectory(),
+            path: folderPath,
+            recursive: true
+          });
           await Filesystem.writeFile({
-            path: `galleries/${galleryId}/${outputFileName}`,
+            path: targetPath,
             data: base64Data,
-            directory: Directory.Data
+            directory: getSharedStorageDirectory()
           });
 
           // Aktualisiere Datenbank

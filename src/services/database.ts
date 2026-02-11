@@ -1,5 +1,11 @@
 import { CapacitorSQLite, SQLiteConnection, SQLiteDBConnection } from '@capacitor-community/sqlite';
 import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { buildSharedStoragePath, ensureDirectoryExists, getSharedStorageDirectory } from '@/services/storagePaths';
+
+
+
+
 export interface Gallery {
   id?: number;
   foreignID?: string;
@@ -333,8 +339,11 @@ class DatabaseService {
   private useInMemory = false;
   private db: SQLiteDBConnection | null = null;
   private sqlite: SQLiteConnection | null = null;
+  private initializationPromise: Promise<void> | null = null;
   private dbName = 'gallerydb';
   private inMemory = new InMemoryStorage();
+  private readonly sharedDbFolder = 'databases';
+  private readonly sqliteSuffix = 'SQLite.db';
 
   constructor() {
     // Web: Fallback auf InMemory
@@ -349,12 +358,27 @@ class DatabaseService {
       this.isInitialized = true;
       return;
     }
-    this.sqlite = new SQLiteConnection(CapacitorSQLite);
-    this.db = await this.sqlite.createConnection(this.dbName, false, 'no-encryption', 1, false);
-    await this.db.open();
-    await this.migrateAndSetupTables();
-    this.isInitialized = true;
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
+
+    this.initializationPromise = (async () => {
+      this.sqlite = new SQLiteConnection(CapacitorSQLite);
+      this.db = await this.sqlite.createConnection(this.dbName, false, 'no-encryption', 1, false);
+      await this.db.open();
+      await this.migrateAndSetupTables();
+      await this.mirrorDatabaseToSharedStorage();
+      this.isInitialized = true;
+    })();
+
+    try {
+      await this.initializationPromise;
+    } finally {
+      this.initializationPromise = null;
+    }
   }
+
+
   async updateWaypoint(id: number, updates: Partial<Waypoint>): Promise<void> {
     if (!this.isInitialized) await this.initialize();
     if (this.useInMemory) throw new Error('Waypoints not supported in web mode');
@@ -373,6 +397,32 @@ class DatabaseService {
     values.push(id);
     const sql = `UPDATE waypoints SET ${fields.join(', ')} WHERE id = ?;`;
     await this.db.run(sql, values);
+  }
+
+  private getLocalDatabaseFileName(): string {
+    return `${this.dbName}${this.sqliteSuffix}`;
+  }
+
+  private async mirrorDatabaseToSharedStorage(): Promise<void> {
+    if (this.useInMemory || !Capacitor.isNativePlatform()) return;
+    const sourcePath = `databases/${this.getLocalDatabaseFileName()}`;
+    const targetPath = buildSharedStoragePath(this.sharedDbFolder, this.getLocalDatabaseFileName());
+    try {
+      await ensureDirectoryExists(getSharedStorageDirectory(), buildSharedStoragePath(this.sharedDbFolder));
+      const { data } = await Filesystem.readFile({
+        directory: Directory.Data,
+        path: sourcePath
+      });
+      if (!data) return;
+      await Filesystem.writeFile({
+        directory: getSharedStorageDirectory(),
+        path: targetPath,
+        data,
+        recursive: true
+      });
+    } catch (error) {
+      console.warn('Could not mirror sqlite database file to shared storage', error);
+    }
   }
 
   // Migration: Prüfe ob color Spalte in galleries existiert
@@ -1097,6 +1147,7 @@ class DatabaseService {
     if (this.db && this.sqlite) {
       await this.sqlite.closeConnection(this.dbName, false);
       this.db = null;
+      this.sqlite = null;
       this.isInitialized = false;
     }
   }

@@ -1,8 +1,10 @@
 import { ref } from 'vue';
 import { db, type TodoList, type TodoItem, type TodoPhoto } from '@/services/database';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
 import { usePhoto } from '@/composables/usePhoto';
+import { buildSharedStoragePath, getSharedStorageDirectory } from '@/services/storagePaths';
 
 export function useTodoList() {
   const lists = ref<TodoList[]>([]);
@@ -72,7 +74,11 @@ export function useTodoList() {
     // Ensure directory
     try {
       console.log('Creating directory for todo item', itemId);
-      await Filesystem.mkdir({ path: `todos/${itemId}`, directory: Directory.Data, recursive: true });
+      await Filesystem.mkdir({
+        path: buildSharedStoragePath('todos', itemId.toString()),
+        directory: getSharedStorageDirectory(),
+        recursive: true
+      });
     } catch (e) {
       // ignore
       console.warn('Could not create directory (may already exist):', e);
@@ -112,7 +118,11 @@ export function useTodoList() {
         }
 
         const filename = `todo_${itemId}_${Date.now()}_${i}.jpg`;
-        const saved = await Filesystem.writeFile({ path: `todos/${itemId}/${filename}`, data: base64Data, directory: Directory.Data });
+        const saved = await Filesystem.writeFile({
+          path: buildSharedStoragePath('todos', itemId.toString(), filename),
+          data: base64Data,
+          directory: getSharedStorageDirectory()
+        });
         const uri = saved.uri;
         const filesize = Math.round((base64Data.length * 3) / 4);
 

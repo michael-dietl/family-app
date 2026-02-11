@@ -46,6 +46,7 @@ import i18n from '@/i18n/i18n';
 import { Preferences } from '@capacitor/preferences';
 import { applyTheme, loadTheme } from '@/services/theme';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
+import { ensureSharedStorageFoldersExist } from '@/services/storagePaths';
 
 
 const app = createApp(App)
@@ -79,6 +80,7 @@ const initializeTheme = async () => {
 };
 
 router.isReady().then(async () => {
+  await ensureSharedStorageFoldersExist();
   await initializeLocale();
   await initializeTheme();
   // Set app status bar color to a lighter orange (Android/iOS where supported)

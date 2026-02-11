@@ -30,7 +30,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonButton, IonIcon, IonSpinner, IonBackButton, toastController } from '@ionic/vue';
 import { checkmark, downloadOutline } from 'ionicons/icons';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem } from '@capacitor/filesystem';
 import FilerobotImageEditor from 'filerobot-image-editor';
 import { db } from '@/services/database';
 import {
@@ -41,6 +41,7 @@ import {
   loadFilerobotStyles,
   unloadFilerobotStyles,
 } from '@/utils/filerobotEditor';
+import { buildSharedStoragePath, getSharedStorageDirectory } from '@/services/storagePaths';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
 const route = useRoute();
@@ -141,10 +142,12 @@ const saveImage = async () => {
 
     console.log('Saving to:', `galleries/${galleryId}/${fileName}`);
 
+    const folderPath = buildSharedStoragePath('galleries', galleryId);
+    const targetPath = buildSharedStoragePath('galleries', galleryId, fileName);
     try {
       await Filesystem.mkdir({
-        path: `galleries/${galleryId}`,
-        directory: Directory.Data,
+        path: folderPath,
+        directory: getSharedStorageDirectory(),
         recursive: true,
       });
     } catch (mkdirError) {
@@ -152,9 +155,9 @@ const saveImage = async () => {
     }
 
     await Filesystem.writeFile({
-      path: `galleries/${galleryId}/${fileName}`,
+      path: targetPath,
       data: base64Data,
-      directory: Directory.Data,
+      directory: getSharedStorageDirectory(),
     });
 
     if (photoId) {

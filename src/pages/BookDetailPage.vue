@@ -182,10 +182,11 @@ import {
   createOutline
 } from 'ionicons/icons';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { db, type Book, type BookCategory } from '@/services/database';
 import { downloadRemoteCoverImage, findLocalCoverImage, isRemoteImageUrl } from '@/services/imageStorage';
+import { buildSharedStoragePath, ensureDirectoryExists, getSharedStorageDirectory } from '@/services/storagePaths';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
 const route = useRoute();
@@ -276,6 +277,10 @@ const getImageSrc = (coverImage?: string): string => {
     return Capacitor.convertFileSrc(coverImage);
   }
   
+  if (coverImage.startsWith('//')) {
+    return `https:${coverImage}`;
+  }
+
   // Remote URL - https erzwingen
   if (coverImage.startsWith('http://')) {
     return coverImage.replace('http://', 'https://');
@@ -570,12 +575,14 @@ const takeCoverPhoto = async () => {
 
     // Speichere in Filesystem
     const fileName = `book_cover_${book.value.id}_${Date.now()}.jpg`;
-    const savedFile = await Filesystem.writeFile({
-      path: `books/${fileName}`,
-      data: base64Data,
-      directory: Directory.Data,
-      recursive: true
-    });
+    const relativePath = buildSharedStoragePath('books', fileName);
+    await ensureDirectoryExists(getSharedStorageDirectory(), buildSharedStoragePath('books'));
+      const savedFile = await Filesystem.writeFile({
+        path: relativePath,
+        data: base64Data,
+        directory: getSharedStorageDirectory(),
+        recursive: true
+      });
 
     // Update Buch mit neuem Cover-Pfad
     const coverPath = savedFile.uri;

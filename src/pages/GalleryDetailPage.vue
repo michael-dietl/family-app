@@ -403,7 +403,7 @@ import {
 } from 'ionicons/icons';
 import { CameraSource } from '@capacitor/camera';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { useGallery } from '@/composables/useGallery';
 import { usePhoto } from '@/composables/usePhoto';
@@ -415,6 +415,7 @@ import { default as LocationPickerModal } from '@/components/LocationPickerModal
 import { default as ImageEditor } from '@/components/ImageEditor.vue';
 // import { extractExifFromUri, extractExifFromImage } from '@/services/exif'; // ungenutzt
 import { db, type Photo } from '@/services/database';
+import { buildSharedStoragePath, getSharedStorageDirectory } from '@/services/storagePaths';
 
 // Default Back-Link für ion-back-button
 const backHref = '/gallery';
@@ -610,12 +611,17 @@ const handleImageEditorSave = async (blob: Blob) => {
   try {
     const base64 = await blobToBase64(blob);
     const fileName = photoBeingEdited.value.filename || `photo_${photoBeingEdited.value.id}_${Date.now()}.jpg`;
-    const targetPath = `galleries/${galleryId}/${fileName}`;
-
+    const folderPath = buildSharedStoragePath('galleries', galleryId.toString());
+    const targetPath = buildSharedStoragePath('galleries', galleryId.toString(), fileName);
+    await Filesystem.mkdir({
+      directory: getSharedStorageDirectory(),
+      path: folderPath,
+      recursive: true
+    });
     const result = await Filesystem.writeFile({
       path: targetPath,
       data: base64,
-      directory: Directory.Data,
+      directory: getSharedStorageDirectory(),
       recursive: true
     });
 

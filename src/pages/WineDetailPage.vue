@@ -581,7 +581,7 @@ const showOptions = async () => {
 
 .wine-photo {
   width: 100%;
-  max-height: 400px;
+  max-height: 100%;
   overflow: hidden;
 }
 

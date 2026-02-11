@@ -1,11 +1,12 @@
 import { ref } from 'vue';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem } from '@capacitor/filesystem';
 import { Geolocation } from '@capacitor/geolocation'; // Retained for route tracker module
 import { Capacitor } from '@capacitor/core';
 import { db, type Photo } from '@/services/database';
 import { extractExifFromUri, extractGPSFromCameraExif, extractExifFromImage } from '@/services/exif';
 import { readContentUri } from '@/services/contentReader';
+import { buildSharedStoragePath, getSharedStorageDirectory } from '@/services/storagePaths';
 
 const videoExtensions = ['mp4', 'mov', 'webm', 'mkv', 'avi', '3gp', 'm4v'];
 
@@ -577,21 +578,21 @@ export function usePhoto() {
       if (isNative) {
         try {
           // Erstelle Gallery-Ordner explizit VORHER (recursive: true funktioniert nicht auf Android)
+          const galleryFolder = buildSharedStoragePath('galleries', galleryId.toString());
           try {
             await Filesystem.mkdir({
-              path: `galleries/${galleryId}`,
-              directory: Directory.Data,
+              path: galleryFolder,
+              directory: getSharedStorageDirectory(),
               recursive: true
             });
           } catch (mkdirError) {
-            // Ordner existiert bereits - ignorieren
             console.log('📁 Directory already exists or created');
           }
 
             const result = await Filesystem.writeFile({
-              path: `galleries/${galleryId}/${finalFilename}`,
+              path: buildSharedStoragePath('galleries', galleryId.toString(), finalFilename),
               data: finalBase64,
-              directory: Directory.Data
+              directory: getSharedStorageDirectory()
             });
             const nativePath = result.uri;
             filePath = nativePath;
@@ -753,16 +754,17 @@ export function usePhoto() {
 
   // Sicherstellen, ob ein Verzeichnis existiert, und erstellt es bei Bedarf
   const ensureDirectoryExists = async (path: string): Promise<void> => {
+    const sharedPath = buildSharedStoragePath(path);
     try {
       await Filesystem.mkdir({
-        path,
-        directory: Directory.Data,
+        path: sharedPath,
+        directory: getSharedStorageDirectory(),
         recursive: true
       });
-      console.log('📂 Verzeichnis erstellt:', path);
+      console.log('📂 Verzeichnis erstellt:', sharedPath);
     } catch (error: any) {
       if (error.code === 'EEXIST') {
-        console.log('📂 Verzeichnis existiert bereits:', path);
+        console.log('📂 Verzeichnis existiert bereits:', sharedPath);
       } else {
         throw error;
       }
@@ -784,13 +786,13 @@ export function usePhoto() {
 
       // Generiere einen eindeutigen Dateinamen
       const fileName = `photo_${Date.now()}.jpg`;
-      const savedPath = `${targetDirectory}/${fileName}`;
+      const savedPath = buildSharedStoragePath(targetDirectory, fileName);
 
       // Schreibe die Datei in das App-Verzeichnis
       await Filesystem.writeFile({
         path: savedPath,
         data: await blobToBase64(blob),
-        directory: Directory.Data
+        directory: getSharedStorageDirectory()
       });
 
       console.log('✅ Foto gespeichert unter:', savedPath);
@@ -823,10 +825,11 @@ export function usePhoto() {
 }
 
 async function ensureDirectoryExists(path: string) {
+  const sharedPath = buildSharedStoragePath(path);
   try {
     await Filesystem.mkdir({
-      path,
-      directory: Directory.Data,
+      path: sharedPath,
+      directory: getSharedStorageDirectory(),
       recursive: true,
     });
   } catch (error: any) {

@@ -1,9 +1,16 @@
 import { Capacitor } from '@capacitor/core';
 import { Http } from '@capacitor/http';
-import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Filesystem } from '@capacitor/filesystem';
+import { buildSharedStoragePath, getSharedStorageDirectory } from '@/services/storagePaths';
 
-const REMOTE_IMAGE_RE = /^https?:\/\//i;
-const ensureHttpsScheme = (value: string): string => value.replace(/^http:\/\//i, 'https://');
+const REMOTE_IMAGE_RE = /^(?:https?:)?\/\//i;
+const ensureHttpsScheme = (value: string): string => {
+  const trimmed = value.trim();
+  if (trimmed.startsWith('//')) {
+    return `https:${trimmed}`;
+  }
+  return trimmed.replace(/^http:\/\//i, 'https://');
+};
 const sanitizeIdentifier = (identifier: number | string): string => {
   const value = String(identifier ?? 'cover').trim();
   const sanitized = value.replace(/[^a-zA-Z0-9_\-]/g, '_');
@@ -22,8 +29,18 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
   });
 };
 
+const isRemoteCandidate = (value?: string): value is string => {
+  if (!value) return false;
+  return REMOTE_IMAGE_RE.test(value.trim());
+};
+
 export const isRemoteImageUrl = (value?: string): value is string => {
-  return Boolean(value && REMOTE_IMAGE_RE.test(value));
+  return isRemoteCandidate(value);
+};
+
+export const normalizeRemoteCoverUrl = (value?: string): string | undefined => {
+  if (!isRemoteCandidate(value)) return undefined;
+  return ensureHttpsScheme(value!.trim());
 };
 
 export const COVER_BASE_PATH = 'books';
@@ -32,8 +49,8 @@ export const COVER_PREFIX = 'book_cover_';
 export const findLocalCoverImage = async (bookId: number, extraIdentifiers: Array<number | string> = []): Promise<string | null> => {
   try {
     const directory = await Filesystem.readdir({
-      directory: Directory.Data,
-      path: COVER_BASE_PATH
+      directory: getSharedStorageDirectory(),
+      path: buildSharedStoragePath(COVER_BASE_PATH)
     });
 
     const identifiers = [bookId, ...extraIdentifiers]
@@ -50,9 +67,10 @@ export const findLocalCoverImage = async (bookId: number, extraIdentifiers: Arra
 
     entries.sort();
     const latestFile = entries[entries.length - 1];
+    const relativeLatestPath = buildSharedStoragePath(COVER_BASE_PATH, latestFile);
     const { uri } = await Filesystem.getUri({
-      directory: Directory.Data,
-      path: `${COVER_BASE_PATH}/${latestFile}`
+      directory: getSharedStorageDirectory(),
+      path: relativeLatestPath
     });
 
     return uri;
@@ -66,46 +84,63 @@ const isNativePlatform = () => {
   return platform === 'android' || platform === 'ios';
 };
 
-const saveBlobAsCover = async (blob: Blob, fileName: string): Promise<string> => {
+const saveBlobAsCover = async (blob: Blob, relativePath: string): Promise<string> => {
   const base64Data = await blobToBase64(blob);
+  try {
+    await Filesystem.mkdir({
+      directory: getSharedStorageDirectory(),
+      path: buildSharedStoragePath(COVER_BASE_PATH),
+      recursive: true
+    });
+  } catch (e) {
+    console.log('Directory already exists or created');
+  }
   const savedFile = await Filesystem.writeFile({
-    path: fileName,
+    path: relativePath,
     data: base64Data,
-    directory: Directory.Data,
+    directory: getSharedStorageDirectory(),
     recursive: true
   });
-  console.log('remote cover filename: ', fileName);
+  console.log('remote cover filename: ', relativePath);
   return savedFile.uri;
 };
 
 export const downloadRemoteCoverImage = async (url: string, identifier: number | string): Promise<string | null> => {
-  console.log('remote cover url: ', url);
-  if (!isRemoteImageUrl(url)) return null;
-
-  const normalizedUrl = ensureHttpsScheme(url);
+  const normalizedUrl = normalizeRemoteCoverUrl(url);
+  if (!normalizedUrl) return null;
+  console.log('remote cover url: ', normalizedUrl);
   const safeId = sanitizeIdentifier(identifier);
-  const fileName = `${COVER_BASE_PATH}/${COVER_PREFIX}${safeId}_${Date.now()}.jpg`;
+  const relativeFilePath = buildSharedStoragePath(COVER_BASE_PATH, `${COVER_PREFIX}${safeId}_${Date.now()}.jpg`);
+  try {
+    await Filesystem.mkdir({
+        directory: getSharedStorageDirectory(),
+        path: buildSharedStoragePath(COVER_BASE_PATH),
+        recursive: true
+      });
+  } catch (e) {
+    console.log('Directory already exists or created');
+  }
 
   try {
     if (isNativePlatform()) {
       try {
         const downloadResult = await Http.downloadFile({
           url: normalizedUrl,
-          filePath: fileName,
-          fileDirectory: Directory.Data
+          filePath: relativeFilePath,
+          fileDirectory: getSharedStorageDirectory()
         });
 
         if (downloadResult.path) {
           const { uri } = await Filesystem.getUri({
-            directory: Directory.Data,
-            path: fileName
+            directory: getSharedStorageDirectory(),
+            path: relativeFilePath
           });
-          console.log('remote cover filename: ', fileName);
+          console.log('remote cover filename: ', relativeFilePath);
           return uri;
         }
 
         if (downloadResult.blob) {
-          return await saveBlobAsCover(downloadResult.blob, fileName);
+          return await saveBlobAsCover(downloadResult.blob, relativeFilePath);
         }
 
         console.warn('Native HTTP plugin returned no file or blob for', normalizedUrl);
@@ -121,14 +156,9 @@ export const downloadRemoteCoverImage = async (url: string, identifier: number |
     }
 
     const blob = await response.blob();
-    return await saveBlobAsCover(blob, fileName);
+    return await saveBlobAsCover(blob, relativeFilePath);
   } catch (error) {
     console.warn('Could not download cover image', { url: normalizedUrl, identifier, error });
     return null;
   }
-};
-
-export const normalizeRemoteCoverUrl = (value?: string): string | undefined => {
-  if (!value) return undefined;
-  return ensureHttpsScheme(value);
 };

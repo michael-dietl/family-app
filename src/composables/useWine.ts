@@ -1,8 +1,9 @@
 import { ref, computed } from 'vue';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem } from '@capacitor/filesystem';
 import { db, type Wine } from '@/services/database';
 import { extractGPSFromImage } from '@/services/exif';
+import { buildSharedStoragePath, getSharedStorageDirectory, getSharedStorageRelativePath } from '@/services/storagePaths';
 
 const wines = ref<Wine[]>([]);
 const isLoading = ref(false);
@@ -110,11 +111,11 @@ export function useWine() {
       
       console.log('💾 Saving file:', fileName);
       
-      // Stelle sicher, dass das wines-Verzeichnis existiert
+      const folderPath = buildSharedStoragePath('wines');
       try {
         await Filesystem.mkdir({
-          path: 'wines',
-          directory: Directory.Data,
+          path: folderPath,
+          directory: getSharedStorageDirectory(),
           recursive: true
         });
         console.log('📁 Directory created/verified');
@@ -123,9 +124,9 @@ export function useWine() {
       }
       
       const savedFile = await Filesystem.writeFile({
-        path: `wines/${fileName}`,
+        path: buildSharedStoragePath('wines', fileName),
         data: base64Data,
-        directory: Directory.Data
+        directory: getSharedStorageDirectory()
       });
 
       console.log('✅ File saved:', savedFile.uri);
@@ -192,10 +193,13 @@ export function useWine() {
       // Foto löschen falls vorhanden
       if (wine?.photoPath) {
         try {
-          await Filesystem.deleteFile({
-            path: wine.photoPath.split('/').pop() || '',
-            directory: Directory.Data
-          });
+          const relativePath = getSharedStorageRelativePath(wine.photoPath);
+          if (relativePath) {
+            await Filesystem.deleteFile({
+              path: relativePath,
+              directory: getSharedStorageDirectory()
+            });
+          }
         } catch (e) {
           console.warn('Could not delete wine photo:', e);
         }

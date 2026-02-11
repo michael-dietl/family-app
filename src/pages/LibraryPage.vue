@@ -242,10 +242,11 @@ import {
 } from 'ionicons/icons';
 import { BarcodeScanner, BarcodeFormat, LensFacing } from '@capacitor-mlkit/barcode-scanning';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { db, type Book, type BookCategory } from '@/services/database';
 import { downloadRemoteCoverImage, isRemoteImageUrl, normalizeRemoteCoverUrl } from '@/services/imageStorage';
+import { buildSharedStoragePath, getSharedStorageDirectory } from '@/services/storagePaths';
 import {
   lookupBookByISBN,
   formatAuthors,
@@ -312,6 +313,10 @@ const getImageSrc = (coverImage: string): string => {
     return Capacitor.convertFileSrc(coverImage);
   }
   
+  if (coverImage.startsWith('//')) {
+    return `https:${coverImage}`;
+  }
+  
   // Remote URL - https erzwingen
   if (coverImage.startsWith('http://')) {
     return coverImage.replace('http://', 'https://');
@@ -360,10 +365,20 @@ const takeCoverPhotoForBook = async (bookId: number) => {
 
     // Speichere in Filesystem
     const fileName = `book_cover_${bookId}_${Date.now()}.jpg`;
+    const relativePath = buildSharedStoragePath('books', fileName);
+    try {
+      await Filesystem.mkdir({
+        directory: getSharedStorageDirectory(),
+        path: buildSharedStoragePath('books'),
+        recursive: true
+      });
+    } catch (e) {
+      console.log('Directory already exists or created');
+    }
     const savedFile = await Filesystem.writeFile({
-      path: `books/${fileName}`,
+      path: relativePath,
       data: base64Data,
-      directory: Directory.Data,
+      directory: getSharedStorageDirectory(),
       recursive: true
     });
 

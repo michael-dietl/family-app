@@ -27,7 +27,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonButton, IonIcon, IonSpinner, IonBackButton, toastController } from '@ionic/vue';
 import { checkmark } from 'ionicons/icons';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem } from '@capacitor/filesystem';
 import FilerobotImageEditor from 'filerobot-image-editor';
 import { db } from '@/services/database';
 import {
@@ -38,6 +38,7 @@ import {
   getFilerobotLanguage,
   getImagePayload,
 } from '@/utils/filerobotEditor';
+import { buildSharedStoragePath, getSharedStorageDirectory } from '@/services/storagePaths';
 
 const route = useRoute();
 const router = useRouter();
@@ -126,10 +127,16 @@ const saveImage = async () => {
     const base64Data = payload.base64;
 
     const fileName = `book_cover_${bookId}_${Date.now()}.jpg`;
+    const relativePath = buildSharedStoragePath('books', fileName);
+    await Filesystem.mkdir({
+      directory: getSharedStorageDirectory(),
+      path: buildSharedStoragePath('books'),
+      recursive: true
+    });
     const result = await Filesystem.writeFile({
-      path: `books/${fileName}`,
+      path: relativePath,
       data: base64Data,
-      directory: Directory.Data,
+      directory: getSharedStorageDirectory(),
       recursive: true,
     });
 
