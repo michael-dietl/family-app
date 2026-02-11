@@ -619,10 +619,13 @@ const handleImageEditorSave = async (blob: Blob) => {
       recursive: true
     });
 
-    await db.updatePhoto(photoBeingEdited.value.id!, {
-      filepath: result.uri,
-      thumbnail: `data:image/jpeg;base64,${base64}`
-    });
+        const nativePath = result.uri;
+
+        await db.updatePhoto(photoBeingEdited.value.id!, {
+          filepath: nativePath,
+          storagePath: nativePath,
+          thumbnail: `data:image/jpeg;base64,${base64}`
+        });
 
     await loadGallery(galleryId);
   } catch (error) {

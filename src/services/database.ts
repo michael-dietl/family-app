@@ -19,6 +19,7 @@ export interface Photo {
   galleryId: number;
   filename: string;
   filepath: string;
+  storagePath?: string; // Native filesystem path for cleanup operations
   thumbnail?: string;
   width?: number;
   height?: number;
@@ -410,6 +411,7 @@ class DatabaseService {
         galleryId INTEGER NOT NULL,
         filename TEXT NOT NULL,
         filepath TEXT NOT NULL,
+        storagePath TEXT,
         thumbnail TEXT,
         width INTEGER,
         height INTEGER,
@@ -710,6 +712,12 @@ class DatabaseService {
     await runAlter('ALTER TABLE galleries ADD COLUMN updated TEXT;');
     await runAlter('ALTER TABLE photos ADD COLUMN foreignID TEXT;');
     await runAlter('ALTER TABLE photos ADD COLUMN updated TEXT;');
+    await runAlter('ALTER TABLE photos ADD COLUMN storagePath TEXT;');
+    try {
+      await this.db.execute('UPDATE photos SET storagePath = filepath WHERE storagePath IS NULL;');
+    } catch (error) {
+      console.warn('Photos storagePath initialization skipped:', error);
+    }
     await runAlter('ALTER TABLE book_categories ADD COLUMN foreignID TEXT;');
     await runAlter('ALTER TABLE book_categories ADD COLUMN updated TEXT;');
     await runAlter('ALTER TABLE books ADD COLUMN foreignID TEXT;');
@@ -943,9 +951,9 @@ class DatabaseService {
     const updated = photo.updated ?? now;
     const sql = `
       INSERT INTO photos (
-        foreignID, galleryId, filename, filepath, thumbnail, width, height, filesize, mimeType, isVideo,
+        foreignID, galleryId, filename, filepath, storagePath, thumbnail, width, height, filesize, mimeType, isVideo,
         latitude, longitude, dateTaken, camera, lens, focalLength, aperture, shutterSpeed, iso, created, updated
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
 
     const result = await this.db.run(sql, [
@@ -953,6 +961,7 @@ class DatabaseService {
       photo.galleryId,
       photo.filename,
       photo.filepath,
+      photo.storagePath || null,
       photo.thumbnail || null,
       photo.width || null,
       photo.height || null,
@@ -1020,6 +1029,10 @@ class DatabaseService {
     if (updates.filepath !== undefined) {
       fields.push('filepath = ?');
       values.push(updates.filepath);
+    }
+    if (updates.storagePath !== undefined) {
+      fields.push('storagePath = ?');
+      values.push(updates.storagePath);
     }
     if (updates.thumbnail !== undefined) {
       fields.push('thumbnail = ?');

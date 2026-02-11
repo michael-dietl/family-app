@@ -560,6 +560,7 @@ export function usePhoto() {
       // 4. Speichere Datei im Filesystem (nur auf nativen Plattformen)
       const isNative = Capacitor.getPlatform() !== 'web';
       let filePath: string;
+      let nativeStoragePath: string | undefined;
       
       if (isNative) {
         try {
@@ -575,13 +576,15 @@ export function usePhoto() {
             console.log('📁 Directory already exists or created');
           }
 
-          const result = await Filesystem.writeFile({
-            path: `galleries/${galleryId}/${finalFilename}`,
-            data: finalBase64,
-            directory: Directory.Data
-          });
-          filePath = result.uri; // Nativer Dateipfad
-          console.log('💾 File saved to filesystem:', filePath);
+            const result = await Filesystem.writeFile({
+              path: `galleries/${galleryId}/${finalFilename}`,
+              data: finalBase64,
+              directory: Directory.Data
+            });
+            const nativePath = result.uri;
+            filePath = nativePath;
+            nativeStoragePath = nativePath;
+            console.log('💾 File saved to filesystem:', nativePath);
         } catch (fsError) {
           console.error('⚠️ Filesystem write failed - skipping DB save:', fsError);
           throw new Error(`Filesystem error: ${fsError}`);
@@ -636,6 +639,7 @@ export function usePhoto() {
         galleryId,
         filename: finalFilename,
         filepath: filePath,  // Nur der Pfad zur Datei
+        storagePath: nativeStoragePath,
         thumbnail: thumbnailPath,
         mimeType,
         isVideo,
@@ -705,10 +709,11 @@ export function usePhoto() {
   const deletePhoto = async (photo: Photo) => {
     try {
       // 1. Aus Filesystem löschen (nur wenn es ein tatsächlicher Pfad ist, keine Data-URL)
-      if (photo.filepath && !photo.filepath.startsWith('data:')) {
+      const pathToDelete = photo.storagePath || photo.filepath;
+      if (pathToDelete && !pathToDelete.startsWith('data:')) {
         try {
           await Filesystem.deleteFile({
-            path: photo.filepath
+            path: pathToDelete
           });
         } catch (error) {
           console.warn('Could not delete file from filesystem:', error);
