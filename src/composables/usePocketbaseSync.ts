@@ -1,9 +1,69 @@
 
 import { ref, reactive, readonly } from 'vue';
+import { Capacitor } from '@capacitor/core';
 import { pocketbase } from '@/services/pocketbase';
 import { db, type Gallery, type Photo, type Book } from '@/services/database';
 import { Preferences } from '@capacitor/preferences';
 import { toastController } from '@ionic/vue';
+import type { UnsubscribeFunc } from 'pocketbase';
+import { uploadFileToPocketBase } from '@/utils/pbFileUploadExample';
+
+const REMOTE_HTTP_RE = /^https?:\/\//i;
+const isRemoteHttpUrl = (value?: string) => Boolean(value && REMOTE_HTTP_RE.test(value));
+const isNativeFileUri = (value?: string) => Boolean(value && (value.startsWith('file://') || value.startsWith('content://')));
+const resolveCoverFetchUrl = (value: string): string => {
+  if (value.startsWith('data:')) return value;
+  if (isNativeFileUri(value)) {
+    return Capacitor.convertFileSrc(value);
+  }
+  return value;
+};
+const shouldUploadCoverImage = (value?: string) => Boolean(value);
+const getRemoteCoverUrlFromRecord = (record: any): string | undefined => {
+  if (record?.cover && Array.isArray(record.cover) && record.cover.length > 0) {
+    return record.cover[0]?.url;
+  }
+  if (record?.coverImage) {
+    return record.coverImage;
+  }
+  return undefined;
+};
+const fetchCoverBlob = async (coverImage: string): Promise<Blob | null> => {
+  try {
+    const fetchUrl = resolveCoverFetchUrl(coverImage);
+    const response = await fetch(fetchUrl);
+    if (!response.ok) {
+      throw new Error(`Cover fetch failed (${response.status})`);
+    }
+    return await response.blob();
+  } catch (error) {
+    console.warn('Could not fetch cover blob for upload', { coverImage, error });
+    return null;
+  }
+};
+const uploadCoverForBook = async (recordId: string, coverImage?: string) => {
+  if (!coverImage || !shouldUploadCoverImage(coverImage)) return null;
+  const blob = await fetchCoverBlob(coverImage);
+  if (!blob) return null;
+  try {
+    return await uploadFileToPocketBase('books', recordId, blob, 'cover');
+  } catch (error) {
+    console.warn('Cover upload failed for book', { recordId, error });
+    return null;
+  }
+};
+
+const uploadPhotoPicture = async (recordId: string, filepath?: string) => {
+  if (!filepath) return null;
+  const blob = await fetchCoverBlob(filepath);
+  if (!blob) return null;
+  try {
+    return await uploadFileToPocketBase('photos', recordId, blob, 'picture');
+  } catch (error) {
+    console.warn('Picture upload failed for photo', { recordId, error });
+    return null;
+  }
+};
 
 export function usePocketbaseSync() {
   // Hilfsfunktion: Automatische Authentifizierung, falls nötig
@@ -42,6 +102,8 @@ export function usePocketbaseSync() {
     total: 0
   });
 
+  let gallerySubscription: UnsubscribeFunc | null = null;
+
   function showSyncProgress(entity: string, total: number) {
     syncProgress.open = true;
     syncProgress.entity = entity;
@@ -55,6 +117,16 @@ export function usePocketbaseSync() {
     syncProgress.open = false;
   }
 
+  const presentGalleryToast = async (message: string) => {
+    const toast = await toastController.create({
+      message,
+      duration: 3500,
+      position: 'bottom',
+      color: 'primary'
+    });
+    await toast.present();
+  };
+
   const loadLastSyncTime = async () => {
     const { value } = await Preferences.get({ key: 'last_sync_time' });
     if (value) {
@@ -66,6 +138,48 @@ export function usePocketbaseSync() {
     const now = new Date().toISOString();
     lastSyncTime.value = now;
     await Preferences.set({ key: 'last_sync_time', value: now });
+  };
+
+  const subscribeToGalleries = async (): Promise<void> => {
+    await authenticateUserIfNeeded();
+    const pb = pocketbase.getInstance();
+    if (!pb || !pocketbase.isAuthenticated()) {
+      console.warn('PocketBase not authenticated -> cannot subscribe to galleries');
+      return;
+    }
+    if (gallerySubscription) {
+      await gallerySubscription();
+      gallerySubscription = null;
+    }
+
+    try {
+      gallerySubscription = await pb.collection('galleries').subscribe('*', (event) => {
+        const title = event.record?.name || `ID ${event.record?.id ?? 'unknown'}`;
+        const action = () => {
+          switch (event.action) {
+            case 'create':
+              return `Neue Galerie angelegt: ${title}`;
+            case 'update':
+              return `Galerie aktualisiert: ${title}`;
+            case 'delete':
+              return `Galerie gelöscht: ${title}`;
+            default:
+              return `Galerie-Event (${event.action}): ${title}`;
+          }
+        };
+        void presentGalleryToast(action());
+      });
+    } catch (error) {
+      console.error('Gallery realtime subscription failed:', error);
+      gallerySubscription = null;
+    }
+  };
+
+  const unsubscribeFromGalleries = async (): Promise<void> => {
+    if (gallerySubscription) {
+      await gallerySubscription();
+      gallerySubscription = null;
+    }
   };
 
   // Gallery Sync
@@ -205,20 +319,21 @@ export function usePocketbaseSync() {
               created: photo.created,
               updated: photo.updated
             };
+            let remoteRecord: any;
             if (existingRecords.items.length > 0) {
               const remote = existingRecords.items[0];
-              await pb.collection('photos').update(remote.id, data);
-              await db.updatePhoto(photo.id!, {
-                foreignID: remote.id,
-                updated: photo.updated
-              });
+              remoteRecord = await pb.collection('photos').update(remote.id, data);
             } else {
-              const created = await pb.collection('photos').create(data);
-              await db.updatePhoto(photo.id!, {
-                foreignID: created.id,
-                updated: photo.updated
-              });
+              remoteRecord = await pb.collection('photos').create(data);
             }
+
+            const pictureUploadRecord = await uploadPhotoPicture(remoteRecord.id, photo.filepath);
+            const finalRemoteRecord = pictureUploadRecord || remoteRecord;
+
+            await db.updatePhoto(photo.id!, {
+              foreignID: finalRemoteRecord.id,
+              updated: photo.updated
+            });
           } catch (error) {
             console.error(`Failed to sync photo ${photo.id}:`, error);
           }
@@ -254,6 +369,7 @@ export function usePocketbaseSync() {
           const existingRecords = await pb.collection('books').getList(1, 1, {
             filter
           });
+          const payloadCoverImage = isRemoteHttpUrl(book.coverImage) ? book.coverImage : '';
           const data = {
             isbn: book.isbn,
             title: book.title,
@@ -265,26 +381,29 @@ export function usePocketbaseSync() {
             pageCount: book.pageCount || 0,
             categories: book.categories || '',
             language: book.language || '',
-            coverImage: book.coverImage || '',
+            coverImage: payloadCoverImage,
             categoryId: book.categoryId,
             notes: book.notes || '',
             rating: book.rating || 0,
             read: book.read || false,
           };
+          let remoteRecord: any;
           if (existingRecords.items.length > 0) {
             const remote = existingRecords.items[0];
-            await pb.collection('books').update(remote.id, data);
-            await db.updateBook(book.id!, {
-              foreignID: remote.id,
-              updated: book.updated
-            });
+            remoteRecord = await pb.collection('books').update(remote.id, data);
           } else {
-            const created = await pb.collection('books').create(data);
-            await db.updateBook(book.id!, {
-              foreignID: created.id,
-              updated: book.updated
-            });
+            remoteRecord = await pb.collection('books').create(data);
           }
+
+          const coverUploadRecord = await uploadCoverForBook(remoteRecord.id, book.coverImage);
+          const finalRemoteRecord = coverUploadRecord || remoteRecord;
+          const remoteCoverUrl = getRemoteCoverUrlFromRecord(finalRemoteRecord);
+
+          await db.updateBook(book.id!, {
+            foreignID: finalRemoteRecord.id,
+            updated: book.updated,
+            coverImage: remoteCoverUrl || book.coverImage
+          });
         } catch (error) {
           console.error(`Failed to sync book ${book.isbn}:`, error);
         }
@@ -296,6 +415,7 @@ export function usePocketbaseSync() {
       for (const remote of remoteBooks) {
         try {
           const localBook = localBooks.find(b => b.isbn === remote.isbn);
+          const remoteCoverUrl = getRemoteCoverUrlFromRecord(remote);
           if (!localBook) {
             await db.createBook({
               isbn: remote.isbn,
@@ -308,7 +428,7 @@ export function usePocketbaseSync() {
               pageCount: remote.pageCount,
               categories: remote.categories,
               language: remote.language,
-              coverImage: remote.coverImage,
+              coverImage: remoteCoverUrl,
               categoryId: remote.categoryId,
               notes: remote.notes,
               rating: remote.rating,
@@ -327,7 +447,7 @@ export function usePocketbaseSync() {
               pageCount: remote.pageCount,
               categories: remote.categories,
               language: remote.language,
-              coverImage: remote.coverImage,
+              coverImage: remoteCoverUrl,
               categoryId: remote.categoryId,
               notes: remote.notes,
               rating: remote.rating,
@@ -437,6 +557,8 @@ export function usePocketbaseSync() {
     syncBooks,
     syncAll,
     autoSyncIfEnabled,
+    subscribeToGalleries,
+    unsubscribeFromGalleries,
     syncProgress: readonly(syncProgress)
   };
 }

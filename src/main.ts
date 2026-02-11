@@ -45,11 +45,14 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import i18n from '@/i18n/i18n';
 import { Preferences } from '@capacitor/preferences';
 import { applyTheme, loadTheme } from '@/services/theme';
+import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 
 
 const app = createApp(App)
   .use(IonicVue)
   .use(router);
+
+const pocketbaseSync = usePocketbaseSync();
 
 const initializeLocale = async () => {
   // install i18n into the app first, then set the locale so the saved value is not overwritten
@@ -81,9 +84,10 @@ router.isReady().then(async () => {
   // Set app status bar color to a lighter orange (Android/iOS where supported)
   app.mount('#app');
 
+  await pocketbaseSync.subscribeToGalleries();
+
   try {
     await StatusBar.setOverlaysWebView({ overlay: false });
-    await StatusBar.setBackgroundColor({ color: '#666666' }); // sehr helles Orange
     await StatusBar.setStyle({ style: Style.Dark });
   } catch (e) {
     // ignore if not supported in current environment
