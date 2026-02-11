@@ -31,7 +31,6 @@ import { useI18n } from 'vue-i18n';
 import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonButton, IonIcon, IonSpinner, IonBackButton, toastController } from '@ionic/vue';
 import { checkmark, downloadOutline } from 'ionicons/icons';
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Capacitor } from '@capacitor/core';
 import FilerobotImageEditor from 'filerobot-image-editor';
 import { db } from '@/services/database';
 import {
@@ -42,6 +41,7 @@ import {
   loadFilerobotStyles,
   unloadFilerobotStyles,
 } from '@/utils/filerobotEditor';
+import { StatusBar, Style } from '@capacitor/status-bar';
 
 const route = useRoute();
 const router = useRouter();
@@ -111,7 +111,9 @@ const initEditor = async () => {
   editorInstance.render();
 };
 
-onMounted(() => {
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });  
   setTimeout(() => initEditor(), 150);
 });
 

@@ -17,6 +17,15 @@ const getExtensionFromUri = (uri: string) => {
   return parts.pop()?.toLowerCase() || '';
 };
 
+const getExtensionFromMime = (mime?: string) => {
+  if (!mime) return '';
+  const [typePart] = mime.split(';');
+  const parts = typePart.split('/');
+  if (parts.length !== 2) return '';
+  const subtype = parts[1].split('+')[0].split('.')[0];
+  return subtype.toLowerCase();
+};
+
 const isUriLikelyVideo = (uri?: string) => {
   if (!uri) return false;
   const normalized = uri.toLowerCase();
@@ -414,7 +423,7 @@ export function usePhoto() {
       
       const sniffedMime = await guessMimeFromBlob(blob);
       const mimeType = blob.type || sniffedMime || (inferredIsVideo ? 'video/mp4' : 'image/jpeg');
-      const isVideo = mimeType.startsWith('video/');
+      const isVideo = inferredIsVideo || mimeType.startsWith('video/');
       
       console.log('🖼️ Blob loaded:', { type: blob.type, size: blob.size, isVideo, mimeType });
 
@@ -547,9 +556,12 @@ export function usePhoto() {
 
       // 2. Dateiname generieren falls nicht vorhanden
       const inferredExt = getExtensionFromUri(photoUri);
-      const extension = isVideo
-        ? (videoExtensions.includes(inferredExt) ? `.${inferredExt}` : '.mp4')
-        : '.jpg';
+      const mimeExt = getExtensionFromMime(mimeType) || 'mp4';
+      const normalizedInferredExt = inferredExt.replace(/\./g, '');
+      const videoExt = videoExtensions.includes(normalizedInferredExt) && normalizedInferredExt
+        ? normalizedInferredExt
+        : mimeExt;
+      const extension = isVideo ? `.${videoExt}` : '.jpg';
       const finalFilename = filename || `${isVideo ? 'video' : 'photo'}_${Date.now()}${extension}`;
 
       // 3. Foto/Video konvertieren
@@ -646,6 +658,15 @@ export function usePhoto() {
         filesize: blob.size,
         ...exifData
       });
+
+      console.log('🧾 Saved media metadata:', JSON.stringify({
+        filename: finalFilename,
+        filepath: filePath,
+        storagePath: nativeStoragePath,
+        mimeType,
+        isVideo,
+        thumbnailStored: thumbnailPath ? 'yes' : 'no'
+      }));
 
       console.log('✅ Media saved successfully with ID:', photoId, '- GPS in DB:', !!exifData.latitude && !!exifData.longitude);
       return photoId;
