@@ -21,6 +21,8 @@ class PocketBaseService {
           Preferences.get({ key: 'pocketbase_email' }),
           Preferences.get({ key: 'pocketbase_password' })
         ]);
+
+        
         if (email && password) {
           try {
             await this.pb.collection('users').authWithPassword(email, password);

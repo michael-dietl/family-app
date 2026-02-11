@@ -575,5 +575,6 @@ export default {
     "auto.timeline_event": "Ereignis",
     "auto.timeline_events": "Ereignisse",
     "auto.timeline_date": "Datum",
-    "auto.timeline_photos": "Fotos"
+    "auto.timeline_photos": "Fotos",
+    "gallery.add_header": "Foto hinzufügen"
   }};

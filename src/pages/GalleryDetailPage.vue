@@ -352,7 +352,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onBeforeUnmount, onActivated } from 'vue';
-import { checkmark } from 'ionicons/icons';
+import { checkmark, image } from 'ionicons/icons';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
@@ -721,21 +721,21 @@ onBeforeUnmount(() => {
 });
 
 const showPhotoOptions = async () => {
-  const actionSheet = await actionSheetController.create({
-    header: 'Foto hinzufügen',
+    const actionSheet = await actionSheetController.create({
+      header: t("gallery.add_header"),
     buttons: [
       {
-        text: 'Foto aufnehmen',
+        text: t("gallery.take_photo"),
         icon: camera,
         handler: () => handleAddPhoto(CameraSource.Camera)
       },
       {
-        text: 'Ein Foto auswählen',
-        icon: images,
+        text: t('gallery.select_single_photo'),
+        icon: image,
         handler: () => handleAddPhotoFromGallery()
       },
       {
-        text: 'Mehrere Fotos auswählen',
+        text: t('gallery.select_multiple_photos'),
         icon: images,
         handler: () => handleAddMultiplePhotos()
       }

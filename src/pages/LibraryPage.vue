@@ -225,6 +225,7 @@ import {
   alertController,
   loadingController
 } from '@ionic/vue';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import {
   barcodeOutline,
   ellipsisVertical,
@@ -439,6 +440,10 @@ const confirmDeleteBook = async (book: Book) => {
 };
 
 onMounted(async () => {
+
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+
   // Setze API Key beim App-Start
   setGoogleBooksApiKey('AIzaSyDOZB6WI3oXu89DvsEl7TnEFFrWMLrOd_c');
   

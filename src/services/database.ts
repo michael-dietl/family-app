@@ -1159,7 +1159,7 @@ class DatabaseService {
         foreignID, isbn, title, subtitle, authors, publisher, publishedDate, description,
         pageCount, categories, language, coverImage, categoryId,
         notes, rating, read, quantity, created, updated
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
 
     const result = await this.db.run(sql, [

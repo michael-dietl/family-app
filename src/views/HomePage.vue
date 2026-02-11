@@ -1,4 +1,4 @@
-<template>
+npm<template>
   <ion-page>
     <ion-header :translucent="true">
       <ion-toolbar>

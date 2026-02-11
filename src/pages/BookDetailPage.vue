@@ -186,6 +186,7 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { db, type Book, type BookCategory } from '@/services/database';
 import { downloadRemoteCoverImage, findLocalCoverImage, isRemoteImageUrl } from '@/services/imageStorage';
+import { StatusBar, Style } from '@capacitor/status-bar';
 
 const route = useRoute();
 const router = useRouter();
@@ -195,6 +196,9 @@ const categories = ref<BookCategory[]>([]);
 
 onMounted(async () => {
   await loadBook();
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+
 });
 
 // Refresh beim Zurückkehren (z.B. nach Cover-Edit)

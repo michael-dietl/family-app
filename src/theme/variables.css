@@ -45,6 +45,7 @@ http://ionicframework.com/docs/theming/ */
   --ion-safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --ion-safe-area-left: env(safe-area-inset-left, 0px);
   --ion-safe-area-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .glightbox-timeline {
