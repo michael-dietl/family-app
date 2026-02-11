@@ -84,7 +84,8 @@ router.isReady().then(async () => {
   // Set app status bar color to a lighter orange (Android/iOS where supported)
   app.mount('#app');
 
-  await pocketbaseSync.subscribeToGalleries();
+  await pocketbaseSync.subscribeToAllEntities();
+  
 
   try {
     await StatusBar.setOverlaysWebView({ overlay: false });

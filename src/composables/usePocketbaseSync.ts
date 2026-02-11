@@ -31,7 +31,14 @@ const getRemoteCoverUrlFromRecord = (record: any): string | undefined => {
 const fetchCoverBlob = async (coverImage: string): Promise<Blob | null> => {
   try {
     const fetchUrl = resolveCoverFetchUrl(coverImage);
-    const response = await fetch(fetchUrl);
+    const fetchOptions: RequestInit = {
+      referrerPolicy: 'no-referrer'
+    };
+    if (isRemoteHttpUrl(coverImage)) {
+      fetchOptions.mode = 'cors';
+      fetchOptions.cache = 'force-cache';
+    }
+    const response = await fetch(fetchUrl, fetchOptions);
     if (!response.ok) {
       throw new Error(`Cover fetch failed (${response.status})`);
     }
@@ -64,6 +71,17 @@ const uploadPhotoPicture = async (recordId: string, filepath?: string) => {
     return null;
   }
 };
+
+type CollectionSubscriptionConfig = {
+  collection: string;
+  label: string;
+};
+
+const defaultRealtimeCollections: CollectionSubscriptionConfig[] = [
+  { collection: 'galleries', label: 'Galerie' },
+  { collection: 'photos', label: 'Foto' },
+  { collection: 'books', label: 'Buch' }
+];
 
 export function usePocketbaseSync() {
   // Hilfsfunktion: Automatische Authentifizierung, falls nötig
@@ -117,7 +135,7 @@ export function usePocketbaseSync() {
     syncProgress.open = false;
   }
 
-  const presentGalleryToast = async (message: string) => {
+  const presentRealtimeToast = async (message: string) => {
     const toast = await toastController.create({
       message,
       duration: 3500,
@@ -140,47 +158,63 @@ export function usePocketbaseSync() {
     await Preferences.set({ key: 'last_sync_time', value: now });
   };
 
-  const subscribeToGalleries = async (): Promise<void> => {
+  const collectionSubscriptions = new Map<string, UnsubscribeFunc>();
+
+  const formatRealtimeMessage = (label: string, event: any) => {
+    const defaultTitle = event.record?.name ?? event.record?.title ?? event.record?.filename ?? `ID ${event.record?.id ?? 'unknown'}`;
+    const actionMap: Record<string, string> = {
+      create: 'angelegt',
+      update: 'aktualisiert',
+      delete: 'gelöscht'
+    };
+    const action = actionMap[event.action] ?? event.action;
+    return `${label} ${action}: ${defaultTitle}`;
+  };
+
+  const subscribeToRealtimeCollections = async (collections: CollectionSubscriptionConfig[] = defaultRealtimeCollections) => {
     await authenticateUserIfNeeded();
     const pb = pocketbase.getInstance();
     if (!pb || !pocketbase.isAuthenticated()) {
-      console.warn('PocketBase not authenticated -> cannot subscribe to galleries');
+      console.warn('PocketBase not authenticated -> cannot subscribe to realtime collections');
       return;
     }
-    if (gallerySubscription) {
-      await gallerySubscription();
-      gallerySubscription = null;
-    }
 
-    try {
-      gallerySubscription = await pb.collection('galleries').subscribe('*', (event) => {
-        const title = event.record?.name || `ID ${event.record?.id ?? 'unknown'}`;
-        const action = () => {
-          switch (event.action) {
-            case 'create':
-              return `Neue Galerie angelegt: ${title}`;
-            case 'update':
-              return `Galerie aktualisiert: ${title}`;
-            case 'delete':
-              return `Galerie gelöscht: ${title}`;
-            default:
-              return `Galerie-Event (${event.action}): ${title}`;
-          }
-        };
-        void presentGalleryToast(action());
-      });
-    } catch (error) {
-      console.error('Gallery realtime subscription failed:', error);
-      gallerySubscription = null;
+    for (const { collection, label } of collections) {
+      const existing = collectionSubscriptions.get(collection);
+      if (existing) {
+        await existing();
+        collectionSubscriptions.delete(collection);
+      }
+
+      try {
+        const unsubscribe = await pb.collection(collection).subscribe('*', (event) => {
+          void presentRealtimeToast(formatRealtimeMessage(label, event));
+        });
+        collectionSubscriptions.set(collection, unsubscribe);
+      } catch (error) {
+        console.error(`Realtime subscription failed for ${collection}:`, error);
+      }
     }
   };
 
-  const unsubscribeFromGalleries = async (): Promise<void> => {
-    if (gallerySubscription) {
-      await gallerySubscription();
-      gallerySubscription = null;
+  const unsubscribeFromRealtimeCollections = async (collections?: string[]) => {
+    const toUnsubscribe = collections?.length
+      ? collections.filter(c => collectionSubscriptions.has(c))
+      : Array.from(collectionSubscriptions.keys());
+
+    for (const collection of toUnsubscribe) {
+      const unsubscribeFn = collectionSubscriptions.get(collection);
+      if (unsubscribeFn) {
+        await unsubscribeFn();
+        collectionSubscriptions.delete(collection);
+      }
     }
   };
+
+  const subscribeToGalleries = async () => subscribeToRealtimeCollections([{ collection: 'galleries', label: 'Galerie' }]);
+  const subscribeToAllEntities = async () => subscribeToRealtimeCollections();
+  const unsubscribeFromGalleries = async () => unsubscribeFromRealtimeCollections(['galleries']);
+  const unsubscribeFromAllEntities = async () => unsubscribeFromRealtimeCollections();
 
   // Gallery Sync
   const syncGalleries = async (): Promise<void> => {
@@ -558,7 +592,9 @@ export function usePocketbaseSync() {
     syncAll,
     autoSyncIfEnabled,
     subscribeToGalleries,
+    subscribeToAllEntities,
     unsubscribeFromGalleries,
+    unsubscribeFromAllEntities,
     syncProgress: readonly(syncProgress)
   };
 }
