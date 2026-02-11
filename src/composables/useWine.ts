@@ -49,15 +49,18 @@ export function useWine() {
 
   // Weine mit Suche filtern
   const filteredWines = computed(() => {
-    if (!searchTerm.value) return wines.value;
-    
-    const term = searchTerm.value.toLowerCase();
-    return wines.value.filter(wine => 
-      wine.name.toLowerCase().includes(term) ||
-      wine.winery?.toLowerCase().includes(term) ||
-      wine.region?.toLowerCase().includes(term) ||
-      wine.grapeVariety?.toLowerCase().includes(term)
-    );
+    let result = wines.value;
+    if (searchTerm.value) {
+      const term = searchTerm.value.toLowerCase();
+      result = result.filter(wine => 
+        wine.name.toLowerCase().includes(term) ||
+        wine.winery?.toLowerCase().includes(term) ||
+        wine.region?.toLowerCase().includes(term) ||
+        wine.grapeVariety?.toLowerCase().includes(term)
+      );
+    }
+    // Nur Weine mit definierter ID zurückgeben
+    return result.filter(wine => wine.id !== undefined);
   });
 
   // Einzelnen Wein laden
@@ -97,7 +100,7 @@ export function useWine() {
       const arrayBuffer = await blob.arrayBuffer();
 
       // Nutze zentralen EXIF-Service für GPS-Extraktion
-      const gpsData = await extractGPSFromImage(new TextDecoder().decode(arrayBuffer));
+      const gpsData = await extractGPSFromImage(arrayBuffer);
       const latitude = gpsData?.latitude ?? undefined;
       const longitude = gpsData?.longitude ?? undefined;
 
@@ -152,7 +155,11 @@ export function useWine() {
       });
       const id = await db.createWine(wine);
       console.log('✅ Wine created with ID:', id);
-      await loadWines(); // Liste aktualisieren
+      try {
+        await loadWines(); // Liste aktualisieren
+      } catch (refreshError) {
+        console.warn('⚠️ Failed to refresh wines after create:', refreshError);
+      }
       return id;
     } catch (error) {
       console.error('❌ Failed to create wine:', error);

@@ -55,7 +55,7 @@
         >
           <!-- Checkbox im Auswahlmodus -->
           <ion-checkbox
-            v-if="selectionMode"
+            v-if="selectionMode && wine.id !== undefined"
             slot="start"
             :checked="selectedWineIds.has(wine.id!)"
             @ionChange="toggleWineSelection(wine.id!)"
@@ -110,12 +110,16 @@
       <!-- Create button moved to header for consistent UI -->
 
       <!-- Create Wine Modal -->
-      <ion-modal :is-open="showCreateModal" @didDismiss="showCreateModal = false">
+      <ion-modal
+        ref="createModalRef"
+        :is-open="showCreateModal"
+        @didDismiss="resetCreateForm(); showCreateModal = false"
+      >
         <ion-header>
           <ion-toolbar>
             <ion-title>{{ $t('auto.neuer_wein') }}</ion-title>
             <ion-buttons slot="end">
-              <ion-button @click="showCreateModal = false">{{ $t('auto.abbrechen') }}</ion-button>
+              <ion-button @click="closeCreateModal()">{{ $t('auto.abbrechen') }}</ion-button>
             </ion-buttons>
           </ion-toolbar>
         </ion-header>
@@ -348,6 +352,7 @@ const photoPreview = ref<string | null>(null);
 const photoGPS = ref<{ latitude: number; longitude: number } | null>(null);
 const showImageEditor = ref(false);
 const tempPhotoForEdit = ref<string>('');
+const createModalRef = ref<HTMLIonModalElement | null>(null);
 
 // Mehrfachauswahl
 const selectionMode = ref(false);
@@ -367,6 +372,18 @@ const openCreateModal = () => {
   photoPreview.value = null;
   photoGPS.value = null;
   showCreateModal.value = true;
+};
+
+const resetCreateForm = () => {
+  newWine.value = { name: '', quantity: 1 };
+  photoPreview.value = null;
+  photoGPS.value = null;
+  tempPhotoForEdit.value = '';
+};
+
+const closeCreateModal = () => {
+  showCreateModal.value = false;
+  createModalRef.value?.dismiss();
 };
 
 const handleTakePhoto = async () => {
@@ -460,7 +477,7 @@ const handleImageEditorClose = () => {
 };
 
 const handleCreateWine = async () => {
-  if (!newWine.value.name) return;
+  if (!newWine.value.name || !newWine.value.name.trim()) return;
 
   console.log('🍷 handleCreateWine - newWine.value:', JSON.stringify({
     name: newWine.value.name,
@@ -470,10 +487,13 @@ const handleCreateWine = async () => {
     hasGPS: !!(newWine.value.latitude && newWine.value.longitude)
   }));
 
+  const previousSearchTerm = searchTerm.value;
+  searchTerm.value = '';
   isCreating.value = true;
   try {
     await createWine(newWine.value as Omit<Wine, 'id' | 'created' | 'updated'>);
-    showCreateModal.value = false;
+    resetCreateForm();
+    closeCreateModal();
   } catch (error) {
     const alert = await alertController.create({
       header: 'Fehler',
@@ -481,6 +501,7 @@ const handleCreateWine = async () => {
       buttons: ['OK']
     });
     await alert.present();
+    searchTerm.value = previousSearchTerm;
   } finally {
     isCreating.value = false;
   }

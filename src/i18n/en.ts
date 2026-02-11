@@ -12,6 +12,16 @@ export default {
     ,
     sync_only_on_wifi: 'Sync only on Wi‑Fi',
     sync_only_on_wifi_desc: 'Only perform synchronization when connected to Wi‑Fi'
+    ,
+    theme: {
+      title: 'Theme',
+      label: 'Pick a color palette',
+      description: "Select the app's color palette",
+      default: 'Default',
+      wine: 'Wine',
+      forest: 'Forest',
+      ocean: 'Ocean'
+    }
   },
   languageNames: {
     de: 'Deutsch',
@@ -549,17 +559,18 @@ export default {
     "ready_to_create_an_app": "Ready to create an app?",
     "start_with_ionic": "Start with Ionic",
     "ui_components": "UI Components",
-    "timeline_title": "Timeline",
-    "timeline_gallery_hint": "Galleries with start and end dates appear here.",
-    "timeline_manual_events": "Manual entries",
-    "timeline_start_date": "Start date",
-    "timeline_end_date": "End date",
-    "timeline_attach_photos": "Attach photos",
-    "timeline_create_event": "Save event",
-    "timeline_no_manual_events": "No manual events yet.",
-    "timeline_no_gallery_matches": "No galleries match your search.",
-    "timeline_no_event_matches": "No events match your search.",
-    "timeline_gallery": "Gallery",
-    "timeline_routes": "Routes",
-    "timeline_events": "Events"
+    "auto.timeline_title": "Timeline",
+    "auto.timeline_gallery_hint": "Galleries with start and end dates appear here.",
+    "auto.timeline_manual_events": "Manual entries",
+    "auto.timeline_start_date": "Start date",
+    "auto.timeline_end_date": "End date",
+    "auto.timeline_location": "Location",
+    "auto.timeline_attach_photos": "Attach photos",
+    "auto.timeline_create_event": "Save event",
+    "auto.timeline_no_manual_events": "No manual events yet.",
+    "auto.timeline_no_gallery_matches": "No galleries match your search.",
+    "auto.timeline_no_event_matches": "No events match your search.",
+    "auto.timeline_gallery": "Gallery",
+    "auto.timeline_routes": "Routes",
+    "auto.timeline_events": "Events"
   }};

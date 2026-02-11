@@ -520,8 +520,7 @@ const showOptions = async () => {
         text: 'Bearbeiten',
         icon: create,
         handler: () => {
-          // TODO: Edit modal öffnen
-          console.log('Edit wine');
+          openEditModal();
         }
       },
       {

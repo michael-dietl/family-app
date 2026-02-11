@@ -250,7 +250,7 @@ export function usePocketbaseSync() {
       let i = 0;
       for (const book of localBooks) {
         try {
-          const filter = book.foreignID ? `foreignID = "${book.foreignID}"` : `isbn = "${book.isbn}"`;
+          const filter = book.foreignID ? `id = "${book.foreignID}"` : `isbn = "${book.isbn}"`;
           const existingRecords = await pb.collection('books').getList(1, 1, {
             filter
           });

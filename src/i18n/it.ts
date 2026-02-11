@@ -158,22 +158,24 @@ export default {
     möchtest_du_diesen_wegpunkt_wirklich_löschen: 'Vuoi davvero eliminare questo punto di percorso?',
     aufzeichnung_pausiert: 'Registrazione in pausa',
     aufzeichnung_fortgesetzt: 'Registrazione ripresa',
-    timeline_gallery: 'Galleria',
-    timeline_routes: 'Percorsi',
-    timeline_events: 'Eventi'
+    // entfernt: Timeline-Keys gehören nicht ins auto-Objekt
   },
   languageNames: {
     bar: 'Bavarese',
-    "timeline_title": "Timeline",
-    "timeline_gallery_hint": "Le gallerie con data di inizio e fine vengono mostrate qui.",
-    "timeline_manual_events": "Eventi manuali",
-    "timeline_start_date": "Data di inizio",
-    "timeline_end_date": "Data di fine",
-    "timeline_attach_photos": "Allega foto",
-    "timeline_create_event": "Salva evento",
-    "timeline_no_manual_events": "Ancora nessun evento manuale",
-    "timeline_no_gallery_matches": "Nessuna galleria corrisponde alla ricerca.",
-    "timeline_no_event_matches": "Nessun evento corrisponde alla ricerca.",
+    "auto.timeline_gallery": "Galleria",
+    "auto.timeline_routes": "Percorsi",
+    "auto.timeline_events": "Eventi",
+    "auto.timeline_title": "Timeline",
+    "auto.timeline_gallery_hint": "Le gallerie con data di inizio e fine vengono mostrate qui.",
+    "auto.timeline_manual_events": "Eventi manuali",
+    "auto.timeline_start_date": "Data di inizio",
+    "auto.timeline_end_date": "Data di fine",
+    "auto.timeline_location": "Luogo",
+    "auto.timeline_attach_photos": "Allega foto",
+    "auto.timeline_create_event": "Salva evento",
+    "auto.timeline_no_manual_events": "Ancora nessun evento manuale",
+    "auto.timeline_no_gallery_matches": "Nessuna galleria corrisponde alla ricerca.",
+    "auto.timeline_no_event_matches": "Nessun evento corrisponde alla ricerca.",
     de: 'Tedesco',
     en: 'Inglese',
     fr: 'Francese',
@@ -182,5 +184,15 @@ export default {
   settings: {
     chooseLanguage: 'Scegli lingua',
     save: 'Salva impostazioni'
+    ,
+    theme: {
+      title: 'Tema',
+      label: 'Seleziona la palette',
+      description: 'Seleziona la palette colori dell’app',
+      default: 'Predefinito',
+      wine: 'Vino',
+      forest: 'Foresta',
+      ocean: 'Oceano'
+    }
   }
 } as const;

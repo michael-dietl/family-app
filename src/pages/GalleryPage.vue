@@ -9,13 +9,6 @@
         </ion-buttons>
         <ion-title>{{ $t('auto.gallerien') }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button
-            fill="clear"
-            @click="navigateToTimeline"
-            :title="$t('auto.timeline_title')"
-          >
-            <ion-icon :icon="calendarNumber" />
-          </ion-button>
           <ion-button @click="showCreateDialog = true">
             <ion-icon :icon="add" />
           </ion-button>

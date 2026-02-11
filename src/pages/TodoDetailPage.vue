@@ -77,7 +77,42 @@
           </div>
         </div>
 
-        <div v-if="visibleItems.length === 0" class="empty-state small">
+        <ion-segment class="todo-segment" v-model="activeSegment">
+          <ion-segment-button value="pending">Offen</ion-segment-button>
+          <ion-segment-button value="completed">Erledigt</ion-segment-button>
+        </ion-segment>
+
+        <ion-list v-if="visibleItems.length > 0" class="todo-list">
+          <ion-item
+            v-for="item in visibleItems"
+            :key="item.id"
+            class="todo-row"
+            lines="full"
+          >
+            <ion-checkbox
+              slot="start"
+              :checked="item.completed"
+              @ionChange="() => handleToggleTodoCompletion(item, !item.completed)"
+            />
+            <div class="todo-item-content">
+              <h3 class="todo-title">{{ item.title }}</h3>
+              <p v-if="item.description" class="todo-description">{{ item.description }}</p>
+              <div class="todo-meta">
+                <span v-if="!item.completed && item.dueDate">
+                  {{ $t('auto.faelligkeitsdatum') }}: {{ formatSimpleDate(item.dueDate) }}
+                </span>
+                <span v-if="item.completed && item.completionDate">
+                  Erledigt am: {{ formatSimpleDate(item.completionDate) }}
+                </span>
+              </div>
+            </div>
+            <ion-button slot="end" fill="clear" color="danger" @click="handleDeleteTodoItem(item)">
+              <ion-icon :icon="trashOutline" slot="icon-only" />
+            </ion-button>
+          </ion-item>
+        </ion-list>
+
+        <div v-else class="empty-state small">
           <ion-icon :icon="checkboxOutline" size="large" />
           <p>
             {{ activeSegment === 'pending' ? 'Keine offenen Aufgaben' : 'Keine erledigten Aufgaben' }}
@@ -110,17 +145,23 @@ import {
   IonCardHeader,
   IonCardTitle,
   IonCardContent,
-  IonDatetime
+  IonDatetime,
+  IonList,
+  IonSegment,
+  IonSegmentButton,
+  IonCheckbox
 } from '@ionic/vue';
 import {
   checkboxOutline,
   camera,
-  images
+  images,
+  trashOutline
 } from 'ionicons/icons';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
 import { useTodoList } from '@/composables/useTodoList';
 import { usePhoto } from '@/composables/usePhoto';
+import { type TodoItem } from '@/services/database';
 
 const route = useRoute();
 const router = useRouter();
@@ -136,8 +177,8 @@ const {
   loadList,
   loadItems,
   createItem,
-  // ...existing code...
-  // ...existing code...
+  toggleItemCompleted,
+  deleteItem,
   attachFilesToItem
 } = useTodoList();
 
@@ -265,6 +306,18 @@ const handlePickPhotos = async () => {
   } catch (e) {
     console.error('Error picking photos', e);
   }
+};
+
+const handleToggleTodoCompletion = async (item: TodoItem, completed: boolean) => {
+  const listId = numericListId.value;
+  if (!item.id || listId === null) return;
+  await toggleItemCompleted(item.id, completed, listId);
+};
+
+const handleDeleteTodoItem = async (item: TodoItem) => {
+  const listId = numericListId.value;
+  if (!item.id || listId === null) return;
+  await deleteItem(item.id, listId);
 };
 
 const getImageSrc = (path: string | null | undefined) => {

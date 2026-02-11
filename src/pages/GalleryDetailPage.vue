@@ -2,15 +2,15 @@
   <ion-page>
     <ion-header :translucent="true">
       <ion-toolbar>
-        <ion-buttons>
-          <ion-back-button v-if="!selectionMode" :default-href="backHref" />
+        <ion-buttons  slot="start">
+          <ion-back-button v-if="!selectionMode" :default-href="backHref"/>
           <ion-button v-else @click="cancelSelectionMode">
             <ion-icon :icon="close"/>
           </ion-button>
         </ion-buttons>
-        <ion-title v-if="!selectionMode">{{ currentGallery?.name || 'Gallerie' }}</ion-title>
+        <ion-title v-if="!selectionMode"  size="large">{{ currentGallery?.name || 'Gallerie' }}</ion-title>
         <ion-title v-else>{{ selectedPhotos.size }} ausgewählt</ion-title>
-        <ion-buttons>
+        <ion-buttons slot="end">
           <ion-button v-if="selectedPhoto && !selectionMode" @click="clearSelection">
             <ion-icon :icon="closeCircle" />
           </ion-button>
@@ -27,13 +27,13 @@
       </ion-toolbar>
       <!-- Mehrfachselektion Toolbar -->
       <ion-toolbar v-if="selectionMode" color="primary">
-        <ion-buttons>
+        <ion-buttons slot="start">
           <ion-button @click="selectAllPhotos">
             <ion-icon :icon="checkmarkCircle" />
             {{ $t('auto.alle_auswählen') }}
           </ion-button>
         </ion-buttons>
-        <ion-buttons>
+        <ion-buttons slot="end">
           <ion-button @click="deleteSelectedPhotos" :disabled="selectedPhotos.size === 0">
             <ion-icon :icon="trashOutline" />
             {{ $t('auto.löschen') }}
@@ -193,10 +193,10 @@
         <GalleryMap :photos="photos" @photo-click="openPhoto" />
       </div>
 
-      <ion-fab vertical="bottom" horizontal="end">
+      <ion-fab vertical="bottom" horizontal="end" class="gallery-play-fab app-fab">
         <ion-fab-button
           color="primary"
-          class="gallery-autoplay-fab"
+          class="fab-outline-shadow"
           :disabled="photos.length === 0"
           @click="handleAutoplayToggle"
         >
@@ -932,10 +932,6 @@ const showGalleryMenu = async () => {
         role: 'destructive',
         icon: trashOutline,
         handler: () => confirmDeleteGallery()
-      },
-      {
-        text: t('buttons.cancel'),
-        role: 'cancel'
       }
     ]
   });
@@ -1161,6 +1157,18 @@ const deleteSelectedPhotos = async () => {
 </script>
 
 <style scoped>
+
+.fab-outline-shadow { 
+  --background: transparent; 
+  --background-hover: transparent; 
+  --background-activated: transparent; 
+  --border-width: 1px; 
+  --border-style: solid; 
+  --border-color: var(--ion-color-primary); 
+  --color: var(--ion-color-primary); 
+  --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); 
+  bottom: calc(env(safe-area-inset-bottom) + 70px);
+}
 .gallery-description {
   background: var(--ion-color-light);
   border-bottom: 1px solid var(--ion-color-light-shade);

@@ -1,5 +1,5 @@
 import KalmanFilter from 'kalmanjs';
-import savitzkyGolay from 'ml-savitzky-golay';
+import { savitzkyGolay } from '@/services/savitzkyGolay';
 import type { Position } from '@capacitor/geolocation';
 
 export interface LatLonPoint {

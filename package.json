@@ -39,7 +39,6 @@
     "ionicons": "^7.0.0",
     "kalmanjs": "^1.1.0",
     "leaflet": "^1.9.4",
-    "ml-savitzky-golay": "^2.0.0",
     "pocketbase": "^0.26.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

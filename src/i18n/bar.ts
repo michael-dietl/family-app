@@ -10,6 +10,16 @@ export default {
     title: 'Eistellungn',
     chooseLanguage: 'Sproch aussuachn',
     save: 'Speichan'
+    ,
+    theme: {
+      title: 'Theme',
+      label: 'Theme aussuachn',
+      description: "Wähl a Farbpalette für d'App",
+      default: 'Standard',
+      wine: 'Weinrot',
+      forest: 'Woid',
+      ocean: 'Ozean'
+    }
   },
   languageNames: {
     de: 'Deutsch',
@@ -550,6 +560,7 @@ export default {
     "timeline_manual_events": "Manuelle Einträge",
     "timeline_start_date": "Startdatum",
     "timeline_end_date": "Enddatum",
+    "timeline_location": "Ort",
     "timeline_attach_photos": "Fotos anhängn",
     "timeline_create_event": "Ereignis speichan",
     "timeline_no_manual_events": "Noch koa manuelle Einträge",

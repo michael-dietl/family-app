@@ -9,6 +9,16 @@ export default {
     title: 'Paramètres',
     chooseLanguage: 'Choisir la langue',
     save: 'Enregistrer'
+    ,
+    theme: {
+      title: 'Thème',
+      label: 'Choisir la palette',
+      description: 'Choisis la palette de couleurs de l’application',
+      default: 'Par défaut',
+      wine: 'Vin',
+      forest: 'Forêt',
+      ocean: 'Océan'
+    }
   },
   languageNames: {
     de: 'Deutsch',
@@ -322,18 +332,19 @@ export default {
     "api_endpunkt_nicht_gefunden": "Point d’accès API introuvable",
     "api_fehler_response_status": "Erreur API (${response.status})",
     "unerwarteter_fehler": "Erreur inattendue",
-    "timeline_title": "Chronologie",
-    "timeline_gallery_hint": "Les galeries avec des dates de début et de fin apparaissent ici.",
-    "timeline_manual_events": "Événements manuels",
-    "timeline_start_date": "Date de début",
-    "timeline_end_date": "Date de fin",
-    "timeline_attach_photos": "Ajouter des photos",
-    "timeline_create_event": "Enregistrer l’événement",
-    "timeline_no_manual_events": "Aucun événement manuel pour l’instant",
-    "timeline_no_gallery_matches": "Aucune galerie ne correspond à la recherche.",
-    "timeline_no_event_matches": "Aucun événement ne correspond à la recherche.",
-    "timeline_gallery": "Galerie",
-    "timeline_routes": "Itinéraires",
-    "timeline_events": "Événements"
+    "auto.timeline_title": "Chronologie",
+    "auto.timeline_gallery_hint": "Les galeries avec des dates de début et de fin apparaissent ici.",
+    "auto.timeline_manual_events": "Événements manuels",
+    "auto.timeline_start_date": "Date de début",
+    "auto.timeline_end_date": "Date de fin",
+    "auto.timeline_location": "Lieu",
+    "auto.timeline_attach_photos": "Ajouter des photos",
+    "auto.timeline_create_event": "Enregistrer l’événement",
+    "auto.timeline_no_manual_events": "Aucun événement manuel pour l’instant",
+    "auto.timeline_no_gallery_matches": "Aucune galerie ne correspond à la recherche.",
+    "auto.timeline_no_event_matches": "Aucun événement ne correspond à la recherche.",
+    "auto.timeline_gallery": "Galerie",
+    "auto.timeline_routes": "Itinéraires",
+    "auto.timeline_events": "Événements"
   }
 };

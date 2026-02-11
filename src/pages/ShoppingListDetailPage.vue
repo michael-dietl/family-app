@@ -33,13 +33,22 @@
           </ion-button>
         </ion-item>
 
-        <!-- Items List -->
-        <ion-list v-if="items.length > 0">
-          <ion-item v-for="item in items" :key="item.id">
+        <ion-segment class="shopping-segment" v-model="shoppingSegment">
+          <ion-segment-button value="pending">Offen</ion-segment-button>
+          <ion-segment-button value="completed">Erledigt</ion-segment-button>
+        </ion-segment>
+
+        <div v-if="items.length === 0" class="empty-state">
+          <ion-icon :icon="cartOutline" size="large" />
+          <p>{{ $t('auto.keine_artikel_in_der_liste') }}</p>
+        </div>
+
+        <ion-list v-else-if="visibleShoppingItems.length > 0">
+          <ion-item v-for="item in visibleShoppingItems" :key="item.id">
             <ion-checkbox
               slot="start"
               :checked="item.completed"
-              @ionChange="toggleItemCompleted(item.id!, !item.completed, listId)"
+              @ionChange="() => handleToggleShoppingItem(item)"
             />
             <ion-label :class="{ 'completed-item': item.completed }">
               <h3>{{ item.name }}</h3>
@@ -51,10 +60,11 @@
           </ion-item>
         </ion-list>
 
-        <!-- Empty State -->
         <div v-else class="empty-state">
           <ion-icon :icon="cartOutline" size="large" />
-          <p>{{ $t('auto.keine_artikel_in_der_liste') }}</p>
+          <p>
+            {{ shoppingSegment === 'pending' ? 'Keine offenen Artikel' : 'Keine erledigten Artikel' }}
+          </p>
         </div>
       </template>
     </ion-content>
@@ -62,15 +72,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons,
   IonBackButton, IonList, IonItem, IonLabel, IonCheckbox, IonInput,
-  IonButton, IonIcon, IonSpinner
+  IonButton, IonIcon, IonSpinner, IonSegment, IonSegmentButton
 } from '@ionic/vue';
 import { add, cartOutline, trashOutline } from 'ionicons/icons';
 import { useShoppingList } from '@/composables/useShoppingList';
+import { type ShoppingItem } from '@/services/database';
 
 const route = useRoute();
 const listId = Number(route.params.id);
@@ -85,6 +96,14 @@ const {
   toggleItemCompleted,
   deleteItem
 } = useShoppingList();
+
+const shoppingSegment = ref<'pending' | 'completed'>('pending');
+
+const pendingShoppingItems = computed(() => items.value.filter(item => !item.completed));
+const completedShoppingItems = computed(() => items.value.filter(item => item.completed));
+const visibleShoppingItems = computed(() =>
+  shoppingSegment.value === 'pending' ? pendingShoppingItems.value : completedShoppingItems.value
+);
 
 const newItemName = ref('');
 const newItemQuantity = ref<number | undefined>();
@@ -101,6 +120,11 @@ const handleAddItem = async () => {
   newItemName.value = '';
   newItemQuantity.value = undefined;
 };
+
+const handleToggleShoppingItem = async (item: ShoppingItem) => {
+  if (!item.id) return;
+  await toggleItemCompleted(item.id, !item.completed, listId);
+};
 </script>
 
 <style scoped>
@@ -109,6 +133,10 @@ const handleAddItem = async () => {
   justify-content: center;
   align-items: center;
   height: 200px;
+}
+
+.shopping-segment {
+  margin: 0 1rem 0.5rem;
 }
 
 .empty-state {

@@ -58,7 +58,7 @@
               class="timeline-scroll-container"
               @wheel.prevent="handleTimelineWheel"
             >
-                <div class="timeline-axis" :style="{ minWidth: '1200px', width: timelineAxisWidth }">
+                <div class="timeline-axis" :style="{ minWidth: '1200px', width: timelineAxisWidth }" @click="handleAxisClick">
                   <div class="timeline-middle-line" />
                   <div class="axis-line" />
                   <div class="timeline-grid-lines">
@@ -122,10 +122,57 @@
                   :key="event.id"
                   class="timeline-event-bar"
                   :style="{ left: eventBarStyle(event).left, width: 'auto', top: 'calc(50% + 16px)' }"
-                  @click="openEvent(event)"
+                  @click.stop="openEvent(event)"
                 >
                   <ion-icon :icon="calendarNumber" size="small" />
                   <span class="event-label">{{ event.title }}</span>
+                </div>
+                <div
+                  v-if="selectedEvent"
+                  class="timeline-event-flag"
+                  :style="selectedEventFlagStyle"
+                  @click.stop
+                >
+                  <div class="timeline-event-flag__header">
+                    <div class="timeline-event-flag__title">{{ selectedEvent.title }}</div>
+                    <div class="timeline-event-flag__location">
+                      <ion-icon :icon="locationOutline" />
+                      <span>{{ $t('auto.timeline_location') }}: {{ selectedEvent.location || '-' }}</span>
+                    </div>
+                  </div>
+                  <div class="timeline-event-flag__dates">
+                    <span>
+                      <strong>{{ $t('auto.timeline_start_date') }}:</strong>
+                      {{ formatDate(selectedEvent.startDate) }}
+                    </span>
+                    <span>
+                      <strong>{{ $t('auto.timeline_end_date') }}:</strong>
+                      {{ selectedEvent.endDate ? formatDate(selectedEvent.endDate) : '-' }}
+                    </span>
+                  </div>
+                  <p v-if="selectedEvent.description" class="timeline-event-flag__description">
+                    {{ selectedEvent.description }}
+                  </p>
+                  <div
+                    v-if="selectedEventAttachments.length"
+                    id="timeline-event-attachments"
+                    class="timeline-event-flag__attachments"
+                  >
+                    <a
+                      v-for="(photo, index) in selectedEventAttachments"
+                      :key="photo.id || index"
+                      :href="getAttachmentSrc(photo.filepath)"
+                      class="glightbox timeline-event-flag__thumbnail"
+                      :data-type="isVideoAttachment(photo) ? 'video' : 'image'"
+                      @click.prevent="handleAttachmentClick(index)"
+                    >
+                      <img
+                        :src="getAttachmentSrc(photo.filepath)"
+                        :alt="photo.filename"
+                        loading="lazy"
+                      />
+                    </a>
+                  </div>
                 </div>
                 <div class="timeline-labels">
                   <span>{{ formatDate(axisStart) }}</span>
@@ -156,6 +203,11 @@
                     placeholder="$t('auto.timeline_attach_photos')"
                     :rows="2"
                     auto-grow
+                  />
+                  <ion-input
+                    v-model="manualLocation"
+                    :placeholder="$t('auto.timeline_location')"
+                    clear-input="true"
                   />
                   <div class="manual-actions">
                     <div class="date-row">
@@ -221,6 +273,10 @@
                       {{ formatDate(event.startDate) }}
                       <span v-if="event.endDate">− {{ formatDate(event.endDate) }}</span>
                     </div>
+                    <p v-if="event.location" class="event-location">
+                      <ion-icon :icon="locationOutline" />
+                      {{ event.location }}
+                    </p>
                     <p v-if="event.description" class="event-description">{{ event.description }}</p>
                   </div>
                   <div class="event-meta">
@@ -257,6 +313,10 @@
                   {{ formatDate(event.startDate) }}
                   <span v-if="event.endDate">− {{ formatDate(event.endDate) }}</span>
                 </div>
+                <p v-if="event.location" class="event-location">
+                  <ion-icon :icon="locationOutline" />
+                  {{ event.location }}
+                </p>
                 <p v-if="event.description" class="event-description">{{ event.description }}</p>
               </div>
               <div class="event-meta">
@@ -279,15 +339,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { db, type Route } from '@/services/database';
+import { db, type Route, type TimelineEventPhoto } from '@/services/database';
 import { Capacitor } from '@capacitor/core';
 import { useGallery } from '@/composables/useGallery';
 import { useTimeline } from '@/composables/useTimeline';
 import { usePhoto } from '@/composables/usePhoto';
-import { calendarNumber, imagesOutline } from 'ionicons/icons';
+import { useLightbox, type MediaItem } from '@/composables/useLightbox';
+import { calendarNumber, imagesOutline, locationOutline } from 'ionicons/icons';
 
 interface TimelineEvent {
   id?: number;
@@ -295,6 +356,7 @@ interface TimelineEvent {
   startDate: string;
   endDate?: string | null;
   description?: string;
+  location?: string;
 }
 
 type PickedPhoto = { path: string | null; data?: string | null };
@@ -308,6 +370,7 @@ const activeTab = ref<'timeline' | 'events'>('timeline');
 const { galleries, loadGalleries, isLoading: isGalleryLoading } = useGallery();
 const { events, attachments, loadEvents, createManualEvent, addEventPhotos } = useTimeline();
 const { pickMultiplePhotos } = usePhoto();
+const { initLightbox, openLightbox, destroyLightbox } = useLightbox();
 
 const routes = ref<Route[]>([]);
 const loadRoutes = async () => {
@@ -316,8 +379,10 @@ const loadRoutes = async () => {
 
 const manualTitle = ref('');
 const manualDescription = ref('');
+const manualLocation = ref('');
 const manualStart = ref<string | null>(null);
 const manualEnd = ref<string | null>(null);
+const selectedEvent = ref<TimelineEvent | null>(null);
 const pendingPhotos = ref<PickedPhoto[]>([]);
 const isSubmitting = ref(false);
 const isTimelineLoading = ref(true);
@@ -384,7 +449,7 @@ const timelineEventCandidates = computed(() => {
   const q = normalizedTimelineSearch.value;
   if (!q) return events.value;
   return events.value.filter(event => {
-    const haystack = `${event.title || ''} ${event.description || ''}`.toLowerCase();
+    const haystack = `${event.title || ''} ${event.description || ''} ${event.location || ''}`.toLowerCase();
     return haystack.includes(q);
   });
 });
@@ -583,7 +648,7 @@ const manualEvents = computed(() => {
   const q = normalizedEventSearch.value;
   if (!q) return events.value;
   return events.value.filter(event => {
-    const haystack = `${event.title || ''} ${event.description || ''}`.toLowerCase();
+    const haystack = `${event.title || ''} ${event.description || ''} ${event.location || ''}`.toLowerCase();
     return haystack.includes(q);
   });
 });
@@ -595,6 +660,22 @@ const eventBarStyle = (event: TimelineEvent) => {
   const left = Math.min(100, Math.max(0, ((start - min) / span) * 100));
   return { left: `${left}%`, position: 'absolute' as const };
 };
+
+const selectedEventAttachments = computed(() => {
+  const eventId = selectedEvent.value?.id;
+  if (!eventId) return [];
+  return getAttachmentsForEvent(eventId);
+});
+
+const selectedEventFlagStyle = computed(() => {
+  if (!selectedEvent.value) return {};
+  const { min, max } = timelineBounds.value;
+  const span = Math.max(max - min, 1);
+  const start = Math.max(min, Date.parse(selectedEvent.value.startDate) || min);
+  const end = selectedEvent.value.endDate ? Math.max(start, Date.parse(selectedEvent.value.endDate) || start) : start;
+  const midpoint = start + (end - start) / 2;
+  return { left: `${calculatePosition(midpoint, min, span)}%` };
+});
 
 const timelineAxisWidth = computed(() => {
   const pxPerDay = 40;
@@ -630,10 +711,26 @@ const openRoute = (routeId?: number) => {
   if (routeId) router.push(`/route/${routeId}`);
 };
 
+const clearSelectedEvent = () => {
+  if (!selectedEvent.value) return;
+  selectedEvent.value = null;
+  destroyLightbox();
+};
+
+const handleAttachmentClick = (index: number) => {
+  openLightbox(index);
+};
+
+const handleAxisClick = () => {
+  clearSelectedEvent();
+};
+
 const openEvent = (event: TimelineEvent) => {
-  // Modal/Detail-Ansicht für manuelles Ereignis
-  // TODO: Modal implementieren, aktuell nur Alert
-  alert(`${event.title}\n${event.description || ''}`);
+  if (selectedEvent.value?.id === event.id) {
+    clearSelectedEvent();
+    return;
+  }
+  selectedEvent.value = event;
 };
 
 const handlePickPhotos = async () => {
@@ -662,6 +759,7 @@ const handleSaveManualEvent = async () => {
     const createdId = await createManualEvent({
       title: manualTitle.value.trim(),
       description: manualDescription.value.trim() || undefined,
+      location: manualLocation.value.trim() || undefined,
       startDate: manualStart.value || '',
       endDate: manualEnd.value || null,
       updated: new Date().toISOString()
@@ -671,6 +769,7 @@ const handleSaveManualEvent = async () => {
     }
     manualTitle.value = '';
     manualDescription.value = '';
+    manualLocation.value = '';
     manualStart.value = null;
     manualEnd.value = null;
     pendingPhotos.value = [];
@@ -692,6 +791,39 @@ const getAttachmentSrc = (filepath: string) => {
   if (!filepath) return '';
   return filepath.startsWith('data:') ? filepath : Capacitor.convertFileSrc(filepath);
 };
+
+const videoExtensions = ['mp4', 'mov', 'webm', 'mkv', 'avi', '3gp', 'm4v'];
+
+const isVideoAttachment = (photo: TimelineEventPhoto) => {
+  const filenameExt = photo.filename?.split('.').pop()?.toLowerCase() || '';
+  return videoExtensions.includes(filenameExt);
+};
+
+const selectedEventMedia = computed<MediaItem[]>(() =>
+  selectedEventAttachments.value.map(photo => ({
+    id: photo.id,
+    galleryId: -1,
+    filename: photo.filename,
+    filepath: getAttachmentSrc(photo.filepath),
+    created: photo.created,
+    updated: photo.updated,
+    isVideo: isVideoAttachment(photo)
+  }))
+);
+
+const timelineEventAttachmentsSelector = '#timeline-event-attachments';
+
+watch(selectedEventMedia, (media) => {
+  destroyLightbox();
+  if (!media.length) return;
+  nextTick(() => {
+    initLightbox(timelineEventAttachmentsSelector, media);
+  });
+});
+
+onBeforeUnmount(() => {
+  destroyLightbox();
+});
 
 const handleTimelineWheel = (event: WheelEvent) => {
   const container = timelineScroll.value;
@@ -857,6 +989,96 @@ watch([timelineBounds], scrollToToday, { immediate: true });
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
+.timeline-event-flag {
+  position: absolute;
+  top: 8px;
+  transform: translateX(-50%);
+  width: min(320px, 90vw);
+  padding: 1rem;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.18);
+  z-index: 5;
+}
+
+.timeline-event-flag::after {
+  content: '';
+  position: absolute;
+  bottom: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 12px solid #fff;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.12));
+}
+
+.timeline-event-flag__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.timeline-event-flag__title {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--ion-color-dark);
+}
+
+.timeline-event-flag__location {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--ion-color-medium);
+}
+
+.timeline-event-flag__dates {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--ion-color-dark);
+}
+
+.timeline-event-flag__dates span strong {
+  font-weight: 600;
+  margin-right: 0.25rem;
+}
+
+.timeline-event-flag__description {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--ion-color-medium);
+}
+
+.timeline-event-flag__attachments {
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.timeline-event-flag__thumbnail {
+  width: 84px;
+  height: 84px;
+  border-radius: 12px;
+  overflow: hidden;
+  flex: 0 0 auto;
+  background: var(--ion-color-light);
+  display: block;
+}
+
+.timeline-event-flag__thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .timeline-labels {
   position: absolute;
   bottom: 0.5rem;
@@ -913,6 +1135,15 @@ watch([timelineBounds], scrollToToday, { immediate: true });
   margin-bottom: 0.75rem;
   display: flex;
   gap: 1rem;
+}
+
+.event-location {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--ion-color-medium);
+  margin-top: 0.25rem;
 }
 
 .attachment-preview {

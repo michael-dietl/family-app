@@ -68,9 +68,10 @@ function isValidGPS(lat?: number, lng?: number): boolean {
  * @param filePath - Bild als Datei-URI
  * @returns GPS-Koordinaten oder undefined
  */
-export async function extractGPSFromImage(filePath: string): Promise<GPSCoordinates | undefined> {
+export async function extractGPSFromImage(source: string | ArrayBuffer): Promise<GPSCoordinates | undefined> {
+  const logSource = typeof source === 'string' ? source : 'ArrayBuffer';
   try {
-    const exifData = await exifr.parse(filePath, { gps: true });
+    const exifData = await exifr.parse(source, { gps: true });
 
     if (exifData && exifData.latitude && exifData.longitude) {
       return {
@@ -79,10 +80,10 @@ export async function extractGPSFromImage(filePath: string): Promise<GPSCoordina
       };
     }
 
-    console.warn('Keine GPS-Daten in der Originaldatei gefunden:', filePath);
+    console.warn('Keine GPS-Daten in der Originaldatei gefunden:', logSource);
     return undefined;
   } catch (error) {
-    console.error('Fehler beim Extrahieren der GPS-Daten aus der Originaldatei:', error);
+    console.error('Fehler beim Extrahieren der GPS-Daten aus der Originaldatei:', logSource, error);
     return undefined;
   }
 }
@@ -315,7 +316,7 @@ export async function extractGPSFromUri(fileUri: string): Promise<GPSCoordinates
       bytes[i] = binaryString.charCodeAt(i);
     }
 
-    return await extractGPSFromImage(new TextDecoder().decode(bytes));
+    return await extractGPSFromImage(bytes.buffer);
   } catch (error) {
     console.warn('⚠️ Could not extract GPS from URI:', error);
     return undefined;

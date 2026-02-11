@@ -238,7 +238,7 @@ http://ionicframework.com/docs/theming/ */
 */
 ion-fab.app-fab.fab-vertical-bottom {
   right: calc(16px + env(--ion-safe-area-right, 0px));
-  bottom: calc(16px + env(safe-area-inset-bottom) + 56px) !important;
+  bottom: calc(16px + env(safe-area-inset-bottom) + 50px) !important;
 }
 
 /* Small tweak for RTL support */
@@ -253,3 +253,8 @@ ion-fab.app-fab.fab-vertical-bottom:dir(rtl) {
 }
 
 .page-content { padding-top: var(--ion-safe-area-top); padding-bottom: var(--ion-safe-area-bottom); }
+
+/* Remove the blue tap highlight that appears before the keyboard opens */
+* {
+  -webkit-tap-highlight-color: transparent;
+}

@@ -44,6 +44,7 @@ import 'leaflet/dist/leaflet.css';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import i18n from '@/i18n/i18n';
 import { Preferences } from '@capacitor/preferences';
+import { applyTheme, loadTheme } from '@/services/theme';
 
 
 const app = createApp(App)
@@ -69,9 +70,14 @@ const initializeLocale = async () => {
   }
 };
 
+const initializeTheme = async () => {
+  const savedTheme = await loadTheme();
+  applyTheme(savedTheme);
+};
 
 router.isReady().then(async () => {
   await initializeLocale();
+  await initializeTheme();
   // Set app status bar color to a lighter orange (Android/iOS where supported)
   app.mount('#app');
 

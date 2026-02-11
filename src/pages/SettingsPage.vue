@@ -32,6 +32,31 @@
         </div>
 
         <div class="settings-section">
+          <h2>{{ $t('settings.theme.title') }}</h2>
+          <ion-list>
+            <ion-item>
+              <ion-label position="stacked">
+                <strong>{{ t('settings.theme.label') }}</strong>
+                <p>{{ t('settings.theme.description') }}</p>
+              </ion-label>
+              <ion-select
+                v-model="selectedTheme"
+                interface="popover"
+                @ionChange="handleThemeChange"
+              >
+                <ion-select-option
+                  v-for="theme in themeOptions"
+                  :key="theme"
+                  :value="theme"
+                >
+                  {{ t(`settings.theme.${theme}`) }}
+                </ion-select-option>
+              </ion-select>
+            </ion-item>
+          </ion-list>
+        </div>
+
+        <div class="settings-section">
           <h2>{{ $t('auto.pocketbase_backend') }}</h2>
           <p class="section-description">
             {{ $t('auto.konfiguriere_die_verbindung_zu_deinem_pocketbase_server_für_') }}
@@ -232,6 +257,8 @@ import PocketBase from 'pocketbase';
 import { pocketbase } from '@/services/pocketbase';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 import SyncProgressModal from '@/components/SyncProgressModal.vue';
+import type { AppTheme } from '@/services/theme';
+import { applyTheme, availableThemes, loadTheme, persistTheme } from '@/services/theme';
 const { syncBooks, isSyncing, lastSyncTime, syncProgress } = usePocketbaseSync();
 
 async function handleBookSync() {
@@ -301,6 +328,8 @@ const platform = Capacitor.getPlatform();
 const isWebPlatform = platform === 'web';
 const { locale, t } = useI18n({ useScope: 'global' });
 const selectedLocale = ref<string>(locale.value ?? 'de');
+const selectedTheme = ref<AppTheme>('default');
+const themeOptions = availableThemes;
 
 onMounted(async () => {
   await loadSettings();
@@ -320,6 +349,9 @@ const loadSettings = async () => {
     if (email.value) settings.value.email = email.value;
     if (autoSync.value) settings.value.autoSync = autoSync.value === 'true';
     if (syncOnlyOnWifi.value) settings.value.syncOnlyOnWifi = syncOnlyOnWifi.value === 'true';
+    const savedTheme = await loadTheme();
+    selectedTheme.value = savedTheme;
+    applyTheme(savedTheme);
   } catch (error) {
     console.error('Error loading settings:', error);
   }
@@ -455,6 +487,14 @@ const saveSettings = async () => {
   } finally {
     isSaving.value = false;
   }
+};
+
+const handleThemeChange = async (event: CustomEvent) => {
+  const nextTheme = event.detail?.value as AppTheme | undefined;
+  if (!nextTheme || !themeOptions.includes(nextTheme)) return;
+  selectedTheme.value = nextTheme;
+  applyTheme(nextTheme);
+  await persistTheme(nextTheme);
 };
 
 const changeLocale = async (eventOrValue: any) => {

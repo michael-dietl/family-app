@@ -54,6 +54,7 @@ export interface TimelineEvent {
   foreignID?: string;
   title: string;
   description?: string;
+  location?: string;
   startDate: string;
   endDate?: string | null;
   created: string;
@@ -377,6 +378,16 @@ class DatabaseService {
 
   private async migrateAndSetupTables() {
     // Gallerien Tabelle
+    const wineCategoriesTable = `
+      CREATE TABLE IF NOT EXISTS wine_categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
+        name TEXT NOT NULL,
+        description TEXT,
+        created TEXT NOT NULL,
+        updated TEXT NOT NULL
+      );
+    `;
     const galleriesTable = `
       CREATE TABLE IF NOT EXISTS galleries (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -621,6 +632,7 @@ class DatabaseService {
         description TEXT,
         startDate TEXT NOT NULL,
         endDate TEXT,
+        location TEXT,
         created TEXT NOT NULL,
         updated TEXT NOT NULL
       );
@@ -642,6 +654,7 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_timeline_event_photos_event ON timeline_event_photos(eventId);
     `;
     if (!this.db) throw new Error('Database not initialized');
+    await this.db.execute(wineCategoriesTable);
     await this.db.execute(galleriesTable);
     await this.db.execute(photosTable);
     await this.db.execute(indexes);
@@ -717,6 +730,7 @@ class DatabaseService {
     await runAlter('ALTER TABLE todo_photos ADD COLUMN updated TEXT;');
     await runAlter('ALTER TABLE timeline_events ADD COLUMN foreignID TEXT;');
     await runAlter('ALTER TABLE timeline_events ADD COLUMN updated TEXT;');
+    await runAlter('ALTER TABLE timeline_events ADD COLUMN location TEXT;');
     await runAlter('ALTER TABLE timeline_event_photos ADD COLUMN foreignID TEXT;');
     await runAlter('ALTER TABLE timeline_event_photos ADD COLUMN updated TEXT;');
   }
@@ -844,8 +858,8 @@ class DatabaseService {
     const now = new Date().toISOString();
     const updated = event.updated ?? now;
     const sql = `
-      INSERT INTO timeline_events (foreignID, title, description, startDate, endDate, created, updated)
-      VALUES (?, ?, ?, ?, ?, ?, ?);
+      INSERT INTO timeline_events (foreignID, title, description, startDate, endDate, location, created, updated)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?);
     `;
 
     const result = await this.db.run(sql, [
@@ -854,6 +868,7 @@ class DatabaseService {
       event.description || null,
       event.startDate,
       event.endDate || null,
+      event.location || null,
       now,
       updated
     ]);
