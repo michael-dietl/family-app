@@ -25,6 +25,7 @@ const router = createRouter({
     {path : '/', component: WelcomePage},
     {path : '/settings', component: SettingsPage},
     {path : '/library', component: LibraryPage},
+    {path : '/library/categories', component: () => import('@/pages/CategoryManagementPage.vue')},
     {path : '/library/book/:id', component: BookDetailPage},
     {path : '/editor-cover', component: () => import('@/pages/EditorCoverPage.vue')},
     {path : '/gallery', component: GalleryPage},

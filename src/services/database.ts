@@ -1178,6 +1178,36 @@ class DatabaseService {
     return result.changes?.lastId || 0;
   }
 
+  async updateBookCategory(id: number, updates: { name?: string; description?: string | null; updated?: string }): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+
+    if (this.useInMemory) return;
+
+    if (!this.db) throw new Error('Database not initialized');
+
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.name !== undefined) {
+      fields.push('name = ?');
+      values.push(updates.name);
+    }
+
+    if (updates.description !== undefined) {
+      fields.push('description = ?');
+      values.push(updates.description);
+    }
+
+    if (fields.length === 0) return;
+
+    fields.push('updated = ?');
+    values.push(updates.updated ?? new Date().toISOString());
+
+    values.push(id);
+    const sql = `UPDATE book_categories SET ${fields.join(', ')} WHERE id = ?;`;
+    await this.db.run(sql, values);
+  }
+
   async getBookCategories(): Promise<BookCategory[]> {
     if (!this.isInitialized) await this.initialize();
 

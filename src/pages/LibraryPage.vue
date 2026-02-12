@@ -717,6 +717,7 @@ const importGoogleBookInfo = async (bookInfo: GoogleBookInfo) => {
 
   if (!bookInfo.localCoverUri && remoteCoverUrl && isRemoteImageUrl(remoteCoverUrl)) {
     try {
+      console.log('Caching remote cover during import', { bookId, remoteCoverUrl });
       const localCoverUri = await downloadRemoteCoverImage(remoteCoverUrl, bookId);
       if (localCoverUri) {
         await db.updateBook(bookId, { coverImage: localCoverUri });
@@ -924,8 +925,10 @@ const lookupAndSaveBook = async (isbn: string) => {
       console.log('📚 Speichere Buch mit categoryId:', selectedCategoryId.value, 'bookData:', bookData);
 
       const bookId = await db.createBook(bookData);
-
+      console.log(" CoverDownload - " + !bookInfo.localCoverUri + remoteCoverUrl + isRemoteImageUrl(remoteCoverUrl));
+      
       if (!bookInfo.localCoverUri && remoteCoverUrl && isRemoteImageUrl(remoteCoverUrl)) {
+        console.log(" In CoverDownload");
         try {
           const localCoverUri = await downloadRemoteCoverImage(remoteCoverUrl, bookId);
           if (localCoverUri) {

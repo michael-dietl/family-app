@@ -223,6 +223,11 @@ const ensureLocalCoverDownloaded = async (loadedBook: Book) => {
     return true;
   }
 
+  console.log('ensureLocalCoverDownloaded: remote cover detected', {
+    bookId: loadedBook.id,
+    coverImage: loadedBook.coverImage
+  });
+
   const existingLocal = await findLocalCoverImage(loadedBook.id, [loadedBook.isbn]);
   if (existingLocal) {
     await db.updateBook(loadedBook.id, { coverImage: existingLocal });
@@ -473,6 +478,13 @@ const showMenu = async () => {
   const actionSheet = await actionSheetController.create({
     header: 'Optionen',
     buttons: [
+      {
+        text: 'Kategorie bearbeiten',
+        icon: createOutline,
+        handler: async () => {
+          await router.push('/library/categories');
+        }
+      },
       {
         text: 'Buch löschen',
         role: 'destructive',

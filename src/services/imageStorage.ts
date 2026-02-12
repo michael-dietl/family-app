@@ -9,7 +9,10 @@ const ensureHttpsScheme = (value: string): string => {
   if (trimmed.startsWith('//')) {
     return `https:${trimmed}`;
   }
-  return trimmed.replace(/^http:\/\//i, 'https://');
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
 };
 const sanitizeIdentifier = (identifier: number | string): string => {
   const value = String(identifier ?? 'cover').trim();
@@ -106,11 +109,18 @@ const saveBlobAsCover = async (blob: Blob, relativePath: string): Promise<string
 };
 
 export const downloadRemoteCoverImage = async (url: string, identifier: number | string): Promise<string | null> => {
+  console.log('downloadRemoteCoverImage called with', { url, identifier });
   const normalizedUrl = normalizeRemoteCoverUrl(url);
-  if (!normalizedUrl) return null;
+  if (!normalizedUrl) {
+    console.warn('downloadRemoteCoverImage: could not normalize URL', { url });
+    return null;
+  }
   console.log('remote cover url: ', normalizedUrl);
   const safeId = sanitizeIdentifier(identifier);
-  const relativeFilePath = buildSharedStoragePath(COVER_BASE_PATH, `${COVER_PREFIX}${safeId}_${Date.now()}.jpg`);
+  const relativeFilePath = getSharedStorageDirectory() + `/books/` + `${COVER_PREFIX}${safeId}_${Date.now()}.jpg`
+  //buildSharedStoragePath(COVER_BASE_PATH, `${COVER_PREFIX}${safeId}_${Date.now()}.jpg`);
+  console.log("Relative Path - " + relativeFilePath);
+
   try {
     await Filesystem.mkdir({
         directory: getSharedStorageDirectory(),
@@ -127,7 +137,7 @@ export const downloadRemoteCoverImage = async (url: string, identifier: number |
         const downloadResult = await Http.downloadFile({
           url: normalizedUrl,
           filePath: relativeFilePath,
-          fileDirectory: getSharedStorageDirectory()
+          fileDirectory: buildSharedStoragePath(COVER_BASE_PATH, "")
         });
 
         if (downloadResult.path) {
