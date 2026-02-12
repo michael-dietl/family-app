@@ -851,7 +851,7 @@ function drawRoute() {
   if (waypoints.value.length === 0) return;
 
   // Route-Polyline aus Positions-Wegpunkten
-  const positionWaypoints = waypoints.value.filter(wp => wp.type !== 'position');
+  const positionWaypoints = waypoints.value.filter(wp => wp.type === 'position');
   if (positionWaypoints.length > 0) {
     const latlngs = positionWaypoints.map(wp => L.latLng(wp.latitude, wp.longitude));
     routeLine = L.polyline(latlngs, {
