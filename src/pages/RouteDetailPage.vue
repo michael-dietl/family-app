@@ -142,6 +142,19 @@
                 >
                   <ion-icon slot="icon-only" :icon="cameraOutline" expand="block"/>
                 </ion-button>
+                <ion-button
+                  shape="round"
+                  fill="outline"
+                  color="secondary"
+                  class="route-action"
+                  :disabled="valhallaMatching || !hasTrackPoints"
+                  @click="sendRouteToValhalla"
+                  expand="block"
+                >
+                  <ion-spinner v-if="valhallaMatching" slot="start" name="crescent" />
+                  <ion-icon v-else slot="start" :icon="mapOutline" />
+                  Valhalla abgleichen
+                </ion-button>
               </div>
             </div>
           </div>
@@ -264,13 +277,16 @@ import {
   closeOutline,
   pauseOutline,
   playOutline,
-  stopCircleOutline
+  stopCircleOutline,
+  mapOutline
 } from 'ionicons/icons';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { db } from '@/services/database';
 import { useRouteTracking } from '@/composables/useRouteTracking';
+import { matchPositionsWithValhalla } from '@/services/valhalla';
 import { useI18n } from 'vue-i18n';
+import type { LatLonPoint } from '@/services/positionSmoothing';
 
 type RouteData = import('@/services/database').Route;
 type Waypoint = import('@/services/database').Waypoint;
@@ -339,6 +355,12 @@ const waypointEntries = computed(() => {
 
 const hasWaypointTab = computed(() => waypointEntries.value.length > 0);
 
+const valhallaTrace = ref<LatLonPoint[]>([]);
+const valhallaMatching = ref(false);
+const hasTrackPoints = computed(() =>
+  waypoints.value.filter((wp) => wp.type === 'position').length >= 3
+);
+
 watch(hasWaypointTab, (visible) => {
   if (!visible && activeTab.value === 'waypoints') {
     activeTab.value = 'info';
@@ -398,6 +420,88 @@ const recordingStatusLabel = computed(() => {
   }
   return t('auto.aufzeichnung_pausiert');
 });
+
+const sendRouteToValhalla = async () => {
+  if (valhallaMatching.value) return;
+  if (!hasTrackPoints.value) {
+    const toast = await toastController.create({
+      message: 'Valhalla benötigt mindestens drei Track-Punkte',
+      duration: 2000,
+      color: 'warning'
+    });
+    await toast.present();
+    return;
+  }
+
+  const positionWaypoints = waypoints.value.filter((wp) => wp.type === 'position');
+  const routePoints: LatLonPoint[] = positionWaypoints.map((wp) => {
+    const point: LatLonPoint = { latitude: wp.latitude, longitude: wp.longitude };
+    const parsed = Date.parse(wp.timestamp);
+    if (!isNaN(parsed)) {
+      point.timestamp = parsed;
+    }
+    return point;
+  });
+
+  if (routePoints.length < 3) {
+    const toast = await toastController.create({
+      message: 'Nicht genügend GPS-Punkte für eine Validierung',
+      duration: 2000,
+      color: 'warning'
+    });
+    await toast.present();
+    return;
+  }
+
+  valhallaMatching.value = true;
+  try {
+    const matched = await matchPositionsWithValhalla(routePoints, {
+      id: routeId ? routeId.toString() : undefined
+    });
+    if (!hasSignificantDifference(routePoints, matched)) {
+      const toast = await toastController.create({
+        message: 'Valhalla hat keine abweichende Route zurückgeliefert',
+        duration: 2000,
+        color: 'warning'
+      });
+      await toast.present();
+      valhallaTrace.value = [];
+      return;
+    }
+    valhallaTrace.value = matched;
+    const toast = await toastController.create({
+      message: 'Valhalla-Route geladen',
+      duration: 2000,
+      color: 'success'
+    });
+    await toast.present();
+  } catch (error) {
+    console.error('Valhalla request failed', error);
+    valhallaTrace.value = [];
+    const toast = await toastController.create({
+      message: 'Fehler beim Übertragen an Valhalla',
+      duration: 2000,
+      color: 'danger'
+    });
+    await toast.present();
+  } finally {
+    valhallaMatching.value = false;
+  }
+};
+
+function hasSignificantDifference(original: LatLonPoint[], matched: LatLonPoint[]): boolean {
+  if (matched.length < 3) return false;
+  if (matched.length !== original.length) return true;
+  const threshold = 1e-5;
+  for (let i = 0; i < matched.length; i++) {
+    const dx = Math.abs(matched[i].latitude - original[i].latitude);
+    const dy = Math.abs(matched[i].longitude - original[i].longitude);
+    if (dx > threshold || dy > threshold) {
+      return true;
+    }
+  }
+  return false;
+}
 // entfernt, da nicht genutzt
 
 const getDefaultWaypointLabel = (type: Waypoint['type']) => {
@@ -715,6 +819,10 @@ watch(matchedPath, () => {
   drawRoute();
 }, { deep: true });
 
+watch(valhallaTrace, () => {
+  drawRoute();
+}, { deep: true });
+
 onUnmounted(() => {
   if (matchedLine && map) {
     map.removeLayer(matchedLine);
@@ -793,6 +901,7 @@ const loadData = async () => {
     // Robust: isRecording immer Boolean
     route.isRecording = !!route.isRecording;
     routeData.value = route;
+    valhallaTrace.value = [];
     waypoints.value = await db.getWaypointsByRoute(routeId);
     waypointPhotoCache.value = {};
     await preloadWaypointPhotos(waypoints.value);
@@ -850,25 +959,26 @@ function drawRoute() {
 
   if (waypoints.value.length === 0) return;
 
-  // Route-Polyline aus Positions-Wegpunkten
-  const positionWaypoints = waypoints.value.filter(wp => wp.type === 'position');
-  if (positionWaypoints.length > 0) {
-    const latlngs = positionWaypoints.map(wp => L.latLng(wp.latitude, wp.longitude));
-    routeLine = L.polyline(latlngs, {
-      color: '#3880ff',
-      weight: 4,
-      opacity: 0.7
-    }).addTo(map);
-    map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
-    if (matchedPath.value.length > 1) {
-      const matchedLatLngs = matchedPath.value.map(p => L.latLng(p.latitude, p.longitude));
-      matchedLine = L.polyline(matchedLatLngs, {
-        color: '#eb445a',
-        weight: 3,
-        opacity: 0.9,
-        dashArray: '6 6'
+    // Route-Polyline aus Positions-Wegpunkten
+    const positionWaypoints = waypoints.value.filter(wp => wp.type === 'position');
+    if (positionWaypoints.length > 0) {
+      const latlngs = positionWaypoints.map(wp => L.latLng(wp.latitude, wp.longitude));
+      routeLine = L.polyline(latlngs, {
+        color: '#3880ff',
+        weight: 4,
+        opacity: 0.7
       }).addTo(map);
-    }
+      map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+      const matchShape = valhallaTrace.value.length > 1 ? valhallaTrace.value : matchedPath.value;
+      if (matchShape.length > 1) {
+        const matchedLatLngs = matchShape.map(p => L.latLng(p.latitude, p.longitude));
+        matchedLine = L.polyline(matchedLatLngs, {
+          color: '#22c55e',
+          weight: 3,
+          opacity: 0.9,
+          dashArray: '6 6'
+        }).addTo(map);
+      }
   } else {
     // Kein Track: Karte auf ersten manuellen Wegpunkt zentrieren
     const manual = waypoints.value.find(wp => wp.type === 'manual');

@@ -395,6 +395,10 @@ export default {
     "erstelle_deine_erste_einkaufsliste": "Erstelle deine erste Einkaufsliste",
     "liste_erstellen": "Liste erstellen",
     "neue_liste": "Neue Liste",
+    "listenname": "Listenname",
+    "z-b-projekt-x": "z.B. Projekt X",
+    "liste-loeschen": "Liste löschen?",
+    "alle-aufgaben-dieser-liste-werden-ebenfa": "Alle Aufgaben dieser Liste werden ebenfalls gelöscht.",
     "liste_löschen": "Liste löschen?",
     "alle_einträge_dieser_liste_werden_ebenfalls_gelöscht": "Alle Einträge dieser Liste werden ebenfalls gelöscht.",
     "keine_aufgaben_in_der_liste": "Keine Aufgaben in der Liste",
@@ -403,6 +407,7 @@ export default {
     "fotos_hinzufuegen": "Fotos hinzufügen",
     "keine_todo_listen": "Keine ToDo-Listen",
     "erstelle_deine_erste_aufgabenliste": "Erstelle deine erste Aufgabenliste",
+    "faelligkeitsdatum": "Fälligkeitsdatum",
     "alle_aufgaben_dieser_liste_werden_ebenfalls_gelöscht": "Alle Aufgaben dieser Liste werden ebenfalls gelöscht.",
     "video_bearbeiten": "Video bearbeiten",
     "lade_video": "Lade Video...",
@@ -576,5 +581,8 @@ export default {
     "auto.timeline_events": "Ereignisse",
     "auto.timeline_date": "Datum",
     "auto.timeline_photos": "Fotos",
-    "gallery.add_header": "Foto hinzufügen"
+    "gallery.add_header": "Foto hinzufügen",
+    "gallery.take_photo": "Foto aufnehmen",
+    "gallery.select_photo": "Ein Foto auswählen",
+    "gallery.select_multiple_photos": "Mehrere Fotos auswählen"
   }};

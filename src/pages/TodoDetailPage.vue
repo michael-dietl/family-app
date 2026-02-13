@@ -44,7 +44,7 @@
               </ion-item>
               <ion-item lines="none" class="due-date-item">
                 <ion-label>
-                  <span class="date-label">{{ $t('faelligkeitsdatum') }}</span>
+                  <span class="date-label">{{ $t('auto.faelligkeitsdatum') }}</span>
                   <span class="date-value">{{ dueDateLabel }}</span>
                 </ion-label>
                 <ion-datetime
@@ -64,6 +64,16 @@
                   {{ $t('auto.foto_machen') }}
                 </ion-button>
               </div>
+              <div class="save-task-row">
+                <ion-button
+                  expand="block"
+                  color="primary"
+                  :disabled="!newItemTitle.trim()"
+                  @click="handleAddItem"
+                >
+                  {{ $t('auto.speichern') }}
+                </ion-button>
+              </div>
             </ion-card-content>
           </ion-card>
         </section>
@@ -72,7 +82,7 @@
           <div v-for="(p, idx) in tempPhotos" :key="idx" class="thumb">
             <img :src="getImageSrc(p.path || p.data)" />
             <ion-button fill="clear" color="danger" @click="removeTempPhoto(idx)">
-              {{ $t('key') }}
+              {{ $t('entfernen') }}
             </ion-button>
           </div>
         </div>
@@ -398,6 +408,10 @@ const getImageSrc = (path: string | null | undefined) => {
   justify-content: flex-end;
   gap: 0.5rem;
   padding-top: 0.5rem;
+}
+
+.save-task-row {
+  margin-top: 0.75rem;
 }
 
 .photo-preview-grid {

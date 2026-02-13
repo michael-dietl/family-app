@@ -6,7 +6,8 @@ export interface ValhallaMatchOptions {
   maxPoints?: number;
 }
 
-const BASE_URL = (import.meta.env.VITE_VALHALLA_BASE_URL || '').replace(/\/$/, '');
+//const BASE_URL = (import.meta.env.VITE_VALHALLA_BASE_URL || '').replace(/\/$/, '');
+const BASE_URL = ('http://192.168.1.108:8002');
 const DEFAULT_MAX_POINTS = 400;
 
 type CoordinateOrder = 'latlon' | 'lonlat';
