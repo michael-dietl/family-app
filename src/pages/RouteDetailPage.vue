@@ -425,7 +425,7 @@ const sendRouteToValhalla = async () => {
   if (valhallaMatching.value) return;
   if (!hasTrackPoints.value) {
     const toast = await toastController.create({
-      message: 'Valhalla benötigt mindestens drei Track-Punkte',
+      message: t('auto.valhalla_minimum_points'),
       duration: 2000,
       color: 'warning'
     });
@@ -443,12 +443,12 @@ const sendRouteToValhalla = async () => {
     return point;
   });
 
-  if (routePoints.length < 3) {
-    const toast = await toastController.create({
-      message: 'Nicht genügend GPS-Punkte für eine Validierung',
-      duration: 2000,
-      color: 'warning'
-    });
+    if (routePoints.length < 3) {
+      const toast = await toastController.create({
+        message: t('auto.valhalla_not_enough_points'),
+        duration: 2000,
+        color: 'warning'
+      });
     await toast.present();
     return;
   }
@@ -458,23 +458,26 @@ const sendRouteToValhalla = async () => {
     const matched = await matchPositionsWithValhalla(routePoints, {
       id: routeId ? routeId.toString() : undefined
     });
-    if (!hasSignificantDifference(routePoints, matched)) {
+      if (matched.length < 3) {
+        const toast = await toastController.create({
+          message: t('auto.valhalla_no_shape'),
+          duration: 2000,
+          color: 'warning'
+        });
+        await toast.present();
+        valhallaTrace.value = [];
+        return;
+      }
+      valhallaTrace.value = matched;
+      const routeMessage = hasSignificantDifference(routePoints, matched)
+        ? t('auto.valhalla_route_loaded')
+        : t('auto.valhalla_route_confirmed');
       const toast = await toastController.create({
-        message: 'Valhalla hat keine abweichende Route zurückgeliefert',
+        message: routeMessage,
         duration: 2000,
-        color: 'warning'
+        color: 'success'
       });
       await toast.present();
-      valhallaTrace.value = [];
-      return;
-    }
-    valhallaTrace.value = matched;
-    const toast = await toastController.create({
-      message: 'Valhalla-Route geladen',
-      duration: 2000,
-      color: 'success'
-    });
-    await toast.present();
   } catch (error) {
     console.error('Valhalla request failed', error);
     valhallaTrace.value = [];

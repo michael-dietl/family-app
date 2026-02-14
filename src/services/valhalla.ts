@@ -1,15 +1,52 @@
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
 import type { LatLonPoint } from '@/services/positionSmoothing';
 
 export interface ValhallaMatchOptions {
   costing?: string;
   id?: string;
   maxPoints?: number;
+  gpsAccuracy?: number;
+  searchRadius?: number;
+  shapeMatch?: string;
 }
-
-//const BASE_URL = (import.meta.env.VITE_VALHALLA_BASE_URL || '').replace(/\/$/, '');
-const BASE_URL = ('http://192.168.1.108:8002');
+const FALLBACK_BASE_URL = (import.meta.env.VITE_VALHALLA_BASE_URL || 'http://192.168.1.108:8002').replace(/\/$/, '');
 const DEFAULT_MAX_POINTS = 400;
+const DEFAULT_GPS_ACCURACY = 20;
+const DEFAULT_SEARCH_RADIUS = 15;
+const DEFAULT_SHAPE_MATCH = 'walk_or_snap';
+const VALHALLA_URL_KEY = 'valhalla_url';
+let cachedBaseUrl: string | null | undefined;
 
+const normalizeUrl = (value: string) => value.trim().replace(/\/$/, '');
+
+const loadConfiguredBaseUrl = async () => {
+  if (cachedBaseUrl !== undefined) {
+    return cachedBaseUrl;
+  }
+
+  const stored = await Preferences.get({ key: VALHALLA_URL_KEY });
+  if (stored.value) {
+    cachedBaseUrl = normalizeUrl(stored.value);
+    return cachedBaseUrl;
+  }
+
+  cachedBaseUrl = FALLBACK_BASE_URL || null;
+  return cachedBaseUrl;
+};
+
+export const setValhallaBaseUrl = async (value: string | null) => {
+  if (!value) {
+    await Preferences.remove({ key: VALHALLA_URL_KEY });
+    cachedBaseUrl = FALLBACK_BASE_URL || null;
+    return cachedBaseUrl;
+  }
+
+  const normalized = normalizeUrl(value);
+  await Preferences.set({ key: VALHALLA_URL_KEY, value: normalized });
+  cachedBaseUrl = normalized;
+  return cachedBaseUrl;
+};
 type CoordinateOrder = 'latlon' | 'lonlat';
 
 const withinRange = (value: number, minimum: number, maximum: number, padding: number) =>
@@ -63,11 +100,25 @@ const mapShapeEntry = (coord: number[], order: CoordinateOrder): { latitude: num
     : { latitude: second, longitude: first };
 };
 
+const stringifyForLog = (value: unknown) => {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    console.warn('VALHALLA_LOG_SERIALIZATION_FAILED', error);
+    return String(value);
+  }
+};
+
+const logValhallaResponse = (value: unknown) => {
+  console.info('VALHALLA_RESPONSE', stringifyForLog(value));
+};
+
 export async function matchPositionsWithValhalla(
   allPoints: LatLonPoint[],
   options: ValhallaMatchOptions = {}
 ): Promise<LatLonPoint[]> {
-  if (!BASE_URL || allPoints.length < 3) {
+  const baseUrl = await loadConfiguredBaseUrl();
+  if (!baseUrl || allPoints.length < 3) {
     return allPoints;
   }
 
@@ -75,25 +126,64 @@ export async function matchPositionsWithValhalla(
   const points = allPoints.slice(-maxPoints);
   const payload = {
     costing: options.costing ?? 'auto',
-    shape: points.map((point) => [point.longitude, point.latitude]),
+    shape: points.map((point) => ({
+      lat: point.latitude,
+      lon: point.longitude,
+      accuracy: options.gpsAccuracy ?? DEFAULT_GPS_ACCURACY,
+      radius: options.searchRadius ?? DEFAULT_SEARCH_RADIUS
+    })),
     shape_format: 'json',
+    gps_accuracy: options.gpsAccuracy ?? DEFAULT_GPS_ACCURACY,
+    search_radius: options.searchRadius ?? DEFAULT_SEARCH_RADIUS,
+    shape_match: options.shapeMatch ?? DEFAULT_SHAPE_MATCH,
     id: options.id
   };
+  console.info('VALHALLA REQUEST', stringifyForLog(payload));
 
   try {
-    const response = await fetch(`${BASE_URL}/match`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      throw new Error(`Valhalla responded with ${response.status}`);
+    const apiUrl = `${baseUrl}/trace_route`;
+    let data: unknown;
+    if (Capacitor.getPlatform() !== 'web' && CapacitorHttp) {
+      const response = await CapacitorHttp.request({
+        method: 'POST',
+        url: apiUrl,
+        headers: { 'Content-Type': 'application/json' },
+        data: payload
+      });
+      logValhallaResponse(response.data);
+      if (response.status && response.status >= 400) {
+        throw new Error(`Valhalla responded with ${response.status}`);
+      }
+      data = response.data;
+    } else {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      const responseBody = await response.text();
+      logValhallaResponse(responseBody);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(responseBody);
+      } catch {
+        parsed = responseBody;
+      }
+      if (!response.ok) {
+        throw new Error(`Valhalla responded with ${response.status}`);
+      }
+      data = parsed;
     }
 
-    const result = await response.json();
+    const result = data as {
+      trip?: {
+        legs?: Array<{
+          shape?: number[][];
+        }>;
+      };
+    } | null;
     const leg = result?.trip?.legs?.[0];
     if (!leg || !Array.isArray(leg.shape)) {
       return points;

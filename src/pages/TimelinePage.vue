@@ -193,17 +193,17 @@
                   <ion-card-title>{{ $t('auto.timeline_create_event') }}</ion-card-title>
                 </ion-card-header>
                 <ion-card-content>
-                  <ion-input
-                    v-model="manualTitle"
-                    placeholder="$t('auto.timeline_manual_events')"
-                    @keyup.enter="handleSaveManualEvent"
-                  />
-                  <ion-textarea
-                    v-model="manualDescription"
-                    placeholder="$t('auto.timeline_attach_photos')"
-                    :rows="2"
-                    auto-grow
-                  />
+                    <ion-input
+                      v-model="manualTitle"
+                      :placeholder="$t('auto.timeline_manual_events')"
+                      @keyup.enter="handleSaveManualEvent"
+                    />
+                    <ion-textarea
+                      v-model="manualDescription"
+                      :placeholder="$t('auto.timeline_attach_photos')"
+                      :rows="2"
+                      auto-grow
+                    />
                   <ion-input
                     v-model="manualLocation"
                     :placeholder="$t('auto.timeline_location')"
@@ -339,9 +339,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+import { onIonViewDidEnter } from '@ionic/vue';
 import { db, type Route, type TimelineEventPhoto } from '@/services/database';
 import { Capacitor } from '@capacitor/core';
 import { useGallery } from '@/composables/useGallery';
@@ -853,11 +854,20 @@ const scrollToToday = () => {
   });
 };
 
-onMounted(async () => {
+const refreshTimelineData = async () => {
   isTimelineLoading.value = true;
-  await Promise.all([loadGalleries(), loadEvents(), loadRoutes()]);
-  isTimelineLoading.value = false;
-  scrollToToday();
+  try {
+    await Promise.all([loadGalleries(), loadEvents(), loadRoutes()]);
+    scrollToToday();
+  } catch (error) {
+    console.error('Failed to refresh timeline data', error);
+  } finally {
+    isTimelineLoading.value = false;
+  }
+};
+
+onIonViewDidEnter(async () => {
+  await refreshTimelineData();
 });
 
 watch([timelineBounds], scrollToToday, { immediate: true });

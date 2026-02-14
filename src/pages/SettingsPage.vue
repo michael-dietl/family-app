@@ -158,6 +158,58 @@
           </ion-card>
         </div>
 
+        <div class="settings-section">
+          <h2>{{ $t('auto.valhalla_backend') }}</h2>
+          <p class="section-description">
+            {{ $t('auto.konfiguriere_die_verbindung_zu_deiner_valhalla_instanz') }}
+          </p>
+
+          <ion-list>
+            <ion-item>
+              <ion-label position="stacked">
+                <strong>{{ $t('auto.valhalla_url') }}</strong>
+                <p>{{ $t('auto.z_b_http_valhalla') }}</p>
+              </ion-label>
+              <ion-input
+                v-model="settings.valhallaUrl"
+                type="url"
+                placeholder="http://192.168.1.108:8002"
+                clear-input
+                @ionBlur="validateValhallaUrl"
+              />
+            </ion-item>
+            <ion-item v-if="valhallaUrlError">
+              <ion-label color="danger">
+                <p>{{ valhallaUrlError }}</p>
+              </ion-label>
+            </ion-item>
+          </ion-list>
+
+          <div class="button-group ion-margin-top">
+            <ion-button
+              expand="block"
+              @click="testValhallaConnection"
+              :disabled="!settings.valhallaUrl || isValhallaTesting"
+            >
+              <ion-spinner v-if="isValhallaTesting" />
+              <ion-icon v-else :icon="flash" />
+              {{ $t('auto.verbindung_testen') }}
+            </ion-button>
+          </div>
+
+          <ion-card v-if="valhallaStatus" :color="valhallaStatus.color" class="status-card">
+            <ion-card-content>
+              <div class="status-content">
+                <ion-icon :icon="valhallaStatus.icon" size="large" />
+                <div>
+                  <strong>{{ valhallaStatus.title }}</strong>
+                  <p>{{ valhallaStatus.message }}</p>
+                </div>
+              </div>
+            </ion-card-content>
+          </ion-card>
+        </div>
+
         <!-- Storage Settings -->
         <div class="settings-section">
           <h2>{{ $t('auto.speicher') }}</h2>
@@ -255,10 +307,17 @@ import { useI18n } from 'vue-i18n';
 import i18n from '@/i18n/i18n';
 import PocketBase from 'pocketbase';
 import { pocketbase } from '@/services/pocketbase';
+import { setValhallaBaseUrl } from '@/services/valhalla';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 import SyncProgressModal from '@/components/SyncProgressModal.vue';
 import type { AppTheme } from '@/services/theme';
 import { applyTheme, availableThemes, loadTheme, persistTheme } from '@/services/theme';
+type StatusCard = {
+  title: string;
+  message: string;
+  color: string;
+  icon: string;
+};
 const { syncBooks, isSyncing, lastSyncTime, syncProgress } = usePocketbaseSync();
 
 async function handleBookSync() {
@@ -310,19 +369,19 @@ const settings = ref({
   email: '',
   password: '',
   autoSync: false,
-  syncOnlyOnWifi: false
+  syncOnlyOnWifi: false,
+  valhallaUrl: ''
 });
 
 const urlError = ref('');
 const isTesting = ref(false);
 const isSaving = ref(false);
 const isAuthenticating = ref(false);
-const connectionStatus = ref<{
-  title: string;
-  message: string;
-  color: string;
-  icon: string;
-} | null>(null);
+const connectionStatus = ref<StatusCard | null>(null);
+
+const valhallaStatus = ref<StatusCard | null>(null);
+const isValhallaTesting = ref(false);
+const valhallaUrlError = ref('');
 
 const platform = Capacitor.getPlatform();
 const isWebPlatform = platform === 'web';
@@ -338,17 +397,19 @@ onMounted(async () => {
 
 const loadSettings = async () => {
   try {
-    const [url, email, autoSync, syncOnlyOnWifi] = await Promise.all([
+    const [url, email, autoSync, syncOnlyOnWifi, valhallaUrl] = await Promise.all([
         Preferences.get({ key: 'pocketbase_url' }),
         Preferences.get({ key: 'pocketbase_email' }),
         Preferences.get({ key: 'auto_sync' }),
-        Preferences.get({ key: 'sync_only_on_wifi' })
+        Preferences.get({ key: 'sync_only_on_wifi' }),
+        Preferences.get({ key: 'valhalla_url' })
       ]);
 
     if (url.value) settings.value.pocketbaseUrl = url.value;
     if (email.value) settings.value.email = email.value;
     if (autoSync.value) settings.value.autoSync = autoSync.value === 'true';
     if (syncOnlyOnWifi.value) settings.value.syncOnlyOnWifi = syncOnlyOnWifi.value === 'true';
+    if (valhallaUrl.value) settings.value.valhallaUrl = valhallaUrl.value;
     const savedTheme = await loadTheme();
     selectedTheme.value = savedTheme;
     applyTheme(savedTheme);
@@ -369,6 +430,62 @@ const validateUrl = () => {
     }
   } catch (error) {
     urlError.value = 'Ungültige URL';
+  }
+};
+
+const sanitizeBaseUrl = (value: string) => value.trim().replace(/\/$/, '');
+
+const validateValhallaUrl = () => {
+  valhallaUrlError.value = '';
+  const value = settings.value.valhallaUrl?.trim();
+  if (!value) return true;
+
+  try {
+    const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      valhallaUrlError.value = 'URL muss mit http:// oder https:// beginnen';
+      return false;
+    }
+  } catch (error) {
+    valhallaUrlError.value = 'Ungültige URL';
+    return false;
+  }
+
+  return true;
+};
+
+const buildValhallaHealthUrl = (value: string) => {
+  const normalized = sanitizeBaseUrl(value);
+  return `${normalized}/health`;
+};
+
+const testValhallaConnection = async () => {
+  if (!settings.value.valhallaUrl) return;
+  if (!validateValhallaUrl()) return;
+
+  isValhallaTesting.value = true;
+  valhallaStatus.value = null;
+  try {
+    const response = await fetch(buildValhallaHealthUrl(settings.value.valhallaUrl));
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const data = await response.json().catch(() => null);
+    valhallaStatus.value = {
+      title: t('auto.verbindung_erfolgreich'),
+      message: data?.status ? `Status: ${data.status}` : `Server ist erreichbar (Code: ${response.status})`,
+      color: 'success',
+      icon: checkmarkCircle
+    };
+  } catch (error) {
+    valhallaStatus.value = {
+      title: t('auto.verbindung_fehlgeschlagen'),
+      message: error instanceof Error ? error.message : 'Server nicht erreichbar',
+      color: 'danger',
+      icon: closeCircle
+    };
+  } finally {
+    isValhallaTesting.value = false;
   }
 };
 
@@ -453,6 +570,7 @@ const authenticateUser = async () => {
 const saveSettings = async () => {
   validateUrl();
   if (urlError.value) return;
+  const valhallaUrlValid = validateValhallaUrl();
 
   isSaving.value = true;
 
@@ -462,7 +580,10 @@ const saveSettings = async () => {
       Preferences.set({ key: 'pocketbase_email', value: settings.value.email }),
       Preferences.set({ key: 'pocketbase_password', value: settings.value.password }),
       Preferences.set({ key: 'auto_sync', value: settings.value.autoSync.toString() }),
-      Preferences.set({ key: 'sync_only_on_wifi', value: settings.value.syncOnlyOnWifi.toString() })
+      Preferences.set({ key: 'sync_only_on_wifi', value: settings.value.syncOnlyOnWifi.toString() }),
+      valhallaUrlValid
+        ? setValhallaBaseUrl(settings.value.valhallaUrl ? sanitizeBaseUrl(settings.value.valhallaUrl) : null)
+        : Promise.resolve(null)
     ]);
 
     const toast = await toastController.create({

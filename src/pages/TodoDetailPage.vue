@@ -107,6 +107,10 @@
             <div class="todo-item-content">
               <h3 class="todo-title">{{ item.title }}</h3>
               <p v-if="item.description" class="todo-description">{{ item.description }}</p>
+               <ion-datetime-button datetime="duedate"></ion-datetime-button>
+              <ion-datetime id="duedate" v-model="item.dueDate" presentation="date-time" hidden>
+
+              </ion-datetime>
               <div class="todo-meta">
                 <span v-if="!item.completed && item.dueDate">
                   {{ $t('auto.faelligkeitsdatum') }}: {{ formatSimpleDate(item.dueDate) }}
