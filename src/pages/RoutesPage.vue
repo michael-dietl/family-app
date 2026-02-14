@@ -61,6 +61,13 @@
                 <p v-if="route.description" class="route-description">
                   {{ route.description }}
                 </p>
+                <div class="route-mode-chip">
+                  <ion-icon
+                    :icon="getRouteModeIcon(route.travelMode)"
+                    :color="getRouteModeColor(route.travelMode)"
+                  />
+                  <span>{{ getRouteModeLabel(route.travelMode) }}</span>
+                </div>
               </div>
               <ion-badge v-if="route.isRecording" color="danger" class="route-badge">
                 {{ $t('auto.aufzeichnung_läuft') }}
@@ -90,6 +97,48 @@
         </ion-list>
       </div>
     </ion-content>
+      <ion-modal
+        class="start-route-modal"
+        :is-open="startRouteModalOpen"
+        @didDismiss="cancelStartRoute"
+        :backdropDismiss="true"
+      >
+        <ion-header translucent>
+          <ion-toolbar>
+            <ion-title>{{ $t('auto.aufzeichnung_starten') }}</ion-title>
+          </ion-toolbar>
+        </ion-header>
+        <ion-content class="ion-padding">
+          <p class="modal-description">
+            {{ $t('auto.möchtest_du_eine_neue_routenaufzeichnung_starten') }}
+          </p>
+          <ion-item>
+            <ion-label position="stacked">{{ $t('auto.name') }}</ion-label>
+            <ion-input v-model="newRouteName" autofocus />
+          </ion-item>
+          <p class="modal-label">Fahrmodus</p>
+          <ion-radio-group v-model="newRouteMode">
+            <ion-item button :detail="false" lines="none">
+              <ion-icon slot="start" :icon="carOutline" />
+              <ion-label>Auto</ion-label>
+              <ion-radio slot="end" value="car" />
+            </ion-item>
+            <ion-item button :detail="false" lines="none">
+              <ion-icon slot="start" :icon="walkOutline" />
+              <ion-label>Fußgänger</ion-label>
+              <ion-radio slot="end" value="pedestrian" />
+            </ion-item>
+          </ion-radio-group>
+          <div class="modal-actions">
+            <ion-button expand="block" fill="outline" color="medium" @click="cancelStartRoute">
+              {{ $t('buttons.cancel') }}
+            </ion-button>
+            <ion-button expand="block" color="primary" :disabled="!newRouteName.trim()" @click="confirmStartRoute">
+              {{ $t('auto.route_aufzeichnen') }}
+            </ion-button>
+          </div>
+        </ion-content>
+      </ion-modal>
   </ion-page>
 </template>
 
@@ -113,6 +162,12 @@ import {
   IonCardHeader,
   IonCardContent,
   IonCardTitle,
+  IonModal,
+  IonInput,
+  IonItem,
+  IonLabel,
+  IonRadioGroup,
+  IonRadio,
   alertController,
   toastController,
   onIonViewWillEnter
@@ -122,6 +177,8 @@ import {
   mapOutline,
   radioButtonOnOutline,
   arrowBackOutline,
+  carOutline,
+  walkOutline,
   pencilOutline,
   trashOutline
 } from 'ionicons/icons';
@@ -131,6 +188,9 @@ const router = useRouter();
 const { t } = useI18n();
 const routes = ref<Route[]>([]);
 const isLoading = ref(true);
+const startRouteModalOpen = ref(false);
+const newRouteName = ref('');
+const newRouteMode = ref<Route['travelMode']>('car');
 
 onMounted(async () => {
   await loadRoutes();
@@ -152,39 +212,41 @@ const loadRoutes = async () => {
   }
 };
 
-const startNewRoute = async () => {
-  const alert = await alertController.create({
-    header: 'Neue Route',
-    message: 'Möchtest du eine neue Routenaufzeichnung starten?',
-    inputs: [
-      {
-        name: 'name',
-        type: 'text',
-        placeholder: 'Routenname',
-        value: `Route ${new Date().toLocaleDateString()}`
-      }
-    ],
-    buttons: [
-      {
-        text: 'Abbrechen',
-        role: 'cancel'
-      },
-      {
-        text: 'Starten',
-        handler: async (data) => {
-          if (data.name) {
-            const routeId = await db.createRoute({
-              name: data.name,
-              startTime: new Date().toISOString(),
-              isRecording: true
-            });
-            router.push(`/routes/${routeId}/record`);
-          }
-        }
-      }
-    ]
-  });
-  await alert.present();
+const prepareStartRouteForm = () => {
+  newRouteName.value = `Route ${new Date().toLocaleDateString()}`;
+  newRouteMode.value = 'car';
+};
+
+const startNewRoute = () => {
+  prepareStartRouteForm();
+  startRouteModalOpen.value = true;
+};
+
+const cancelStartRoute = () => {
+  startRouteModalOpen.value = false;
+};
+
+const confirmStartRoute = async () => {
+  const name = newRouteName.value?.trim();
+  if (!name) return;
+  try {
+    const routeId = await db.createRoute({
+      name,
+      startTime: new Date().toISOString(),
+      isRecording: true,
+      travelMode: newRouteMode.value
+    });
+    startRouteModalOpen.value = false;
+    router.push(`/routes/${routeId}/record`);
+  } catch (error) {
+    console.error('Error starting route:', error);
+    const toast = await toastController.create({
+      message: t('auto.fehler_beim_starten_der_aufzeichnung'),
+      duration: 2000,
+      color: 'danger'
+    });
+    await toast.present();
+  }
 };
 
 const openRoute = (routeId: number) => {
@@ -206,6 +268,20 @@ const editRoute = async (route: Route) => {
         type: 'textarea',
         placeholder: t('auto.beschreibung'),
         value: route.description || ''
+      },
+      {
+        name: 'travelMode',
+        type: 'radio',
+        label: '🚗 Auto',
+        value: 'car',
+        checked: route.travelMode !== 'pedestrian'
+      },
+      {
+        name: 'travelMode',
+        type: 'radio',
+        label: '🚶 Fußgänger',
+        value: 'pedestrian',
+        checked: route.travelMode === 'pedestrian'
       }
     ],
     buttons: [
@@ -222,7 +298,8 @@ const editRoute = async (route: Route) => {
 
           const updates: Partial<Route> = {
             name: data.name.trim(),
-            description: data.description?.trim() ? data.description.trim() : null
+            description: data.description?.trim() ? data.description.trim() : null,
+            travelMode: (data.travelMode || 'car') as Route['travelMode']
           };
 
           await db.updateRoute(route.id!, updates);
@@ -278,6 +355,15 @@ const formatDistance = (meters: number): string => {
   }
   return `${(meters / 1000).toFixed(2)} km`;
 };
+
+const getRouteModeIcon = (mode: Route['travelMode'] | undefined) =>
+  mode === 'pedestrian' ? walkOutline : carOutline;
+
+const getRouteModeLabel = (mode: Route['travelMode'] | undefined) =>
+  mode === 'pedestrian' ? 'Fußgänger' : 'Auto';
+
+const getRouteModeColor = (mode: Route['travelMode'] | undefined) =>
+  mode === 'pedestrian' ? 'medium' : 'primary';
 
 const formatDuration = (seconds: number): string => {
   const hours = Math.floor(seconds / 3600);
@@ -383,6 +469,19 @@ const formatDate = (dateString: string): string => {
   margin-top: 0.15rem;
 }
 
+.route-mode-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--ion-color-medium);
+  margin-top: 0.25rem;
+}
+
+.route-mode-chip ion-icon {
+  font-size: 1.1rem;
+}
+
 .route-badge {
   margin-left: auto;
 }
@@ -410,5 +509,35 @@ const formatDate = (dateString: string): string => {
   justify-content: flex-end;
   gap: 0.75rem;
   padding: 0 1.25rem 1rem;
+}
+
+.start-route-modal .modal-description {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--ion-color-medium);
+}
+
+.start-route-modal ion-item {
+  border-radius: 14px;
+  margin-bottom: 0.75rem;
+}
+
+.start-route-modal .modal-label {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--ion-color-medium);
+}
+
+.start-route-modal ion-radio-group ion-item {
+  border-radius: 12px;
+  margin-bottom: 0.5rem;
+}
+
+.modal-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 </style>

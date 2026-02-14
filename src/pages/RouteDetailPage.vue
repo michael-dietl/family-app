@@ -71,9 +71,17 @@
 
             <!-- Meta-Infos -->
             <div class="info-meta">
-              <p><strong>{{$t('auto.start')}}</strong> {{ routeData?.startTime ? formatDateTime(routeData.startTime) : '-' }}</p>
-              <p v-if="routeData?.endTime"><strong>{{$t('auto.ende')}}</strong> {{ formatDateTime(routeData.endTime) }}</p>
-              <p><strong>{{$t('auto.status')}}</strong> <span :style="{color: routeData?.isRecording ? '#3880ff' : '#eb445a'}">{{ routeData?.isRecording ? $t('auto.aufzeichnung_läuft') : $t('auto.beendet_status') }}</span></p>
+              <p class="meta-row"><strong>{{$t('auto.start')}}</strong> {{ routeData?.startTime ? formatDateTime(routeData.startTime) : '-' }}</p>
+              <p v-if="routeData?.endTime" class="meta-row"><strong>{{$t('auto.ende')}}</strong> {{ formatDateTime(routeData.endTime) }}</p>
+              <div class="status-row">
+                <p class="status-text"><strong>{{$t('auto.status')}}</strong>
+                  <span :style="{color: routeData?.isRecording ? '#3880ff' : '#eb445a'}">{{ routeData?.isRecording ? $t('auto.aufzeichnung_läuft') : $t('auto.beendet_status') }}</span>
+                </p>
+                <div class="status-mode-chip">
+                  <ion-icon :icon="routeModeIcon" :color="routeModeColor" />
+                  <span>{{ routeModeLabel }}</span>
+                </div>
+              </div>
             </div>
 
             <!-- Aufzeichnungs-Controls -->
@@ -278,7 +286,9 @@ import {
   pauseOutline,
   playOutline,
   stopCircleOutline,
-  mapOutline
+  mapOutline,
+  carOutline,
+  walkOutline
 } from 'ionicons/icons';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -300,6 +310,20 @@ const routeData = ref<RouteData | null>(null);
 const isLoading = ref(true);
 const waypoints = ref<Waypoint[]>([]);
 const { t } = useI18n();
+const hasLoadedOnce = ref(false);
+
+const routeMode = computed(() =>
+  routeData.value?.travelMode === 'pedestrian' ? 'pedestrian' : 'car'
+);
+const routeModeIcon = computed(() =>
+  routeMode.value === 'pedestrian' ? walkOutline : carOutline
+);
+const routeModeColor = computed(() =>
+  routeMode.value === 'pedestrian' ? 'medium' : 'primary'
+);
+const routeModeLabel = computed(() =>
+  routeMode.value === 'pedestrian' ? 'Fußgänger' : 'Auto'
+);
 
 let map: L.Map | null = null;
 let routeLine: L.Polyline | null = null;
@@ -455,8 +479,10 @@ const sendRouteToValhalla = async () => {
 
   valhallaMatching.value = true;
   try {
+    const costing = routeData.value?.travelMode === 'pedestrian' ? 'pedestrian' : 'auto';
     const matched = await matchPositionsWithValhalla(routePoints, {
-      id: routeId ? routeId.toString() : undefined
+      id: routeId ? routeId.toString() : undefined,
+      costing
     });
       if (matched.length < 3) {
         const toast = await toastController.create({
@@ -889,7 +915,9 @@ watch(() => routeData.value?.isRecording, (isRec) => {
 
 const loadData = async () => {
   try {
-    isLoading.value = true;
+    if (!hasLoadedOnce.value) {
+      isLoading.value = true;
+    }
     const route = await db.getRoute(routeId);
     if (!route) {
       const toast = await toastController.create({
@@ -913,6 +941,7 @@ const loadData = async () => {
     console.error('Error loading route:', error);
   } finally {
     isLoading.value = false;
+    hasLoadedOnce.value = true;
   }
 };
 
@@ -1340,6 +1369,35 @@ function formatTime(dateString: string): string {
   margin: 0;
   color: var(--ion-color-medium);
   font-size: 14px;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.status-text {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 14px;
+}
+
+.status-mode-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--ion-color-medium);
+}
+
+.status-mode-chip ion-icon {
+  font-size: 1rem;
 }
 
 .info-stats {

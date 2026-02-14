@@ -13,7 +13,7 @@ export interface ValhallaMatchOptions {
 const FALLBACK_BASE_URL = (import.meta.env.VITE_VALHALLA_BASE_URL || 'http://192.168.1.108:8002').replace(/\/$/, '');
 const DEFAULT_MAX_POINTS = 400;
 const DEFAULT_GPS_ACCURACY = 20;
-const DEFAULT_SEARCH_RADIUS = 15;
+const DEFAULT_SEARCH_RADIUS = 25;
 const DEFAULT_SHAPE_MATCH = 'walk_or_snap';
 const VALHALLA_URL_KEY = 'valhalla_url';
 let cachedBaseUrl: string | null | undefined;
@@ -128,9 +128,7 @@ export async function matchPositionsWithValhalla(
     costing: options.costing ?? 'auto',
     shape: points.map((point) => ({
       lat: point.latitude,
-      lon: point.longitude,
-      accuracy: options.gpsAccuracy ?? DEFAULT_GPS_ACCURACY,
-      radius: options.searchRadius ?? DEFAULT_SEARCH_RADIUS
+      lon: point.longitude
     })),
     shape_format: 'json',
     gps_accuracy: options.gpsAccuracy ?? DEFAULT_GPS_ACCURACY,

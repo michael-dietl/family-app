@@ -111,6 +111,7 @@ export interface Route {
   endTime?: string;
   distance?: number; // in meters
   duration?: number; // in seconds
+  travelMode?: 'car' | 'pedestrian';
   isRecording: boolean;
   created: string;
   updated: string;
@@ -540,6 +541,7 @@ class DatabaseService {
         endTime TEXT,
         distance REAL,
         duration INTEGER,
+        travelMode TEXT NOT NULL DEFAULT 'car',
         isRecording INTEGER DEFAULT 1,
         created TEXT NOT NULL,
         updated TEXT NOT NULL
@@ -774,6 +776,7 @@ class DatabaseService {
     await runAlter('ALTER TABLE books ADD COLUMN updated TEXT;');
     await runAlter('ALTER TABLE routes ADD COLUMN foreignID TEXT;');
     await runAlter('ALTER TABLE routes ADD COLUMN updated TEXT;');
+    await runAlter("ALTER TABLE routes ADD COLUMN travelMode TEXT NOT NULL DEFAULT 'car';");
     await runAlter('ALTER TABLE waypoints ADD COLUMN foreignID TEXT;');
     await runAlter('ALTER TABLE waypoints ADD COLUMN updated TEXT;');
     await runAlter('ALTER TABLE wines ADD COLUMN foreignID TEXT;');
@@ -1391,8 +1394,8 @@ class DatabaseService {
     const now = new Date().toISOString();
     const updated = route.updated ?? now;
     const sql = `
-      INSERT INTO routes (foreignID, name, description, startTime, endTime, distance, duration, isRecording, created, updated)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      INSERT INTO routes (foreignID, name, description, startTime, endTime, distance, duration, travelMode, isRecording, created, updated)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
     
     const result = await this.db.run(sql, [
@@ -1403,6 +1406,7 @@ class DatabaseService {
       route.endTime || null,
       route.distance || null,
       route.duration || null,
+      route.travelMode || 'car',
       route.isRecording ? 1 : 0,
       now,
       updated
@@ -1421,7 +1425,8 @@ class DatabaseService {
     
     return (result.values || []).map((row: any) => ({
       ...row,
-      isRecording: row.isRecording === 1
+      isRecording: row.isRecording === 1,
+      travelMode: row.travelMode || 'car'
     }));
   }
 
@@ -1438,7 +1443,8 @@ class DatabaseService {
     const row = result.values[0];
     return {
       ...row,
-      isRecording: row.isRecording === 1
+      isRecording: row.isRecording === 1,
+      travelMode: row.travelMode || 'car'
     };
   }
 
