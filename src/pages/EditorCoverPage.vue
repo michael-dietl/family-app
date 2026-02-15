@@ -38,7 +38,7 @@ import {
   getFilerobotLanguage,
   getImagePayload,
 } from '@/utils/filerobotEditor';
-import { buildSharedStoragePath, getSharedStorageDirectory } from '@/services/storagePaths';
+import { buildSharedStoragePath, getSharedStorageDirectory, ensureDirectoryExists } from '@/services/storagePaths';
 
 const route = useRoute();
 const router = useRouter();
@@ -128,11 +128,7 @@ const saveImage = async () => {
 
     const fileName = `book_cover_${bookId}_${Date.now()}.jpg`;
     const relativePath = buildSharedStoragePath('books', fileName);
-    await Filesystem.mkdir({
-      directory: getSharedStorageDirectory(),
-      path: buildSharedStoragePath('books'),
-      recursive: true
-    });
+    await ensureDirectoryExists(getSharedStorageDirectory(), buildSharedStoragePath('books'));
     const result = await Filesystem.writeFile({
       path: relativePath,
       data: base64Data,

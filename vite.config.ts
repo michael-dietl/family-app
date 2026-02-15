@@ -1,6 +1,5 @@
 /// <reference types="vitest" />
 
-import legacy from '@vitejs/plugin-legacy'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
 import { defineConfig } from 'vite'
@@ -9,7 +8,6 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [
     vue(),
-    legacy(),
     // Fix common vendor CSS typos/hacks that cause minifier warnings
     // - replaces 'backbround-color' -> 'background-color'
     // - strips invalid property hacks like '*display: inline' from bundled CSS
@@ -61,6 +59,30 @@ export default defineConfig({
       react: path.resolve(__dirname, 'node_modules/react'),
       'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
     },
+  },
+  build: {
+    target: 'es2022',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id) return;
+          const normalizedId = id.replace(/\\/g, '/');
+          if (!normalizedId.includes('node_modules')) return;
+          if (normalizedId.includes('@capacitor/')) {
+            return 'vendor-capacitor';
+          }
+          if (normalizedId.includes('@whiteguru/capacitor-plugin-video-editor') || normalizedId.includes('@capawesome/capacitor-file-picker')) {
+            return 'vendor-editor';
+          }
+          if (normalizedId.includes('node_modules/ort')) {
+            return 'vendor-ort';
+          }
+          if (normalizedId.includes('@capgo/')) {
+            return 'vendor-capgo';
+          }
+        }
+      }
+    }
   },
   test: {
     globals: true,

@@ -128,6 +128,16 @@
               <ion-label>Fußgänger</ion-label>
               <ion-radio slot="end" value="pedestrian" />
             </ion-item>
+            <ion-item button :detail="false" lines="none">
+              <ion-icon slot="start" :icon="bicycleOutline" />
+              <ion-label>Fahrrad</ion-label>
+              <ion-radio slot="end" value="bicycle" />
+            </ion-item>
+            <ion-item button :detail="false" lines="none">
+              <ion-icon slot="start" :icon="scooterIcon" />
+              <ion-label>Vespa</ion-label>
+              <ion-radio slot="end" value="motor_scooter" />
+            </ion-item>
           </ion-radio-group>
           <div class="modal-actions">
             <ion-button expand="block" fill="outline" color="medium" @click="cancelStartRoute">
@@ -177,11 +187,13 @@ import {
   mapOutline,
   radioButtonOnOutline,
   arrowBackOutline,
+  bicycleOutline,
   carOutline,
   walkOutline,
   pencilOutline,
   trashOutline
 } from 'ionicons/icons';
+import { scooterIcon } from '@/icons/scooter';
 import { db, type Route } from '@/services/database';
 
 const router = useRouter();
@@ -274,7 +286,7 @@ const editRoute = async (route: Route) => {
         type: 'radio',
         label: '🚗 Auto',
         value: 'car',
-        checked: route.travelMode !== 'pedestrian'
+        checked: route.travelMode === 'car' || !route.travelMode
       },
       {
         name: 'travelMode',
@@ -282,6 +294,20 @@ const editRoute = async (route: Route) => {
         label: '🚶 Fußgänger',
         value: 'pedestrian',
         checked: route.travelMode === 'pedestrian'
+      },
+      {
+        name: 'travelMode',
+        type: 'radio',
+        label: '🚲 Fahrrad',
+        value: 'bicycle',
+        checked: route.travelMode === 'bicycle'
+      },
+      {
+        name: 'travelMode',
+        type: 'radio',
+        label: '🛵 Vespa',
+        value: 'motor_scooter',
+        checked: route.travelMode === 'motor_scooter'
       }
     ],
     buttons: [
@@ -356,14 +382,44 @@ const formatDistance = (meters: number): string => {
   return `${(meters / 1000).toFixed(2)} km`;
 };
 
-const getRouteModeIcon = (mode: Route['travelMode'] | undefined) =>
-  mode === 'pedestrian' ? walkOutline : carOutline;
+const getRouteModeIcon = (mode: Route['travelMode'] | undefined) => {
+  switch (mode) {
+    case 'pedestrian':
+      return walkOutline;
+    case 'bicycle':
+      return bicycleOutline;
+    case 'motor_scooter':
+      return scooterIcon;
+    default:
+      return carOutline;
+  }
+};
 
-const getRouteModeLabel = (mode: Route['travelMode'] | undefined) =>
-  mode === 'pedestrian' ? 'Fußgänger' : 'Auto';
+const getRouteModeLabel = (mode: Route['travelMode'] | undefined) => {
+  switch (mode) {
+    case 'pedestrian':
+      return 'Fußgänger';
+    case 'bicycle':
+      return 'Fahrrad';
+    case 'motor_scooter':
+      return 'Vespa';
+    default:
+      return 'Auto';
+  }
+};
 
-const getRouteModeColor = (mode: Route['travelMode'] | undefined) =>
-  mode === 'pedestrian' ? 'medium' : 'primary';
+const getRouteModeColor = (mode: Route['travelMode'] | undefined) => {
+  switch (mode) {
+    case 'pedestrian':
+      return 'medium';
+    case 'bicycle':
+      return 'success';
+    case 'motor_scooter':
+      return 'warning';
+    default:
+      return 'primary';
+  }
+};
 
 const formatDuration = (seconds: number): string => {
   const hours = Math.floor(seconds / 3600);

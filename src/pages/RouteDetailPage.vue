@@ -288,6 +288,7 @@ import {
   stopCircleOutline,
   mapOutline,
   carOutline,
+  bicycleOutline,
   walkOutline
 } from 'ionicons/icons';
 import L from 'leaflet';
@@ -296,6 +297,7 @@ import { db } from '@/services/database';
 import { useRouteTracking } from '@/composables/useRouteTracking';
 import { matchPositionsWithValhalla } from '@/services/valhalla';
 import { useI18n } from 'vue-i18n';
+import { scooterIcon } from '@/icons/scooter';
 import type { LatLonPoint } from '@/services/positionSmoothing';
 
 type RouteData = import('@/services/database').Route;
@@ -312,18 +314,51 @@ const waypoints = ref<Waypoint[]>([]);
 const { t } = useI18n();
 const hasLoadedOnce = ref(false);
 
-const routeMode = computed(() =>
-  routeData.value?.travelMode === 'pedestrian' ? 'pedestrian' : 'car'
+const routeMode = computed<RouteData['travelMode']>(() =>
+  routeData.value?.travelMode ?? 'car'
 );
-const routeModeIcon = computed(() =>
-  routeMode.value === 'pedestrian' ? walkOutline : carOutline
-);
-const routeModeColor = computed(() =>
-  routeMode.value === 'pedestrian' ? 'medium' : 'primary'
-);
-const routeModeLabel = computed(() =>
-  routeMode.value === 'pedestrian' ? 'Fußgänger' : 'Auto'
-);
+const routeModeIcon = computed(() => getRouteModeIcon(routeMode.value));
+const routeModeColor = computed(() => getRouteModeColor(routeMode.value));
+const routeModeLabel = computed(() => getRouteModeLabel(routeMode.value));
+
+function getRouteModeIcon(mode: RouteData['travelMode'] | undefined) {
+  switch (mode) {
+    case 'pedestrian':
+      return walkOutline;
+    case 'bicycle':
+      return bicycleOutline;
+    case 'motor_scooter':
+      return scooterIcon;
+    default:
+      return carOutline;
+  }
+}
+
+function getRouteModeColor(mode: RouteData['travelMode'] | undefined) {
+  switch (mode) {
+    case 'pedestrian':
+      return 'medium';
+    case 'bicycle':
+      return 'success';
+    case 'motor_scooter':
+      return 'warning';
+    default:
+      return 'primary';
+  }
+}
+
+function getRouteModeLabel(mode: RouteData['travelMode'] | undefined) {
+  switch (mode) {
+    case 'pedestrian':
+      return 'Fußgänger';
+    case 'bicycle':
+      return 'Fahrrad';
+    case 'motor_scooter':
+      return 'Vespa';
+    default:
+      return 'Auto';
+  }
+}
 
 let map: L.Map | null = null;
 let routeLine: L.Polyline | null = null;
@@ -480,11 +515,11 @@ const sendRouteToValhalla = async () => {
   valhallaMatching.value = true;
   try {
     const costing = routeData.value?.travelMode === 'pedestrian' ? 'pedestrian' : 'auto';
-    const matched = await matchPositionsWithValhalla(routePoints, {
+    const { shape: matchedShape } = await matchPositionsWithValhalla(routePoints, {
       id: routeId ? routeId.toString() : undefined,
       costing
     });
-      if (matched.length < 3) {
+      if (matchedShape.length < 3) {
         const toast = await toastController.create({
           message: t('auto.valhalla_no_shape'),
           duration: 2000,
@@ -494,8 +529,8 @@ const sendRouteToValhalla = async () => {
         valhallaTrace.value = [];
         return;
       }
-      valhallaTrace.value = matched;
-      const routeMessage = hasSignificantDifference(routePoints, matched)
+      valhallaTrace.value = matchedShape;
+      const routeMessage = hasSignificantDifference(routePoints, matchedShape)
         ? t('auto.valhalla_route_loaded')
         : t('auto.valhalla_route_confirmed');
       const toast = await toastController.create({
@@ -974,7 +1009,6 @@ const initMap = () => {
 function drawRoute() {
   if (!map) return;
 
-  // Entferne alte Polyline
   if (routeLine) {
     map.removeLayer(routeLine);
     routeLine = null;
@@ -983,42 +1017,53 @@ function drawRoute() {
     map.removeLayer(matchedLine);
     matchedLine = null;
   }
-  // Entferne alte Marker
   waypointMarkers.forEach(marker => {
     if (map) map.removeLayer(marker);
   });
   waypointMarkers.clear();
 
-  if (waypoints.value.length === 0) return;
+  const positionWaypoints = waypoints.value.filter(wp => wp.type === 'position');
+  const matchShape = valhallaTrace.value.length > 1 ? valhallaTrace.value : matchedPath.value;
+  const matchedLatLngs = matchShape.map(p => L.latLng(p.latitude, p.longitude));
 
-    // Route-Polyline aus Positions-Wegpunkten
-    const positionWaypoints = waypoints.value.filter(wp => wp.type === 'position');
-    if (positionWaypoints.length > 0) {
-      const latlngs = positionWaypoints.map(wp => L.latLng(wp.latitude, wp.longitude));
-      routeLine = L.polyline(latlngs, {
-        color: '#3880ff',
-        weight: 4,
-        opacity: 0.7
-      }).addTo(map);
-      map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
-      const matchShape = valhallaTrace.value.length > 1 ? valhallaTrace.value : matchedPath.value;
-      if (matchShape.length > 1) {
-        const matchedLatLngs = matchShape.map(p => L.latLng(p.latitude, p.longitude));
-        matchedLine = L.polyline(matchedLatLngs, {
-          color: '#22c55e',
-          weight: 3,
-          opacity: 0.9,
-          dashArray: '6 6'
-        }).addTo(map);
-      }
+  if (positionWaypoints.length > 0) {
+    const latlngs = positionWaypoints.map(wp => L.latLng(wp.latitude, wp.longitude));
+    routeLine = L.polyline(latlngs, {
+      color: '#3880ff',
+      weight: 4,
+      opacity: 0.7
+    }).addTo(map);
+  }
+
+  if (matchShape.length > 1) {
+    matchedLine = L.polyline(matchedLatLngs, {
+      color: '#22c55e',
+      weight: 3,
+      opacity: 0.9,
+      dashArray: '6 6'
+    }).addTo(map);
+  }
+
+  let viewBounds: L.LatLngBounds | null = null;
+  const extendBoundsFromLayer = (layer: L.Polyline | null) => {
+    if (!layer) return;
+    const layerBounds = layer.getBounds();
+    viewBounds = viewBounds ? viewBounds.extend(layerBounds) : layerBounds;
+  };
+  extendBoundsFromLayer(routeLine);
+  extendBoundsFromLayer(matchedLine);
+
+  if (viewBounds) {
+    map.fitBounds(viewBounds, { padding: [50, 50] });
   } else {
-    // Kein Track: Karte auf ersten manuellen Wegpunkt zentrieren
     const manual = waypoints.value.find(wp => wp.type === 'manual');
-    if (manual) map.setView([manual.latitude, manual.longitude], 15);
+    if (manual) {
+      map.setView([manual.latitude, manual.longitude], 15);
+    }
   }
 
   // Marker für manuelle, Foto- und Video-Wegpunkte
-  waypoints.value.forEach(waypoint => {
+    waypoints.value.forEach(waypoint => {
     let iconHtml = '';
     let className = '';
     switch (waypoint.type) {
@@ -1051,6 +1096,9 @@ function drawRoute() {
     if (waypoint.timestamp) popup += `<br><span style='font-size:11px;color:#888;'>${formatTime(waypoint.timestamp)}</span>`;
     marker.bindPopup(popup);
     if (map) marker.addTo(map);
+    if (waypoint.type === 'photo') {
+      marker.on('click', () => previewPhoto(waypoint));
+    }
     if (waypoint.id) waypointMarkers.set(waypoint.id, marker);
   });
 };

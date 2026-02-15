@@ -10,6 +10,14 @@ export interface ValhallaMatchOptions {
   searchRadius?: number;
   shapeMatch?: string;
 }
+export interface ValhallaMatchResult {
+  shape: LatLonPoint[];
+  matchedPoints: LatLonPoint[];
+}
+interface ValhallaErrorEntry {
+  code?: string | number;
+  message?: string;
+}
 const FALLBACK_BASE_URL = (import.meta.env.VITE_VALHALLA_BASE_URL || 'http://192.168.1.108:8002').replace(/\/$/, '');
 const DEFAULT_MAX_POINTS = 400;
 const DEFAULT_GPS_ACCURACY = 20;
@@ -113,29 +121,163 @@ const logValhallaResponse = (value: unknown) => {
   console.info('VALHALLA_RESPONSE', stringifyForLog(value));
 };
 
+
+const pointsAreEqual = (a: LatLonPoint, b: LatLonPoint, tolerance = 1e-7) =>
+  Math.abs(a.latitude - b.latitude) <= tolerance && Math.abs(a.longitude - b.longitude) <= tolerance;
+
+const deduplicateSequentialPoints = (points: LatLonPoint[]) => {
+  if (points.length === 0) return points;
+  const cleaned: LatLonPoint[] = [points[0]];
+  for (let i = 1; i < points.length; i += 1) {
+    if (!pointsAreEqual(points[i], cleaned[cleaned.length - 1])) {
+      cleaned.push(points[i]);
+    }
+  }
+  return cleaned;
+};
+
+const formatValhallaErrors = (payload: any): string | null => {
+  if (!payload) return null;
+  if (typeof payload.error === 'string' && payload.error.length > 0) return payload.error;
+  if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+    return payload.errors
+      .map((entry: ValhallaErrorEntry | any) => (entry?.message ? `${entry.code ?? ''}: ${entry.message}` : JSON.stringify(entry)))
+      .join(', ');
+  }
+  if (payload.status && (payload.status.status !== undefined || payload.status.code !== undefined)) {
+    const code = payload.status.status ?? payload.status.code;
+    if (code !== 0 && code !== 200) {
+      return `status ${code}` + (payload.status.message ? `: ${payload.status.message}` : '');
+    }
+  }
+  return null;
+};
+
+const decodePolyline = (encoded: string): LatLonPoint[] => {
+  const points: LatLonPoint[] = [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+  const length = encoded.length;
+
+  while (index < length) {
+    let result = 0;
+    let shift = 0;
+    let byte = 0;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20 && index < length);
+    const deltaLat = (result & 1) ? ~(result >> 1) : result >> 1;
+    lat += deltaLat;
+
+    result = 0;
+    shift = 0;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20 && index < length);
+    const deltaLng = (result & 1) ? ~(result >> 1) : result >> 1;
+    lng += deltaLng;
+
+    points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
+  }
+
+  return points;
+};
+
+const isValidLatLng = (point: LatLonPoint): boolean =>
+  Math.abs(point.latitude) <= 90 && Math.abs(point.longitude) <= 180;
+
+const normalizeDecodedShape = (points: LatLonPoint[]): LatLonPoint[] => {
+  if (points.length === 0 || points.every(isValidLatLng)) {
+    return points;
+  }
+
+  const divisors = [10, 100];
+  for (const divisor of divisors) {
+    const scaled = points.map((point) => ({
+      latitude: point.latitude / divisor,
+      longitude: point.longitude / divisor
+    }));
+    if (scaled.every(isValidLatLng)) {
+      console.info('VALHALLA_SHAPE_RESCALED', { divisor, count: scaled.length });
+      return scaled;
+    }
+  }
+
+  console.warn('VALHALLA_SHAPE_OUT_OF_RANGE',
+    points
+      .slice(0, 3)
+      .map((point) => `${point.latitude.toFixed(2)},${point.longitude.toFixed(2)}`)
+      .join(' | ')
+  );
+  return points;
+};
+
+const extractMatchedPoints = (value: unknown): LatLonPoint[] => {
+  if (!value || typeof value !== 'object') {
+    return [];
+  }
+
+  const entries: Array<{lat: number; lon: number}> = [];
+  const source = value as any;
+  const pushIfPresent = (candidate: unknown) => {
+    if (!candidate || !Array.isArray(candidate)) return;
+    candidate.forEach((item) => {
+      if (
+        item &&
+        typeof item === 'object' &&
+        typeof (item as any).lat === 'number' &&
+        typeof (item as any).lon === 'number'
+      ) {
+        entries.push({ lat: (item as any).lat, lon: (item as any).lon });
+      }
+    });
+  };
+
+  pushIfPresent(source.matched_points);
+  pushIfPresent(source.trip?.matched_points);
+  if (Array.isArray(source.trip?.legs)) {
+    source.trip.legs.forEach((leg: any) => {
+      pushIfPresent(leg.matched_points);
+    });
+  }
+
+  return entries.map((point) => ({ latitude: point.lat, longitude: point.lon }));
+};
+
 export async function matchPositionsWithValhalla(
   allPoints: LatLonPoint[],
   options: ValhallaMatchOptions = {}
-): Promise<LatLonPoint[]> {
+): Promise<ValhallaMatchResult> {
   const baseUrl = await loadConfiguredBaseUrl();
   if (!baseUrl || allPoints.length < 3) {
-    return allPoints;
+    return { shape: allPoints, matchedPoints: [] };
   }
 
   const maxPoints = options.maxPoints ?? DEFAULT_MAX_POINTS;
-  const points = allPoints.slice(-maxPoints);
-  const payload = {
-    costing: options.costing ?? 'auto',
-    shape: points.map((point) => ({
-      lat: point.latitude,
-      lon: point.longitude
-    })),
-    shape_format: 'json',
-    gps_accuracy: options.gpsAccuracy ?? DEFAULT_GPS_ACCURACY,
-    search_radius: options.searchRadius ?? DEFAULT_SEARCH_RADIUS,
-    shape_match: options.shapeMatch ?? DEFAULT_SHAPE_MATCH,
-    id: options.id
-  };
+  const slicedPoints = allPoints.slice(-maxPoints);
+  const points = deduplicateSequentialPoints(slicedPoints);
+  if (points.length < 3) {
+    return { shape: points, matchedPoints: [] };
+  }
+
+    const payload = {
+      costing: options.costing ?? 'auto',
+      shape: points.map((point) => ({
+        lat: point.latitude,
+        lon: point.longitude
+      })),
+      shape_match: options.shapeMatch ?? DEFAULT_SHAPE_MATCH,
+      id: options.id,
+      trace_options: {
+        gps_accuracy: options.gpsAccuracy ?? DEFAULT_GPS_ACCURACY,
+        search_radius: options.searchRadius ?? DEFAULT_SEARCH_RADIUS
+      }
+    };
   console.info('VALHALLA REQUEST', stringifyForLog(payload));
 
   try {
@@ -178,27 +320,57 @@ export async function matchPositionsWithValhalla(
     const result = data as {
       trip?: {
         legs?: Array<{
-          shape?: number[][];
+          shape?: number[][] | string;
+          matched_points?: Array<{ lat: number; lon: number }>;
         }>;
       };
+      matched_points?: Array<{ lat: number; lon: number }>;
+      error?: string;
+      errors?: Array<{ code?: string | number; message?: string }>;
+      status?: { status?: number; code?: number; message?: string };
     } | null;
+    const responseError = formatValhallaErrors(result ?? data);
+    if (responseError) {
+      throw new Error(responseError);
+    }
     const leg = result?.trip?.legs?.[0];
-    if (!leg || !Array.isArray(leg.shape)) {
-      return points;
+    const globalShape = (result as any)?.shape;
+    const shapeValue = leg?.shape ?? globalShape;
+    const matchedPoints = extractMatchedPoints(result ?? data);
+
+    let decodedShape: LatLonPoint[] = [];
+    if (typeof shapeValue === 'string' && shapeValue.length > 0) {
+      decodedShape = decodePolyline(shapeValue);
+    } else if (Array.isArray(shapeValue)) {
+      const validShape = shapeValue.filter((coord: unknown): coord is number[] =>
+        Array.isArray(coord) && coord.length >= 2 && typeof coord[0] === 'number' && typeof coord[1] === 'number'
+      );
+      if (validShape.length > 0) {
+        const order = guessCoordinateOrder(validShape, points);
+        decodedShape = validShape.map((coord: number[]) => mapShapeEntry(coord, order));
+      }
     }
 
-    const validShape = leg.shape.filter((coord: unknown): coord is number[] =>
-      Array.isArray(coord) && coord.length >= 2 && typeof coord[0] === 'number' && typeof coord[1] === 'number'
-    );
+    decodedShape = normalizeDecodedShape(decodedShape);
 
-    if (validShape.length === 0) {
-      return points;
+    console.info('VALHALLA_DECODED_SHAPE', stringifyForLog(decodedShape));
+
+    if (decodedShape.length === 0) {
+      return {
+        shape: points,
+        matchedPoints
+      };
     }
 
-    const order = guessCoordinateOrder(validShape, points);
-    return validShape.map((coord: number[]) => mapShapeEntry(coord, order));
+    return {
+      shape: decodedShape,
+      matchedPoints
+    };
   } catch (error) {
     console.warn('Valhalla matching failed', error);
-    return points;
+    return {
+      shape: points,
+      matchedPoints: []
+    };
   }
 }

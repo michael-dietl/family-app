@@ -49,6 +49,11 @@ npm run test:e2e      # Cypress tests
 npm run lint          # ESLint check
 ```
 
+### Fehleranalyse
+```bash
+adb logcat
+```
+
 ## Code Conventions
 
 ### Vue Components

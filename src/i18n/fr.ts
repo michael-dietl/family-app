@@ -82,6 +82,9 @@ export default {
     "löschen": "Supprimer",
 
     "foto_funktion_nur_auf_mobilen_geräten_verfügbar": "La fonction photo n’est disponible que sur les appareils mobiles",
+    "hintergrund_entfernen": "Supprimer l’arrière-plan",
+    "hintergrund_entfernt": "Arrière-plan supprimé",
+    "hintergrund_entfernen_fehlgeschlagen": "Échec de la suppression de l’arrière-plan",
     "foto_aufgenommen": "Photo prise",
     "möchtest_du_das_bild_vor_dem_speichern_bearbeiten": "Souhaites‑tu modifier l’image avant de l’enregistrer ?",
     "nein": "Non",

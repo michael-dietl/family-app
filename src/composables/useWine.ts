@@ -156,6 +156,20 @@ export function useWine() {
       });
       const id = await db.createWine(wine);
       console.log('✅ Wine created with ID:', id);
+      let createdWine: Wine | null = null;
+      try {
+        createdWine = await getWine(id);
+      } catch (fetchCreatedError) {
+        console.warn('⚠️ Failed to fetch newly created wine for immediate list update:', fetchCreatedError);
+      }
+
+      if (createdWine && createdWine.id !== undefined) {
+        wines.value = [
+          createdWine,
+          ...wines.value.filter((wineEntry) => wineEntry.id !== createdWine!.id)
+        ];
+      }
+
       try {
         await loadWines(); // Liste aktualisieren
       } catch (refreshError) {

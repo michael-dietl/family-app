@@ -309,9 +309,10 @@ const loadPhotoCounts = async () => {
         
         // Cover nur laden wenn es Fotos gibt (spart unnötige DB-Abfragen)
         if (count > 0) {
-          const photos = await db.getPhotosByGallery(gallery.id);
-          if (photos.length > 0 && photos[0].filepath) {
-            covers[gallery.id] = photos[0].filepath;
+          const preview = await db.getLatestPhotoPreview(gallery.id);
+          const coverSrc = preview?.thumbnail || preview?.filepath;
+          if (coverSrc) {
+            covers[gallery.id] = coverSrc;
           }
         }
       }

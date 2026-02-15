@@ -305,7 +305,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   IonPage,
@@ -342,7 +342,9 @@ import type { Wine } from '@/services/database';
 import { db } from '@/services/database';
 import ImageEditor from '@/components/ImageEditor.vue';
 import { Capacitor } from '@capacitor/core';
-import { buildSharedStoragePath, getSharedStorageDirectory } from '@/services/storagePaths';
+import { Filesystem } from '@capacitor/filesystem';
+import { removeBackground } from '@imgly/background-removal';
+import { buildSharedStoragePath, ensureDirectoryExists, getSharedStorageDirectory } from '@/services/storagePaths';
 
 const router = useRouter();
 const { wines, filteredWines, isLoading, searchTerm, loadWines, createWine, takeWinePhoto } = useWine();
@@ -387,6 +389,56 @@ const closeCreateModal = () => {
   createModalRef.value?.dismiss();
 };
 
+const convertBlobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onloadend = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(',')[1];
+      resolve(base64);
+    };
+    reader.readAsDataURL(blob);
+  });
+};
+
+const applyBackgroundRemovalToCapture = async (photoPath: string): Promise<string> => {
+  try {
+    const publicUrl = Capacitor.convertFileSrc(photoPath);
+    const response = await fetch(publicUrl);
+    if (!response.ok) {
+      throw new Error('Unable to fetch captured photo for preprocessing');
+    }
+    const imageBlob = await response.blob();
+    const processedBlob = await removeBackground(imageBlob, {
+      output: {
+        format: 'image/png',
+        quality: 0.9
+      }
+    });
+    const base64Data = await convertBlobToBase64(processedBlob);
+    const folderPath = buildSharedStoragePath('wines');
+    await ensureDirectoryExists(getSharedStorageDirectory(), folderPath);
+    const fileName = `wine_${Date.now()}_bg.png`;
+    const savedFile = await Filesystem.writeFile({
+      path: buildSharedStoragePath('wines', fileName),
+      data: base64Data,
+      directory: getSharedStorageDirectory(),
+      recursive: true
+    });
+    return savedFile.uri;
+  } catch (error) {
+    console.warn('Background removal failed, continuing with original capture', error);
+    return photoPath;
+  }
+};
+
+const setCapturedPhoto = (path?: string) => {
+  if (!path) return;
+  photoPreview.value = path;
+  newWine.value.photoPath = path;
+};
+
 const handleTakePhoto = async () => {
   try {
     const result = await takeWinePhoto();
@@ -398,9 +450,17 @@ const handleTakePhoto = async () => {
       photoGPS.value = { latitude: result.latitude, longitude: result.longitude };
     }
     
-    // Öffne Bildeditor mit dem aufgenommenen Foto
-    tempPhotoForEdit.value = result.photoPath;
-    showImageEditor.value = true;
+    // Vor dem Editieren den Hintergrund entfernen
+    const capturePath = result.photoPath;
+      const processedPhotoPath = capturePath ? await applyBackgroundRemovalToCapture(capturePath) : capturePath;
+      setCapturedPhoto(processedPhotoPath);
+      tempPhotoForEdit.value = processedPhotoPath || '';
+      if (!processedPhotoPath) {
+        showImageEditor.value = false;
+        return;
+      }
+      await nextTick();
+      showImageEditor.value = true;
   } catch (error: any) {
     console.error('Photo error in component:', error);
     const alert = await alertController.create({
@@ -413,52 +473,22 @@ const handleTakePhoto = async () => {
 };
 
 const handleImageEditorSave = async (imageBlob: Blob) => {
+  showImageEditor.value = false;
   try {
-    // Konvertiere Blob zu base64 für Filesystem
-    const reader = new FileReader();
-    const base64Promise = new Promise<string>((resolve, reject) => {
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        // Entferne data:image/jpeg;base64, Prefix
-        const base64Data = base64.split(',')[1];
-        resolve(base64Data);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(imageBlob);
-    });
-    
-    const base64Data = await base64Promise;
+    const base64Data = await convertBlobToBase64(imageBlob);
     const fileName = `wine_${Date.now()}_edited.jpg`;
-    
-    // Speichere bearbeitetes Bild im Filesystem
-    const { Filesystem } = await import('@capacitor/filesystem');
-    
-    // Stelle sicher, dass das wines-Verzeichnis existiert
     const folderPath = buildSharedStoragePath('wines');
-    try {
-      await Filesystem.mkdir({
-        path: folderPath,
-        directory: getSharedStorageDirectory(),
-        recursive: true
-      });
-    } catch (e) {
-      console.log('Directory already exists');
-    }
-    
+    await ensureDirectoryExists(getSharedStorageDirectory(), folderPath);
+
     const targetPath = buildSharedStoragePath('wines', fileName);
     const savedFile = await Filesystem.writeFile({
       path: targetPath,
       data: base64Data,
       directory: getSharedStorageDirectory()
     });
-    
+
     console.log('Edited image saved:', savedFile.uri);
-    
-    // Verwende Filesystem URI für Preview und DB
-    photoPreview.value = savedFile.uri;
-    newWine.value.photoPath = savedFile.uri;
-    
-    showImageEditor.value = false;
+    setCapturedPhoto(savedFile.uri);
   } catch (error) {
     console.error('Error processing edited image:', error);
     const alert = await alertController.create({
@@ -474,9 +504,9 @@ const handleImageEditorClose = () => {
   showImageEditor.value = false;
   // Wenn Editor geschlossen wird ohne zu speichern, verwende Original
   if (!photoPreview.value && tempPhotoForEdit.value) {
-    photoPreview.value = tempPhotoForEdit.value;
-    newWine.value.photoPath = tempPhotoForEdit.value;
+    setCapturedPhoto(tempPhotoForEdit.value);
   }
+  tempPhotoForEdit.value = '';
 };
 
 const handleCreateWine = async () => {

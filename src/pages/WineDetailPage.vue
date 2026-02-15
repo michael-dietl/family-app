@@ -37,6 +37,21 @@
         <div v-show="selectedTab === 'photo'" class="tab-content">
           <div v-if="wine.photoPath" class="wine-photo">
             <img :src="getImageSrc(wine.photoPath)" />
+            <div class="wine-photo-actions">
+              <ion-button
+                expand="block"
+                size="small"
+                class="background-removal-button"
+                fill="outline"
+                color="primary"
+                :disabled="isRemovingBackground"
+                @click="handleBackgroundRemoval"
+              >
+                <ion-icon slot="start" :icon="sparkles" />
+                <span v-if="!isRemovingBackground">{{ $t('auto.hintergrund_entfernen') }}</span>
+                <ion-spinner v-else name="crescent" />
+              </ion-button>
+            </div>
           </div>
           <div v-else class="wine-photo-placeholder">
             <ion-icon :icon="wineOutline" size="large"></ion-icon>
@@ -349,6 +364,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import {
   IonPage,
   IonHeader,
@@ -373,7 +389,8 @@ import {
   IonInput,
   IonTextarea,
   actionSheetController,
-  alertController
+  alertController,
+  toastController
 } from '@ionic/vue';
 import {
   ellipsisVertical,
@@ -392,14 +409,19 @@ import {
   starOutline,
   create,
   createOutline,
-  trash
+  trash,
+  sparkles
 } from 'ionicons/icons';
 import { useWine } from '@/composables/useWine';
 import type { Wine } from '@/services/database';
 import { Capacitor } from '@capacitor/core';
+import { Filesystem } from '@capacitor/filesystem';
+import { removeBackground } from '@imgly/background-removal';
+import { buildSharedStoragePath, getSharedStorageDirectory, ensureDirectoryExists } from '@/services/storagePaths';
 
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
 const { getWine, updateWine, deleteWine } = useWine();
 
 const wine = ref<Wine | null>(null);
@@ -407,6 +429,7 @@ const isLoading = ref(true);
 const selectedTab = ref('info');
 const showEditModal = ref(false);
 const editWine = ref<Partial<Wine>>({});
+const isRemovingBackground = ref(false);
 
 onMounted(async () => {
   const id = parseInt(route.params.id as string);
@@ -512,6 +535,57 @@ const handleSaveEdit = async () => {
   }
 };
 
+const handleBackgroundRemoval = async () => {
+  if (isRemovingBackground.value || !wine.value?.photoPath || !wine.value.id) return;
+  isRemovingBackground.value = true;
+
+  try {
+    const imageUrl = getImageSrc(wine.value.photoPath);
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error('Unable to fetch wine photo');
+    }
+    const imageBlob = await response.blob();
+    const processedBlob = await removeBackground(imageBlob, {
+      output: {
+        format: 'image/png',
+        quality: 0.9
+      }
+    });
+    const base64Data = await convertBlobToBase64(processedBlob);
+
+    await ensureDirectoryExists(getSharedStorageDirectory(), buildSharedStoragePath('wines'));
+    const fileName = `wine_${wine.value.id}_${Date.now()}_fg.png`;
+    const savedFile = await Filesystem.writeFile({
+      path: buildSharedStoragePath('wines', fileName),
+      data: base64Data,
+      directory: getSharedStorageDirectory(),
+      recursive: true
+    });
+
+    const currentWineId = wine.value.id;
+    await updateWine(currentWineId, { photoPath: savedFile.uri });
+    wine.value = await getWine(currentWineId);
+
+    const successToast = await toastController.create({
+      message: t('auto.hintergrund_entfernt'),
+      duration: 2000,
+      color: 'success'
+    });
+    await successToast.present();
+  } catch (error) {
+    console.error('Failed to remove background:', error);
+    const failureToast = await toastController.create({
+      message: t('auto.hintergrund_entfernen_fehlgeschlagen'),
+      duration: 2500,
+      color: 'danger'
+    });
+    await failureToast.present();
+  } finally {
+    isRemovingBackground.value = false;
+  }
+};
+
 const showOptions = async () => {
   const actionSheet = await actionSheetController.create({
     header: 'Optionen',
@@ -569,6 +643,19 @@ const showOptions = async () => {
 
   await actionSheet.present();
 };
+
+const convertBlobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(',')[1];
+      resolve(base64);
+    };
+    reader.readAsDataURL(blob);
+  });
+};
 </script>
 
 <style scoped>
@@ -583,6 +670,16 @@ const showOptions = async () => {
   width: 100%;
   max-height: 100%;
   overflow: hidden;
+}
+
+.wine-photo-actions {
+  margin-top: 12px;
+  padding: 0 1rem;
+}
+
+.background-removal-button ion-spinner {
+  --width: 24px;
+  --height: 24px;
 }
 
 .wine-photo img {

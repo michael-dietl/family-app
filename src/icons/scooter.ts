@@ -1,0 +1,1 @@
+export const scooterIcon = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' class='ionicon'><circle cx='112' cy='360' r='56'/><circle cx='400' cy='360' r='56'/><path d='M400 256h-84l-28-64-60 8-34 58h-26a28 28 0 000 56h32l22 34h180a28 28 0 000-56h-30z'/><path d='M176 184l56-40 48 12-18 32h-86z'/></svg>";

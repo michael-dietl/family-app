@@ -69,8 +69,8 @@ export function useRouteTracking() {
     matchInFlight = true;
     try {
       const matched = await matchPositionsWithValhalla(routePoints);
-      if (matched.length >= MIN_MATCH_POINTS) {
-        matchedPath.value = matched;
+      if (matched.shape.length >= MIN_MATCH_POINTS) {
+        matchedPath.value = matched.shape;
       }
     } finally {
       matchInFlight = false;

@@ -14,10 +14,12 @@ export const getSharedStorageDirectory = (): Directory => {
   return Directory.Documents;
 };
 
+const normalizePath = (path: string) => path.replace(/^\/+|\/+$/g, '');
+
 export const buildSharedStoragePath = (...segments: Array<string | undefined | null>): string => {
   const sanitizedSegments = segments
     .filter((segment): segment is string => Boolean(segment))
-    .map(segment => segment!.replace(/^\/+|\/+$/g, ''))
+    .map(segment => normalizePath(segment!))
     .filter(Boolean);
   return sanitizedSegments.join('/');
 };
@@ -48,7 +50,21 @@ const ensureDirectory = async (directory: Directory, path: string) => {
   }
 };
 
+const directoryExists = async (directory: Directory, path: string): Promise<boolean> => {
+  try {
+    await Filesystem.stat({ directory, path });
+    return true;
+  } catch (error) {
+    const message = typeof error === 'object' && error ? (error as any).message ?? String(error) : String(error);
+    if (message.toLowerCase().includes('not found')) {
+      return false;
+    }
+    return false;
+  }
+};
+
 export const ensureDirectoryExists = async (directory: Directory, path: string): Promise<void> => {
+  if (await directoryExists(directory, path)) return;
   await ensureDirectory(directory, path);
 };
 

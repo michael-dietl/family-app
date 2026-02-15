@@ -47,6 +47,8 @@ export interface Photo {
   updated: string;
 }
 
+export type PhotoPreview = Pick<Photo, 'filepath' | 'thumbnail'>;
+
 export interface BookCategory {
   id?: number;
   foreignID?: string;
@@ -111,7 +113,7 @@ export interface Route {
   endTime?: string;
   distance?: number; // in meters
   duration?: number; // in seconds
-  travelMode?: 'car' | 'pedestrian';
+  travelMode?: 'car' | 'pedestrian' | 'bicycle' | 'motor_scooter';
   isRecording: boolean;
   created: string;
   updated: string;
@@ -283,6 +285,13 @@ class InMemoryStorage {
         const dateB = b.dateTaken || b.created;
         return new Date(dateB).getTime() - new Date(dateA).getTime();
       });
+  }
+
+  getLatestPhotoPreview(galleryId: number): PhotoPreview | null {
+    const photos = this.getPhotosByGallery(galleryId);
+    if (photos.length === 0) return null;
+    const { filepath, thumbnail } = photos[0];
+    return { filepath, thumbnail };
   }
 
   getPhoto(id: number): Photo | null {
@@ -1050,6 +1059,26 @@ class DatabaseService {
     const result = await this.db.query(sql, [galleryId]);
     
     return result.values as Photo[] || [];
+  }
+
+  async getLatestPhotoPreview(galleryId: number): Promise<PhotoPreview | null> {
+    if (!this.isInitialized) await this.initialize();
+    
+    if (this.useInMemory) {
+      return this.inMemory.getLatestPhotoPreview(galleryId);
+    }
+
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'SELECT filepath, thumbnail FROM photos WHERE galleryId = ? ORDER BY dateTaken DESC, created DESC LIMIT 1;';
+    const result = await this.db.query(sql, [galleryId]);
+    const row = result.values?.[0];
+    if (!row) return null;
+
+    return {
+      filepath: row.filepath,
+      thumbnail: row.thumbnail ?? undefined
+    };
   }
 
   async getPhoto(id: number): Promise<Photo | null> {

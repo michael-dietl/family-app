@@ -136,7 +136,7 @@
                   </div>
                   <img 
                     v-else
-                    :src="getImageSrc(photo.filepath)" 
+                    :src="getPhotoPreviewSrc(photo)" 
                     :alt="photo.filename"
                     loading="lazy"
                     class="photo-img"
@@ -176,7 +176,7 @@
                 </div>
                 <img 
                   v-else
-                  :src="getImageSrc(photo.filepath)" 
+                  :src="getPhotoPreviewSrc(photo)" 
                   :alt="photo.filename"
                   loading="lazy"
                   class="photo-img"
@@ -573,6 +573,10 @@ const getImageSrc = (path: string | undefined) => {
     return path;
   }
   return Capacitor.convertFileSrc(path);
+};
+
+const getPhotoPreviewSrc = (photo: Photo) => {
+  return photo.thumbnail || getImageSrc(photo.filepath);
 };
 
 const isVideoPhoto = (photo: Photo) => {
