@@ -47,12 +47,13 @@
                   <span class="date-label">{{ $t('auto.faelligkeitsdatum') }}</span>
                   <span class="date-value">{{ dueDateLabel }}</span>
                 </ion-label>
-                <ion-datetime
-                  class="calendar-icon-only"
-                  v-model="newItemDueDate"
-                  presentation="date"
-                  display-format="DD.MM.YYYY"
-                />
+                <ion-button
+                  fill="clear"
+                  class="date-picker-icon"
+                  @click="openDueDatePicker"
+                >
+                  <ion-icon :icon="calendarOutline" />
+                </ion-button>
               </ion-item>
               <div class="add-task-actions">
                 <ion-button fill="clear" @click="handlePickPhotos">
@@ -134,6 +135,32 @@
         </div>
       </template>
     </ion-content>
+    <ion-modal css-class="half-modal" :is-open="showDueDateModal" @didDismiss="cancelDueDatePicker">
+      <ion-header>
+        <ion-toolbar>
+          <ion-buttons slot="start">
+            <ion-button @click="cancelDueDatePicker">{{ $t('buttons.cancel') }}</ion-button>
+          </ion-buttons>
+          <ion-title>{{ $t('auto.faelligkeitsdatum') }}</ion-title>
+          <ion-buttons slot="end">
+            <ion-button strong @click="confirmDueDate">{{ $t('auto.speichern') }}</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <ion-datetime
+          v-model="dueDatePickerValue"
+          presentation="date-time"
+          display-format="DD.MM.YYYY HH:mm"
+          :show-default-buttons="false"
+        />
+        <div class="modal-actions">
+          <ion-button expand="block" fill="clear" color="medium" @click="clearDueDate">
+            Zurücksetzen
+          </ion-button>
+        </div>
+      </ion-content>
+    </ion-modal>
   </ion-page>
 </template>
 
@@ -163,13 +190,15 @@ import {
   IonList,
   IonSegment,
   IonSegmentButton,
-  IonCheckbox
+  IonCheckbox,
+  IonModal
 } from '@ionic/vue';
 import {
   checkboxOutline,
   camera,
   images,
-  trashOutline
+  trashOutline,
+  calendarOutline
 } from 'ionicons/icons';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
@@ -201,6 +230,8 @@ const { pickMultiplePhotos } = usePhoto();
 const newItemTitle = ref('');
 const newItemDescription = ref('');
 const newItemDueDate = ref('');
+const showDueDateModal = ref(false);
+const dueDatePickerValue = ref('');
 const tempPhotos = ref<Array<{ path?: string | null; data?: string | null }>>([]);
 const activeSegment = ref<'pending' | 'completed'>('pending');
 
@@ -214,6 +245,25 @@ const formatSimpleDate = (value?: string | null) => {
 };
 
 const dueDateLabel = computed(() => formatSimpleDate(newItemDueDate.value) || '-');
+
+const openDueDatePicker = () => {
+  dueDatePickerValue.value = newItemDueDate.value || new Date().toISOString();
+  showDueDateModal.value = true;
+};
+
+const confirmDueDate = () => {
+  newItemDueDate.value = dueDatePickerValue.value || '';
+  showDueDateModal.value = false;
+};
+
+const cancelDueDatePicker = () => {
+  showDueDateModal.value = false;
+};
+
+const clearDueDate = () => {
+  newItemDueDate.value = '';
+  showDueDateModal.value = false;
+};
 
 const pendingItems = computed(() => items.value.filter(item => !item.completed));
 const completedItems = computed(() => items.value.filter(item => item.completed));
@@ -398,6 +448,20 @@ const getImageSrc = (path: string | null | undefined) => {
 .calendar-icon-only::part(text) {
   display: none;
 }
+.date-picker-icon {
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  min-width: 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.modal-actions {
+  margin-top: 1rem;
+}
 
 .calendar-icon-only::part(icon) {
   font-size: 1.25rem;
@@ -513,5 +577,21 @@ const getImageSrc = (path: string | null | undefined) => {
   height: 44px;
   border-radius: 6px;
   object-fit: cover;
+}
+
+::v-deep .half-modal .modal-wrapper {
+  height: 55vh;
+  max-height: 75vh;
+  border-radius: 20px 20px 0 0;
+  overflow: hidden;
+}
+
+::v-deep .half-modal .modal-wrapper ion-content {
+  --border-radius: 0;
+  padding-bottom: 0;
+}
+
+::v-deep .half-modal .modal-wrapper ion-datetime {
+  width: 100%;
 }
 </style>

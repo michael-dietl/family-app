@@ -2,6 +2,7 @@ export default {
   auto: {
     abbrechen: 'Annulla',
     alle: 'Tutti',
+    zuruecksetzen: 'Ripristina',
     alle_auswählen: 'Seleziona tutto',
     anmelden: 'Accedi',
     anzahl: 'Quantità',

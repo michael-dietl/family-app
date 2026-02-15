@@ -111,6 +111,8 @@
                 <a
                   :href="getImageSrc(photo.filepath)"
                   :data-type="isVideoPhoto(photo) ? 'video' : 'image'"
+                  :data-source="isVideoPhoto(photo) ? 'local' : undefined"
+                  :data-video="isVideoPhoto(photo) ? getVideoData(photo) : undefined"
                   :data-poster="isVideoPhoto(photo) ? getVideoPoster(photo.id) : undefined"
                   @click="handlePhotoClick(photo, index, $event)"
                   @touchstart.passive="handleTouchStart(photo, $event)"
@@ -318,24 +320,18 @@
             <span class="date-label">{{ $t('auto.startdatum') }}</span>
             <span class="date-value">{{ formattedEditStartDate }}</span>
           </ion-label>
-          <ion-datetime
-            class="calendar-icon-only"
-            v-model="editGalleryStartDate"
-            presentation="date"
-            display-format="DD.MM.YYYY"
-          />
+          <ion-button fill="clear" class="date-picker-icon" @click="openStartDatePicker">
+            <ion-icon :icon="calendarOutline" />
+          </ion-button>
         </ion-item>
         <ion-item lines="none" class="gallery-date-row">
           <ion-label>
             <span class="date-label">{{ $t('auto.enddatum') }}</span>
             <span class="date-value">{{ formattedEditEndDate }}</span>
           </ion-label>
-          <ion-datetime
-            class="calendar-icon-only"
-            v-model="editGalleryEndDate"
-            presentation="date"
-            display-format="DD.MM.YYYY"
-          />
+          <ion-button fill="clear" class="date-picker-icon" @click="openEndDatePicker">
+            <ion-icon :icon="calendarOutline" />
+          </ion-button>
         </ion-item>
         <ion-button
           expand="block"
@@ -345,6 +341,58 @@
         >
           {{ $t('auto.speichern') }}
         </ion-button>
+      </ion-content>
+    </ion-modal>
+    <ion-modal :is-open="showStartDateModal" @did-dismiss="cancelStartDatePicker">
+      <ion-header>
+        <ion-toolbar>
+          <ion-buttons slot="start">
+            <ion-button @click="cancelStartDatePicker">{{ $t('buttons.cancel') }}</ion-button>
+          </ion-buttons>
+          <ion-title>{{ $t('auto.startdatum') }}</ion-title>
+          <ion-buttons slot="end">
+            <ion-button strong @click="confirmStartDate">{{ $t('auto.speichern') }}</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <ion-datetime
+          v-model="startDatePickerValue"
+          presentation="date"
+          display-format="DD.MM.YYYY"
+          :show-default-buttons="false"
+        />
+        <div class="modal-actions">
+          <ion-button expand="block" fill="clear" color="medium" @click="clearStartDate">
+            {{ $t('auto.zuruecksetzen') }}
+          </ion-button>
+        </div>
+      </ion-content>
+    </ion-modal>
+    <ion-modal :is-open="showEndDateModal" @did-dismiss="cancelEndDatePicker">
+      <ion-header>
+        <ion-toolbar>
+          <ion-buttons slot="start">
+            <ion-button @click="cancelEndDatePicker">{{ $t('buttons.cancel') }}</ion-button>
+          </ion-buttons>
+          <ion-title>{{ $t('auto.enddatum') }}</ion-title>
+          <ion-buttons slot="end">
+            <ion-button strong @click="confirmEndDate">{{ $t('auto.speichern') }}</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <ion-datetime
+          v-model="endDatePickerValue"
+          presentation="date"
+          display-format="DD.MM.YYYY"
+          :show-default-buttons="false"
+        />
+        <div class="modal-actions">
+          <ion-button expand="block" fill="clear" color="medium" @click="clearEndDate">
+            {{ $t('auto.zuruecksetzen') }}
+          </ion-button>
+        </div>
       </ion-content>
     </ion-modal>
   </ion-page>
@@ -392,6 +440,7 @@ import {
   images,
   gridOutline,
   mapOutline,
+  calendarOutline,
   trashOutline,
   playCircle,
   pause,
@@ -443,6 +492,10 @@ const editGalleryDescription = ref('');
 const editGalleryColor = ref('#3880ff');
 const editGalleryStartDate = ref('');
 const editGalleryEndDate = ref('');
+const showStartDateModal = ref(false);
+const startDatePickerValue = ref('');
+const showEndDateModal = ref(false);
+const endDatePickerValue = ref('');
 
 const colorPresets = [
   '#3880ff',
@@ -473,6 +526,44 @@ const formatDateValue = (dateStr: string) => {
 const previewDateValue = (value?: string) => (value ? formatDateValue(value) : '-');
 const formattedEditStartDate = computed(() => previewDateValue(editGalleryStartDate.value));
 const formattedEditEndDate = computed(() => previewDateValue(editGalleryEndDate.value));
+
+const openStartDatePicker = () => {
+  startDatePickerValue.value = editGalleryStartDate.value || new Date().toISOString();
+  showStartDateModal.value = true;
+};
+
+const confirmStartDate = () => {
+  editGalleryStartDate.value = startDatePickerValue.value || '';
+  showStartDateModal.value = false;
+};
+
+const cancelStartDatePicker = () => {
+  showStartDateModal.value = false;
+};
+
+const clearStartDate = () => {
+  editGalleryStartDate.value = '';
+  showStartDateModal.value = false;
+};
+
+const openEndDatePicker = () => {
+  endDatePickerValue.value = editGalleryEndDate.value || new Date().toISOString();
+  showEndDateModal.value = true;
+};
+
+const confirmEndDate = () => {
+  editGalleryEndDate.value = endDatePickerValue.value || '';
+  showEndDateModal.value = false;
+};
+
+const cancelEndDatePicker = () => {
+  showEndDateModal.value = false;
+};
+
+const clearEndDate = () => {
+  editGalleryEndDate.value = '';
+  showEndDateModal.value = false;
+};
 
 const videoExtensions = ['mp4', 'mov', 'webm', 'mkv', 'avi', '3gp', 'm4v'];
 
@@ -1044,6 +1135,23 @@ const getVideoPoster = (photoId: number | undefined) => {
       : `data:image/jpeg;base64,${photo.thumbnail}`;
   }
   return '';
+};
+
+const getVideoData = (photo: Photo) => {
+  const videoSrc = getImageSrc(photo.filepath);
+  const mimeType = photo.mimeType || 'video/mp4';
+  const poster = getVideoPoster(photo.id);
+  const videoConfig: Record<string, any> = {
+    source: [{ src: videoSrc, type: mimeType }],
+    attributes: {
+      preload: 'metadata',
+      playsinline: true
+    }
+  };
+  if (poster) {
+    videoConfig.attributes.poster = poster;
+  }
+  return JSON.stringify(videoConfig);
 };
 
 const openVideoEditor = (video: Photo) => {

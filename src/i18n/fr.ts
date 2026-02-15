@@ -33,6 +33,7 @@ export default {
   },
   auto: {
     "100": "100%",
+    "zuruecksetzen": "Réinitialiser",
     "aufzeichnung_läuft": "Enregistrement en cours",
     "eine_routenaufzeichnung_läuft_möchtest_du_die_app_beenden_od": "Un enregistrement de parcours est en cours. Veux‑tu quitter l’application ou la laisser fonctionner en arrière‑plan ?",
     "abbrechen": "Annuler",

@@ -35,6 +35,7 @@ export default {
 ,
   auto: {
     "100": "100%",
+    "zuruecksetzen": "Zurücksetzen",
     "aufzeichnung_läuft": "Aufzeichnung läuft",
     "eine_routenaufzeichnung_läuft_möchtest_du_die_app_beenden_od": "Eine Routenaufzeichnung läuft. Möchtest du die App beenden oder im Hintergrund weiterlaufen lassen?",
     "abbrechen": "Abbrechen",

@@ -73,7 +73,7 @@
             <div class="info-meta">
               <p class="meta-row"><strong>{{$t('auto.start')}}</strong> {{ routeData?.startTime ? formatDateTime(routeData.startTime) : '-' }}</p>
               <p v-if="routeData?.endTime" class="meta-row"><strong>{{$t('auto.ende')}}</strong> {{ formatDateTime(routeData.endTime) }}</p>
-              <div class="status-row">
+              <div class="status-row" style="width:70%">
                 <p class="status-text"><strong>{{$t('auto.status')}}</strong>
                   <span :style="{color: routeData?.isRecording ? '#3880ff' : '#eb445a'}">{{ routeData?.isRecording ? $t('auto.aufzeichnung_läuft') : $t('auto.beendet_status') }}</span>
                 </p>

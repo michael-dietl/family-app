@@ -2,6 +2,8 @@ import { ref } from 'vue';
 import GLightbox from 'glightbox';
 import 'glightbox/dist/css/glightbox.css';
 import type { Photo } from '@/services/database';
+import { KeepAwake } from "@capgo/capacitor-keep-awake"; 
+
 
 export interface MediaItem extends Photo {
   isVideo?: boolean;
@@ -28,9 +30,11 @@ export function useLightbox() {
   const autoplayDelay = 3000;
   let timelineEl: HTMLDivElement | null = null;
   let progressEl: HTMLDivElement | null = null;
+  let playButton: HTMLButtonElement | null = null;
   const isLightboxOpen = ref(false);
   const autoplayActive = ref(false);
   const autoplayRequested = ref(false);
+  let ionBackButtonListener: ((event: CustomEvent) => void) | null = null;
 
   const resetTimelineProgress = () => {
     progressStart = Date.now();
@@ -50,6 +54,31 @@ export function useLightbox() {
     }
   };
 
+  function updatePlayButtonVisibility() {
+    if (!playButton) return;
+    const shouldShow = isLightboxOpen.value && !autoplayActive.value;
+    playButton.style.display = shouldShow ? 'flex' : 'none';
+  }
+
+  function ensurePlayButton(container: Element) {
+    if (playButton) return;
+    playButton = document.createElement('button');
+    playButton.type = 'button';
+    playButton.className = 'glightbox-play-button';
+    playButton.setAttribute('aria-label', 'Play gallery');
+    playButton.addEventListener('click', () => {
+      if (!isLightboxOpen.value) return;
+      startAutoplay();
+    });
+    container.appendChild(playButton);
+  }
+
+  function removePlayButton() {
+    if (!playButton) return;
+    playButton.remove();
+    playButton = null;
+  }
+
   const initLightbox = (
     gallerySelector: string,
     photos: MediaItem[],
@@ -58,7 +87,10 @@ export function useLightbox() {
     if (lightbox.value) {
       lightbox.value.destroy();
     }
-
+    // keep screen on while autoplaying
+    KeepAwake.keepAwake ()
+      .then(() => console.log('KeepAwake enabled'))
+      .catch((error) => console.error('Failed to enable KeepAwake:', error));
     const options: any = {
       selector: `${gallerySelector} .glightbox`,
       loop: true,
@@ -66,6 +98,7 @@ export function useLightbox() {
       autoplayVideos: true,
       autoplay: true,
       autoplayDelay,
+      history: false,
       openEffect: 'fade',
       closeEffect: 'fade',
       slideEffect: 'fade',
@@ -76,9 +109,9 @@ export function useLightbox() {
     lightbox.value = GLightbox(options);
 
     lightbox.value.on('open', () => {
-      if (!timelineEl || !progressEl) {
-        const container = document.querySelector('.glightbox-container');
-        if (container) {
+      const container = document.querySelector('.glightbox-container');
+      if (container) {
+        if (!timelineEl || !progressEl) {
           timelineEl = document.createElement('div');
           timelineEl.className = 'glightbox-timeline';
           progressEl = document.createElement('div');
@@ -86,10 +119,14 @@ export function useLightbox() {
           timelineEl.appendChild(progressEl);
           container.appendChild(timelineEl);
         }
+        ensurePlayButton(container);
       }
 
-      resetTimelineProgress();
       isLightboxOpen.value = true;
+      updatePlayButtonVisibility();
+      attachIonBackButtonListener();
+
+      resetTimelineProgress();
       if (autoplayRequested.value) {
         startAutoplay();
       }
@@ -104,6 +141,8 @@ export function useLightbox() {
         timelineEl = null;
         progressEl = null;
       }
+      removePlayButton();
+      detachIonBackButtonListener();
     });
 
     lightbox.value.on('slide_changed', (payload: any) => {
@@ -119,7 +158,26 @@ export function useLightbox() {
     });
   };
 
-  const startAutoplay = () => {
+  function attachIonBackButtonListener() {
+    if (ionBackButtonListener) return;
+    ionBackButtonListener = (event: CustomEvent) => {
+      event.detail.register(100, () => {
+        if (isLightboxOpen.value && lightbox.value) {
+          stopAutoplay();
+          lightbox.value.close();
+        }
+      });
+    };
+    window.addEventListener('ionBackButton', ionBackButtonListener as EventListener);
+  }
+
+  function detachIonBackButtonListener() {
+    if (!ionBackButtonListener) return;
+    window.removeEventListener('ionBackButton', ionBackButtonListener as EventListener);
+    ionBackButtonListener = null;
+  }
+
+  function startAutoplay() {
     if (!isLightboxOpen.value) {
       autoplayRequested.value = true;
       return;
@@ -144,9 +202,9 @@ export function useLightbox() {
         }
       }, 50);
     }
-  };
-
-  const stopAutoplay = () => {
+    updatePlayButtonVisibility();
+  }
+  function stopAutoplay() {
     if (!autoplayActive.value && !autoplayRequested.value) {
       return;
     }
@@ -156,7 +214,8 @@ export function useLightbox() {
     if (progressEl) {
       progressEl.style.width = '0%';
     }
-  };
+    updatePlayButtonVisibility();
+  }
 
 
   const openLightbox = (index: number) => {
@@ -167,6 +226,7 @@ export function useLightbox() {
 
   const destroyLightbox = () => {
     stopAutoplay();
+    removePlayButton();
     if (timelineEl) {
       timelineEl.remove();
       timelineEl = null;

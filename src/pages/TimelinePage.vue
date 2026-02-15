@@ -339,7 +339,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { onIonViewDidEnter } from '@ionic/vue';
@@ -375,7 +375,12 @@ const { initLightbox, openLightbox, destroyLightbox } = useLightbox();
 
 const routes = ref<Route[]>([]);
 const loadRoutes = async () => {
-  routes.value = await db.getRoutes();
+  try {
+    routes.value = await db.getRoutes();
+  } catch (error) {
+    console.error('Failed to load timeline routes', error);
+    routes.value = [];
+  }
 };
 
 const manualTitle = ref('');
@@ -865,6 +870,10 @@ const refreshTimelineData = async () => {
     isTimelineLoading.value = false;
   }
 };
+
+onMounted(() => {
+  void refreshTimelineData();
+});
 
 onIonViewDidEnter(async () => {
   await refreshTimelineData();

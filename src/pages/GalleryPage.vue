@@ -133,24 +133,26 @@
               <span class="date-label">{{ $t('auto.startdatum') }}</span>
               <span class="date-value">{{ formattedStartDate }}</span>
             </ion-label>
-            <ion-datetime
-              class="calendar-icon-only"
-              v-model="newGalleryStartDate"
-              presentation="date"
-              display-format="DD.MM.YYYY"
-            />
+            <ion-button
+              fill="clear"
+              class="date-picker-icon"
+              @click="openDatePicker('start')"
+            >
+              <ion-icon :icon="calendarOutline" />
+            </ion-button>
           </ion-item>
           <ion-item lines="none" class="gallery-date-row">
             <ion-label>
               <span class="date-label">{{ $t('auto.enddatum') }}</span>
               <span class="date-value">{{ formattedEndDate }}</span>
             </ion-label>
-            <ion-datetime
-              class="calendar-icon-only"
-              v-model="newGalleryEndDate"
-              presentation="date"
-              display-format="DD.MM.YYYY"
-            />
+            <ion-button
+              fill="clear"
+              class="date-picker-icon"
+              @click="openDatePicker('end')"
+            >
+              <ion-icon :icon="calendarOutline" />
+            </ion-button>
           </ion-item>
           
           <ion-button 
@@ -161,6 +163,42 @@
           >
             {{ $t('auto.erstellen') }}
           </ion-button>
+        </ion-content>
+      </ion-modal>
+      <ion-modal
+        css-class="half-modal"
+        :is-open="showDatePickerModal"
+        @did-dismiss="cancelDatePicker"
+      >
+        <ion-header>
+          <ion-toolbar>
+            <ion-buttons slot="start">
+              <ion-button @click="cancelDatePicker">
+                {{ $t('buttons.cancel') }}
+              </ion-button>
+            </ion-buttons>
+            <ion-title>
+              {{ datePickerTarget === 'start' ? $t('auto.startdatum') : $t('auto.enddatum') }}
+            </ion-title>
+            <ion-buttons slot="end">
+              <ion-button strong @click="confirmDatePicker">
+                {{ $t('auto.speichern') }}
+              </ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
+        <ion-content class="ion-padding">
+          <ion-datetime
+            v-model="datePickerValue"
+            presentation="date"
+            display-format="DD.MM.YYYY"
+            :show-default-buttons="false"
+          />
+          <div class="modal-actions">
+            <ion-button expand="block" fill="clear" color="medium" @click="clearDatePicker">
+              {{ $t('auto.zuruecksetzen') }}
+            </ion-button>
+          </div>
         </ion-content>
       </ion-modal>
     </ion-content>
@@ -198,11 +236,13 @@ import {
   IonDatetime,
   alertController
 } from '@ionic/vue';
-import { add, close, imagesOutline, imageOutline, calendarNumber } from 'ionicons/icons';
+import { add, close, imagesOutline, imageOutline, calendarOutline } from 'ionicons/icons';
 import { Capacitor } from '@capacitor/core';
 import { useGallery } from '@/composables/useGallery';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 import { db } from '@/services/database';
+
+type GalleryDateField = 'start' | 'end';
 
 const router = useRouter();
 const { galleries, isLoading, loadGalleries, createGallery } = useGallery();
@@ -217,6 +257,9 @@ const newGalleryEndDate = ref('');
 const photoCounts = ref<Record<number, number>>({});
 const galleryCoverPhotos = ref<Record<number, string>>({});
 const searchQuery = ref('');
+const showDatePickerModal = ref(false);
+const datePickerValue = ref('');
+const datePickerTarget = ref<GalleryDateField>('start');
 
 // Vordefinierte Farben für schnelle Auswahl
 const presetColors = [
@@ -298,6 +341,35 @@ const navigateToTimeline = () => {
 const getImageSrc = (path: string | undefined) => {
   if (!path) return '';
   return Capacitor.convertFileSrc(path);
+};
+
+const openDatePicker = (field: GalleryDateField) => {
+  datePickerTarget.value = field;
+  const currentValue = field === 'start' ? newGalleryStartDate.value : newGalleryEndDate.value;
+  datePickerValue.value = currentValue || new Date().toISOString();
+  showDatePickerModal.value = true;
+};
+
+const confirmDatePicker = () => {
+  if (datePickerTarget.value === 'start') {
+    newGalleryStartDate.value = datePickerValue.value;
+  } else {
+    newGalleryEndDate.value = datePickerValue.value;
+  }
+  showDatePickerModal.value = false;
+};
+
+const cancelDatePicker = () => {
+  showDatePickerModal.value = false;
+};
+
+const clearDatePicker = () => {
+  if (datePickerTarget.value === 'start') {
+    newGalleryStartDate.value = '';
+  } else {
+    newGalleryEndDate.value = '';
+  }
+  showDatePickerModal.value = false;
 };
 
 const handleCreateGallery = async () => {
@@ -537,5 +609,36 @@ ion-card-subtitle ion-icon {
 .color-button.active {
   border-color: var(--ion-color-dark);
   box-shadow: 0 0 0 2px var(--ion-background-color), 0 0 0 4px var(--ion-color-primary);
+}
+
+.date-picker-icon {
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  min-width: 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.modal-actions {
+  margin-top: 1rem;
+}
+
+::v-deep .half-modal .modal-wrapper {
+  height: 55vh;
+  max-height: 75vh;
+  border-radius: 20px 20px 0 0;
+  overflow: hidden;
+}
+
+::v-deep .half-modal .modal-wrapper ion-content {
+  --border-radius: 0;
+  padding-bottom: 0;
+}
+
+::v-deep .half-modal .modal-wrapper ion-datetime {
+  width: 100%;
 }
 </style>
