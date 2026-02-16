@@ -23,6 +23,8 @@ const DEFAULT_MAX_POINTS = 400;
 const DEFAULT_GPS_ACCURACY = 20;
 const DEFAULT_SEARCH_RADIUS = 25;
 const DEFAULT_SHAPE_MATCH = 'walk_or_snap';
+const ENCODED_POLYLINE_THRESHOLD = 150;
+const MIN_SHAPE_POINTS = 4;
 const VALHALLA_URL_KEY = 'valhalla_url';
 let cachedBaseUrl: string | null | undefined;
 
@@ -136,6 +138,16 @@ const deduplicateSequentialPoints = (points: LatLonPoint[]) => {
   return cleaned;
 };
 
+const boundingBoxArea = (points: LatLonPoint[]) => {
+  if (points.length === 0) return 0;
+  const latitudes = points.map((point) => point.latitude);
+  const longitudes = points.map((point) => point.longitude);
+  const latMin = Math.min(...latitudes);
+  const latMax = Math.max(...latitudes);
+  const lonMin = Math.min(...longitudes);
+  const lonMax = Math.max(...longitudes);
+  return (latMax - latMin) * (lonMax - lonMin);
+};
 const formatValhallaErrors = (payload: any): string | null => {
   if (!payload) return null;
   if (typeof payload.error === 'string' && payload.error.length > 0) return payload.error;
@@ -186,6 +198,34 @@ const decodePolyline = (encoded: string): LatLonPoint[] => {
   }
 
   return points;
+};
+
+const encodeDeltaValue = (delta: number) => {
+  let value = delta < 0 ? ~(delta << 1) : delta << 1;
+  let encoded = '';
+  while (value >= 0x20) {
+    encoded += String.fromCharCode((0x20 | (value & 0x1f)) + 63);
+    value >>= 5;
+  }
+  encoded += String.fromCharCode(value + 63);
+  return encoded;
+};
+
+const encodePolyline = (points: LatLonPoint[]): string => {
+  let lastLat = 0;
+  let lastLon = 0;
+  let result = '';
+
+  points.forEach(({ latitude, longitude }) => {
+    const lat = Math.round(latitude * 1e5);
+    const lon = Math.round(longitude * 1e5);
+    result += encodeDeltaValue(lat - lastLat);
+    result += encodeDeltaValue(lon - lastLon);
+    lastLat = lat;
+    lastLon = lon;
+  });
+
+  return result;
 };
 
 const isValidLatLng = (point: LatLonPoint): boolean =>
@@ -265,12 +305,19 @@ export async function matchPositionsWithValhalla(
     return { shape: points, matchedPoints: [] };
   }
 
+    const useEncodedShape = points.length > ENCODED_POLYLINE_THRESHOLD;
+    const shapePayload = useEncodedShape
+      ? { encoded_polyline: encodePolyline(points) }
+      : {
+          shape: points.map((point) => ({
+            lat: point.latitude,
+            lon: point.longitude
+          }))
+        };
+
     const payload = {
       costing: options.costing ?? 'auto',
-      shape: points.map((point) => ({
-        lat: point.latitude,
-        lon: point.longitude
-      })),
+      ...shapePayload,
       shape_match: options.shapeMatch ?? DEFAULT_SHAPE_MATCH,
       id: options.id,
       trace_options: {
@@ -352,6 +399,15 @@ export async function matchPositionsWithValhalla(
     }
 
     decodedShape = normalizeDecodedShape(decodedShape);
+    const dedupedMatchedPoints = deduplicateSequentialPoints(matchedPoints);
+    const routeArea = boundingBoxArea(points);
+    const shapeArea = boundingBoxArea(decodedShape);
+    const shapeTooSmall =
+      routeArea > 0 ? shapeArea / routeArea < 0.5 : decodedShape.length < dedupedMatchedPoints.length;
+
+    if ((decodedShape.length < MIN_SHAPE_POINTS || shapeTooSmall) && dedupedMatchedPoints.length >= MIN_SHAPE_POINTS) {
+      decodedShape = dedupedMatchedPoints;
+    }
 
     console.info('VALHALLA_DECODED_SHAPE', stringifyForLog(decodedShape));
 

@@ -176,10 +176,9 @@ const addPhotoWaypointHandler = async () => {
 
     // Foto speichern (in Galerie 0, da Route-Fotos nicht in Galerie gelistet werden müssen)
     const photoId = await savePhoto(image.webPath, 0);
-    if (!photoId || !currentPosition.value) return;
+    if (!photoId) return;
 
-    // Aktuelle Position verwenden
-    await addPhotoWaypoint(photoId, currentPosition.value.coords.latitude, currentPosition.value.coords.longitude);
+    await addPhotoWaypoint(photoId);
 
     const toast = await toastController.create({
       message: 'Foto-Wegpunkt hinzugefügt',
@@ -343,7 +342,8 @@ const initMap = () => {
 
 const startRecording = async () => {
   try {
-    await startTracking(routeId);
+    const mode = routeData.value?.travelMode ?? 'car';
+    await startTracking(routeId, mode);
     const toast = await toastController.create({
       message: 'Aufzeichnung gestartet',
       duration: 2000,

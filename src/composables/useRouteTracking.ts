@@ -13,22 +13,105 @@ export interface TrackingState {
   waypoints: Waypoint[];
 }
 
+type TravelMode = NonNullable<Route['travelMode']>;
+
+interface TrackingProfile {
+  waypointDistanceMeters: number;
+  waypointIntervalMs: number;
+  persistDistanceMeters: number;
+  requiredAccuracyMeters?: number;
+  minSpeedMs?: number;
+  matchDelayMs?: number;
+  valhallaGpsAccuracy?: number;
+  valhallaSearchRadius?: number;
+}
+
+const TRACKING_PROFILES: Record<TravelMode, TrackingProfile> = {
+  pedestrian: {
+    waypointDistanceMeters: 3,
+    waypointIntervalMs: 1000,
+    persistDistanceMeters: 2,
+    requiredAccuracyMeters: 10,
+    matchDelayMs: 1000,
+    valhallaGpsAccuracy: 9,
+    valhallaSearchRadius: 15
+  },
+  bicycle: {
+    waypointDistanceMeters: 5,
+    waypointIntervalMs: 1500,
+    persistDistanceMeters: 3,
+    requiredAccuracyMeters: 15,
+    matchDelayMs: 1500
+  },
+  motor_scooter: {
+    waypointDistanceMeters: 6,
+    waypointIntervalMs: 1300,
+    persistDistanceMeters: 5,
+    requiredAccuracyMeters: 15,
+    matchDelayMs: 1300
+  },
+  car: {
+    waypointDistanceMeters: 12,
+    waypointIntervalMs: 2000,
+    persistDistanceMeters: 10,
+    requiredAccuracyMeters: 20,
+    minSpeedMs: 0.5
+    ,
+    matchDelayMs: 2500
+  }
+};
+
+const DEFAULT_PROFILE = TRACKING_PROFILES.car;
+
+export const resolveTrackingProfile = (mode: Route['travelMode'] | undefined): TrackingProfile => {
+  const chosen: TravelMode = (mode ?? 'car') as TravelMode;
+  return TRACKING_PROFILES[chosen] || DEFAULT_PROFILE;
+};
+
 export function useRouteTracking() {
-  const state = ref<TrackingState>({
-    isTracking: false,
-    isPaused: false,
-    currentPosition: null,
-    distance: 0,
-    duration: 0,
-    waypoints: []
-  });
-  const matchedPath = ref<LatLonPoint[]>([]);
+    const state = ref<TrackingState>({
+      isTracking: false,
+      isPaused: false,
+      currentPosition: null,
+      distance: 0,
+      duration: 0,
+      waypoints: []
+    });
+    const matchedPath = ref<LatLonPoint[]>([]);
+    const resolveWaypointCoordinates = () => {
+      if (matchedPath.value.length > 0) {
+        const lastMatched = matchedPath.value[matchedPath.value.length - 1];
+        return {
+          latitude: lastMatched.latitude,
+          longitude: lastMatched.longitude
+        };
+      }
+
+      if (routePoints.length > 0) {
+        const lastPoint = routePoints[routePoints.length - 1];
+        return {
+          latitude: lastPoint.latitude,
+          longitude: lastPoint.longitude
+        };
+      }
+
+      const currentCoords = state.value.currentPosition?.coords;
+      if (currentCoords) {
+        return {
+          latitude: currentCoords.latitude,
+          longitude: currentCoords.longitude,
+          altitude: currentCoords.altitude ?? undefined,
+          accuracy: currentCoords.accuracy ?? undefined
+        };
+      }
+
+      return null;
+    };
   const smoother = new PositionSmoother();
   const routePoints: LatLonPoint[] = [];
   const MAX_ROUTE_POINTS = 1600;
   const MIN_MATCH_POINTS = 6;
-  const MATCH_DELAY_MS = 2500;
-  const MIN_PERSIST_DISTANCE_METERS = 1;
+  const DEFAULT_MATCH_DELAY_MS = 2500;
   let matchTimeout: number | null = null;
   let matchInFlight = false;
 
@@ -38,6 +121,9 @@ export function useRouteTracking() {
   let durationInterval: number | null = null;
   let positionWaypointCount = 0;
   let currentRouteId: number | null = null;
+  let activeProfile: TrackingProfile = DEFAULT_PROFILE;
+  let lastWaypointTimestamp = 0;
+  let persistDistanceMeters = DEFAULT_PROFILE.persistDistanceMeters;
 
   const isTracking = computed(() => state.value.isTracking);
   const isPaused = computed(() => state.value.isPaused);
@@ -68,7 +154,10 @@ export function useRouteTracking() {
     }
     matchInFlight = true;
     try {
-      const matched = await matchPositionsWithValhalla(routePoints);
+      const matched = await matchPositionsWithValhalla(routePoints, {
+        gpsAccuracy: activeProfile.valhallaGpsAccuracy,
+        searchRadius: activeProfile.valhallaSearchRadius
+      });
       if (matched.shape.length >= MIN_MATCH_POINTS) {
         matchedPath.value = matched.shape;
       }
@@ -81,10 +170,11 @@ export function useRouteTracking() {
     if (matchTimeout) {
       clearTimeout(matchTimeout);
     }
+    const delayMs = activeProfile.matchDelayMs ?? DEFAULT_MATCH_DELAY_MS;
     matchTimeout = window.setTimeout(() => {
       matchTimeout = null;
       void matchRouteWithValhalla();
-    }, MATCH_DELAY_MS);
+    }, delayMs);
   };
 
   const flushValhallaMatch = async () => {
@@ -119,7 +209,7 @@ export function useRouteTracking() {
           point.latitude,
           point.longitude
         );
-        if (distanceSinceLast < MIN_PERSIST_DISTANCE_METERS) {
+        if (distanceSinceLast < persistDistanceMeters) {
           continue;
         }
       }
@@ -139,7 +229,7 @@ export function useRouteTracking() {
     }
   };
 
-  const startTracking = async (routeId: number) => {
+  const startTracking = async (routeId: number, travelMode: Route['travelMode'] = 'car') => {
     try {
       // Request permissions
       const permission = await Geolocation.requestPermissions();
@@ -163,6 +253,10 @@ export function useRouteTracking() {
         matchTimeout = null;
       }
       matchInFlight = false;
+      const chosenMode: TravelMode = (travelMode ?? 'car') as TravelMode;
+      activeProfile = TRACKING_PROFILES[chosenMode] || DEFAULT_PROFILE;
+      persistDistanceMeters = activeProfile.persistDistanceMeters;
+      lastWaypointTimestamp = 0;
 
       // Start duration counter
       durationInterval = window.setInterval(() => {
@@ -211,9 +305,17 @@ export function useRouteTracking() {
             if (distanceIncrement > 2) {
               state.value.distance += distanceIncrement;
 
-              // Create waypoint every ~20 meters
-              const distanceSinceLastWaypoint = state.value.distance - (positionWaypointCount * 20);
-              if (positionWaypointCount === 0 || distanceSinceLastWaypoint >= 20) {
+              const waypointDistance = Math.max(1, activeProfile.waypointDistanceMeters);
+              const waypointInterval = Math.max(1, activeProfile.waypointIntervalMs);
+              const distanceSinceLastWaypoint = state.value.distance - (positionWaypointCount * waypointDistance);
+              const now = Date.now();
+              const timeSinceLastWaypoint = now - lastWaypointTimestamp;
+              if (
+                positionWaypointCount === 0 ||
+                distanceSinceLastWaypoint >= waypointDistance ||
+                timeSinceLastWaypoint >= waypointInterval
+              ) {
+                lastWaypointTimestamp = now;
                 await addPositionWaypoint(position);
               }
             }
@@ -302,45 +404,60 @@ export function useRouteTracking() {
     positionWaypointCount += 1;
   };
 
-  const addManualWaypoint = async (name: string, description?: string) => {
-    if (!currentRouteId || !state.value.currentPosition) return;
+    const addManualWaypoint = async (name: string, description?: string) => {
+      if (!currentRouteId) return;
 
-    const position = state.value.currentPosition;
-    const now = new Date().toISOString();
-    const waypoint: Omit<Waypoint, 'id'> = {
-      routeId: currentRouteId,
-      type: 'manual',
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-      altitude: position.coords.altitude || undefined,
-      accuracy: position.coords.accuracy,
-      name,
-      description,
-      timestamp: new Date().toISOString(),
-      updated: now
+      const coords = resolveWaypointCoordinates();
+      if (!coords) {
+        console.warn('Unable to resolve manual waypoint location');
+        return;
+      }
+
+      const now = new Date().toISOString();
+      const currentCoords = state.value.currentPosition?.coords;
+      const waypoint: Omit<Waypoint, 'id'> = {
+        routeId: currentRouteId,
+        type: 'manual',
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        altitude: currentCoords?.altitude ?? undefined,
+        accuracy: currentCoords?.accuracy ?? undefined,
+        name,
+        description,
+        timestamp: now,
+        updated: now
+      };
+
+      const waypointId = await db.createWaypoint(waypoint);
+      state.value.waypoints.push({ ...waypoint, id: waypointId });
     };
 
-    const waypointId = await db.createWaypoint(waypoint);
-    state.value.waypoints.push({ ...waypoint, id: waypointId });
-  };
+    const addPhotoWaypoint = async (photoId: number) => {
+      if (!currentRouteId) return;
 
-  const addPhotoWaypoint = async (photoId: number, latitude: number, longitude: number) => {
-    if (!currentRouteId) return;
+      const coords = resolveWaypointCoordinates();
+      if (!coords) {
+        console.warn('Unable to resolve photo waypoint location');
+        return;
+      }
 
-    const now = new Date().toISOString();
-    const waypoint: Omit<Waypoint, 'id'> = {
-      routeId: currentRouteId,
-      type: 'photo',
-      latitude,
-      longitude,
-      photoId,
-      timestamp: new Date().toISOString(),
-      updated: now
+      const now = new Date().toISOString();
+      const currentCoords = state.value.currentPosition?.coords;
+      const waypoint: Omit<Waypoint, 'id'> = {
+        routeId: currentRouteId,
+        type: 'photo',
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        altitude: currentCoords?.altitude ?? undefined,
+        accuracy: currentCoords?.accuracy ?? undefined,
+        photoId,
+        timestamp: now,
+        updated: now
+      };
+
+      const waypointId = await db.createWaypoint(waypoint);
+      state.value.waypoints.push({ ...waypoint, id: waypointId });
     };
-
-    const waypointId = await db.createWaypoint(waypoint);
-    state.value.waypoints.push({ ...waypoint, id: waypointId });
-  };
 
   const loadWaypoints = async (routeId: number) => {
     state.value.waypoints = await db.getWaypointsByRoute(routeId);

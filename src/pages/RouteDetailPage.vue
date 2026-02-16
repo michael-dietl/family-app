@@ -294,7 +294,7 @@ import {
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { db } from '@/services/database';
-import { useRouteTracking } from '@/composables/useRouteTracking';
+import { useRouteTracking, resolveTrackingProfile } from '@/composables/useRouteTracking';
 import { matchPositionsWithValhalla } from '@/services/valhalla';
 import { useI18n } from 'vue-i18n';
 import { scooterIcon } from '@/icons/scooter';
@@ -370,7 +370,7 @@ let positionWatchInterval: number | null = null;
 const startLiveTracking = async () => {
   if (!routeData.value?.isRecording || isTracking.value) return;
   try {
-    await startTracking(routeId);
+    await startTracking(routeId, routeData.value?.travelMode ?? 'car');
     await loadWaypoints(routeId);
   } catch (error) {
     console.error('Error starting live tracking:', error);
@@ -512,13 +512,16 @@ const sendRouteToValhalla = async () => {
     return;
   }
 
-  valhallaMatching.value = true;
-  try {
-    const costing = routeData.value?.travelMode === 'pedestrian' ? 'pedestrian' : 'auto';
-    const { shape: matchedShape } = await matchPositionsWithValhalla(routePoints, {
-      id: routeId ? routeId.toString() : undefined,
-      costing
-    });
+    valhallaMatching.value = true;
+    try {
+      const costing = routeData.value?.travelMode === 'pedestrian' ? 'pedestrian' : 'auto';
+      const profile = resolveTrackingProfile(routeData.value?.travelMode);
+      const { shape: matchedShape } = await matchPositionsWithValhalla(routePoints, {
+        id: routeId ? routeId.toString() : undefined,
+        costing,
+        gpsAccuracy: profile.valhallaGpsAccuracy,
+        searchRadius: profile.valhallaSearchRadius
+      });
       if (matchedShape.length < 3) {
         const toast = await toastController.create({
           message: t('auto.valhalla_no_shape'),
@@ -716,40 +719,69 @@ const preloadWaypointPhotos = async (list: Waypoint[]) => {
     }
   }));
 };
-// --- Manuellen Wegpunkt hinzufügen ---
-function addManualWaypoint() {
-  return addManualWaypointImpl();
-}
-const addManualWaypointImpl = async () => {
-  try {
-    const position = await Geolocation.getCurrentPosition();
-    await db.createWaypoint({
-      routeId,
-      type: 'manual',
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-      name: 'Manueller Wegpunkt',
-      description: '',
-      timestamp: new Date().toISOString(),
-      updated: new Date().toISOString()
-    });
-    await loadData();
-    setTimeout(() => drawRoute(), 100); // Fix: Karte bleibt sichtbar
-    const toast = await toastController.create({
-      message: t('auto.manueller_wegpunkt_hinzugefuegt'),
-      duration: 1500,
-      color: 'success'
-    });
-    await toast.present();
-  } catch (err) {
-    const toast = await toastController.create({
-      message: t('auto.manueller_wegpunkt_fehlgeschlagen'),
-      duration: 1500,
-      color: 'danger'
-    });
-    await toast.present();
+  const resolveCurrentWaypointLocation = async (): Promise<LatLonPoint | null> => {
+    if (matchedPath.value.length > 0) {
+      return matchedPath.value[matchedPath.value.length - 1];
+    }
+
+    const livePositions = trackingWaypoints.value.filter((wp) => wp.type === 'position');
+    if (livePositions.length > 0) {
+      const lastLive = livePositions[livePositions.length - 1];
+      return { latitude: lastLive.latitude, longitude: lastLive.longitude };
+    }
+
+    const storedPositions = waypoints.value.filter((wp) => wp.type === 'position');
+    if (storedPositions.length > 0) {
+      const lastStored = storedPositions[storedPositions.length - 1];
+      return { latitude: lastStored.latitude, longitude: lastStored.longitude };
+    }
+
+    try {
+      const position = await Geolocation.getCurrentPosition();
+      return { latitude: position.coords.latitude, longitude: position.coords.longitude };
+    } catch (error) {
+      console.warn('Unable to resolve waypoint location', error);
+      return null;
+    }
+  };
+
+  // --- Manuellen Wegpunkt hinzufügen ---
+  function addManualWaypoint() {
+    return addManualWaypointImpl();
   }
-};
+  const addManualWaypointImpl = async () => {
+    try {
+      const location = await resolveCurrentWaypointLocation();
+      if (!location) {
+        throw new Error('Unable to resolve manual waypoint location');
+      }
+      await db.createWaypoint({
+        routeId,
+        type: 'manual',
+        latitude: location.latitude,
+        longitude: location.longitude,
+        name: 'Manueller Wegpunkt',
+        description: '',
+        timestamp: new Date().toISOString(),
+        updated: new Date().toISOString()
+      });
+      await loadData();
+      setTimeout(() => drawRoute(), 100); // Fix: Karte bleibt sichtbar
+      const toast = await toastController.create({
+        message: t('auto.manueller_wegpunkt_hinzugefuegt'),
+        duration: 1500,
+        color: 'success'
+      });
+      await toast.present();
+    } catch (err) {
+      const toast = await toastController.create({
+        message: t('auto.manueller_wegpunkt_fehlgeschlagen'),
+        duration: 1500,
+        color: 'danger'
+      });
+      await toast.present();
+    }
+  };
 
 // --- Aufzeichnung pausieren ---
 const pauseRecording = async () => {
@@ -811,57 +843,60 @@ const stopRecordingImpl = async () => {
   await toast.present();
 };
 
-// --- Foto-Wegpunkt hinzufügen ---
-function addPhotoWaypoint() {
-  return addPhotoWaypointImpl();
-}
-const addPhotoWaypointImpl = async () => {
-  try {
-    const position = await Geolocation.getCurrentPosition();
-    const photo = await Camera.getPhoto({
-      resultType: CameraResultType.Base64,
-      source: CameraSource.Camera,
-      quality: 70
-    });
-    // Foto als Gallery-Photo speichern (Dummy-GalleryId 1, oder eigene Logik)
-    const photoId = await db.createPhoto({
-      galleryId: 1, // ggf. eigene Logik für GalleryId
-      filename: `route-photo-${Date.now()}.jpg`,
-      filepath: `data:image/jpeg;base64,${photo.base64String}`,
-      thumbnail: photo.base64String,
-      mimeType: photo.format ? `image/${photo.format}` : 'image/jpeg',
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude
-    });
-    // Wegpunkt anlegen
-    await db.createWaypoint({
-      routeId,
-      type: 'photo',
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-      name: 'Foto-Wegpunkt',
-      description: '',
-      photoId,
-      timestamp: new Date().toISOString(),
-      updated: new Date().toISOString()
-    });
-    await loadData();
-    drawRoute();
-    const toast = await toastController.create({
-      message: t('auto.foto_wegpunkt_hinzugefuegt'),
-      duration: 1500,
-      color: 'success'
-    });
-    await toast.present();
-  } catch (err) {
-    const toast = await toastController.create({
-      message: t('auto.foto_wegpunkt_fehlgeschlagen'),
-      duration: 1500,
-      color: 'danger'
-    });
-    await toast.present();
+  // --- Foto-Wegpunkt hinzufügen ---
+  function addPhotoWaypoint() {
+    return addPhotoWaypointImpl();
   }
-};
+  const addPhotoWaypointImpl = async () => {
+    try {
+      const location = await resolveCurrentWaypointLocation();
+      if (!location) {
+        throw new Error('Unable to resolve photo waypoint location');
+      }
+      const photo = await Camera.getPhoto({
+        resultType: CameraResultType.Base64,
+        source: CameraSource.Camera,
+        quality: 70
+      });
+      // Foto als Gallery-Photo speichern (Dummy-GalleryId 1, oder eigene Logik)
+      const photoId = await db.createPhoto({
+        galleryId: 1, // ggf. eigene Logik für GalleryId
+        filename: `route-photo-${Date.now()}.jpg`,
+        filepath: `data:image/jpeg;base64,${photo.base64String}`,
+        thumbnail: photo.base64String,
+        mimeType: photo.format ? `image/${photo.format}` : 'image/jpeg',
+        latitude: location.latitude,
+        longitude: location.longitude
+      });
+      // Wegpunkt anlegen
+      await db.createWaypoint({
+        routeId,
+        type: 'photo',
+        latitude: location.latitude,
+        longitude: location.longitude,
+        name: 'Foto-Wegpunkt',
+        description: '',
+        photoId,
+        timestamp: new Date().toISOString(),
+        updated: new Date().toISOString()
+      });
+      await loadData();
+      drawRoute();
+      const toast = await toastController.create({
+        message: t('auto.foto_wegpunkt_hinzugefuegt'),
+        duration: 1500,
+        color: 'success'
+      });
+      await toast.present();
+    } catch (err) {
+      const toast = await toastController.create({
+        message: t('auto.foto_wegpunkt_fehlgeschlagen'),
+        duration: 1500,
+        color: 'danger'
+      });
+      await toast.present();
+    }
+  };
 
 watch(trackingWaypoints, (newWaypoints) => {
   waypoints.value = [...newWaypoints];
