@@ -2,13 +2,30 @@ import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import type { LatLonPoint } from '@/services/positionSmoothing';
 
+export type ValhallaEndpoint = 'trace_route' | 'trace_attributes';
+
 export interface ValhallaMatchOptions {
   costing?: string;
   id?: string;
+  endpoint?: ValhallaEndpoint;
   maxPoints?: number;
   gpsAccuracy?: number;
   searchRadius?: number;
   shapeMatch?: string;
+}
+export type TraceRouteSummaryOptions = Pick<ValhallaMatchOptions, 'costing' | 'id' | 'gpsAccuracy' | 'searchRadius' | 'shapeMatch'>;
+export interface ValhallaTraceSummary {
+  has_time_restrictions?: boolean;
+  has_toll?: boolean;
+  has_highway?: boolean;
+  has_ferry?: boolean;
+  min_lat?: number;
+  min_lon?: number;
+  max_lat?: number;
+  max_lon?: number;
+  time?: number;
+  length?: number;
+  [key: string]: unknown;
 }
 export interface ValhallaMatchResult {
   shape: LatLonPoint[];
@@ -23,6 +40,7 @@ const DEFAULT_MAX_POINTS = 400;
 const DEFAULT_GPS_ACCURACY = 20;
 const DEFAULT_SEARCH_RADIUS = 25;
 const DEFAULT_SHAPE_MATCH = 'walk_or_snap';
+const DEFAULT_ENDPOINT: ValhallaEndpoint = 'trace_route';
 const ENCODED_POLYLINE_THRESHOLD = 150;
 const MIN_SHAPE_POINTS = 4;
 const VALHALLA_URL_KEY = 'valhalla_url';
@@ -121,6 +139,52 @@ const stringifyForLog = (value: unknown) => {
 
 const logValhallaResponse = (value: unknown) => {
   console.info('VALHALLA_RESPONSE', stringifyForLog(value));
+};
+
+const performValhallaRequest = async (baseUrl: string, endpoint: ValhallaEndpoint, payload: unknown) => {
+  console.info('VALHALLA REQUEST', stringifyForLog(payload));
+  const apiUrl = `${baseUrl}/${endpoint}`;
+  let data: unknown;
+  if (Capacitor.getPlatform() !== 'web' && CapacitorHttp) {
+    const response = await CapacitorHttp.request({
+      method: 'POST',
+      url: apiUrl,
+      headers: { 'Content-Type': 'application/json' },
+      data: payload
+    });
+    logValhallaResponse(response.data);
+    if (response.status && response.status >= 400) {
+      throw new Error(`Valhalla responded with ${response.status}`);
+    }
+    data = response.data;
+  } else {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    const responseBody = await response.text();
+    logValhallaResponse(responseBody);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(responseBody);
+    } catch {
+      parsed = responseBody;
+    }
+    if (!response.ok) {
+      throw new Error(`Valhalla responded with ${response.status}`);
+    }
+    data = parsed;
+  }
+
+  const responseError = formatValhallaErrors(data);
+  if (responseError) {
+    throw new Error(responseError);
+  }
+
+  return data;
 };
 
 
@@ -305,65 +369,39 @@ export async function matchPositionsWithValhalla(
     return { shape: points, matchedPoints: [] };
   }
 
-    const useEncodedShape = points.length > ENCODED_POLYLINE_THRESHOLD;
-    const shapePayload = useEncodedShape
-      ? { encoded_polyline: encodePolyline(points) }
+  const useEncodedShape = points.length > ENCODED_POLYLINE_THRESHOLD;
+  const shapePayload = useEncodedShape
+    ? { encoded_polyline: encodePolyline(points) }
+    : {
+        shape: points.map((point) => ({
+          lat: point.latitude,
+          lon: point.longitude
+        }))
+      };
+
+  const targetEndpoint = options.endpoint ?? DEFAULT_ENDPOINT;
+  const limitOptions = {
+    gps_accuracy: options.gpsAccuracy ?? DEFAULT_GPS_ACCURACY,
+    search_radius: options.searchRadius ?? DEFAULT_SEARCH_RADIUS
+  };
+  const basePayload = {
+    costing: options.costing ?? 'auto',
+    ...shapePayload,
+    shape_match: options.shapeMatch ?? DEFAULT_SHAPE_MATCH,
+    id: options.id
+  };
+  const payload =
+    targetEndpoint === 'trace_route'
+      ? {
+          ...basePayload,
+          trace_options: limitOptions
+        }
       : {
-          shape: points.map((point) => ({
-            lat: point.latitude,
-            lon: point.longitude
-          }))
+          ...basePayload,
+          ...limitOptions
         };
-
-    const payload = {
-      costing: options.costing ?? 'auto',
-      ...shapePayload,
-      shape_match: options.shapeMatch ?? DEFAULT_SHAPE_MATCH,
-      id: options.id,
-      trace_options: {
-        gps_accuracy: options.gpsAccuracy ?? DEFAULT_GPS_ACCURACY,
-        search_radius: options.searchRadius ?? DEFAULT_SEARCH_RADIUS
-      }
-    };
-  console.info('VALHALLA REQUEST', stringifyForLog(payload));
-
   try {
-    const apiUrl = `${baseUrl}/trace_route`;
-    let data: unknown;
-    if (Capacitor.getPlatform() !== 'web' && CapacitorHttp) {
-      const response = await CapacitorHttp.request({
-        method: 'POST',
-        url: apiUrl,
-        headers: { 'Content-Type': 'application/json' },
-        data: payload
-      });
-      logValhallaResponse(response.data);
-      if (response.status && response.status >= 400) {
-        throw new Error(`Valhalla responded with ${response.status}`);
-      }
-      data = response.data;
-    } else {
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-      const responseBody = await response.text();
-      logValhallaResponse(responseBody);
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(responseBody);
-      } catch {
-        parsed = responseBody;
-      }
-      if (!response.ok) {
-        throw new Error(`Valhalla responded with ${response.status}`);
-      }
-      data = parsed;
-    }
-
+    const data = await performValhallaRequest(baseUrl, targetEndpoint, payload);
     const result = data as {
       trip?: {
         legs?: Array<{
@@ -376,10 +414,6 @@ export async function matchPositionsWithValhalla(
       errors?: Array<{ code?: string | number; message?: string }>;
       status?: { status?: number; code?: number; message?: string };
     } | null;
-    const responseError = formatValhallaErrors(result ?? data);
-    if (responseError) {
-      throw new Error(responseError);
-    }
     const leg = result?.trip?.legs?.[0];
     const globalShape = (result as any)?.shape;
     const shapeValue = leg?.shape ?? globalShape;
@@ -411,6 +445,13 @@ export async function matchPositionsWithValhalla(
 
     console.info('VALHALLA_DECODED_SHAPE', stringifyForLog(decodedShape));
 
+    if (decodedShape.length === 0 && dedupedMatchedPoints.length >= MIN_SHAPE_POINTS) {
+      return {
+        shape: dedupedMatchedPoints,
+        matchedPoints: dedupedMatchedPoints
+      };
+    }
+
     if (decodedShape.length === 0) {
       return {
         shape: points,
@@ -429,4 +470,37 @@ export async function matchPositionsWithValhalla(
       matchedPoints: []
     };
   }
+}
+
+export async function traceRouteSummary(
+  shapePoints: LatLonPoint[],
+  options: TraceRouteSummaryOptions = {}
+): Promise<ValhallaTraceSummary | null> {
+  const baseUrl = await loadConfiguredBaseUrl();
+  if (!baseUrl) return null;
+
+  const cleanedPoints = deduplicateSequentialPoints(shapePoints);
+  if (cleanedPoints.length < MIN_SHAPE_POINTS) {
+    return null;
+  }
+
+  const payload = {
+    costing: options.costing ?? 'auto',
+    shape: cleanedPoints.map((point) => [point.latitude, point.longitude]),
+    shape_match: options.shapeMatch ?? DEFAULT_SHAPE_MATCH,
+    id: options.id,
+    trace_options: {
+      gps_accuracy: options.gpsAccuracy ?? DEFAULT_GPS_ACCURACY,
+      search_radius: options.searchRadius ?? DEFAULT_SEARCH_RADIUS
+    }
+  };
+
+  const data = await performValhallaRequest(baseUrl, 'trace_route', payload);
+  const result = data as {
+    trip?: {
+      summary?: ValhallaTraceSummary;
+      legs?: Array<{ summary?: ValhallaTraceSummary }>;
+    };
+  } | null;
+  return result?.trip?.summary ?? result?.trip?.legs?.[0]?.summary ?? null;
 }

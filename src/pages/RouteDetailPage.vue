@@ -295,7 +295,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { db } from '@/services/database';
 import { useRouteTracking, resolveTrackingProfile } from '@/composables/useRouteTracking';
-import { matchPositionsWithValhalla } from '@/services/valhalla';
+import { matchPositionsWithValhalla, traceRouteSummary, type ValhallaTraceSummary } from '@/services/valhalla';
 import { useI18n } from 'vue-i18n';
 import { scooterIcon } from '@/icons/scooter';
 import type { LatLonPoint } from '@/services/positionSmoothing';
@@ -420,6 +420,24 @@ const hasTrackPoints = computed(() =>
   waypoints.value.filter((wp) => wp.type === 'position').length >= 3
 );
 
+const buildPositionShape = (sourceWaypoints: Waypoint[]): LatLonPoint[] =>
+  sourceWaypoints
+    .filter((wp) => wp.type === 'position')
+    .map((wp) => {
+      const point: LatLonPoint = { latitude: wp.latitude, longitude: wp.longitude };
+      const parsed = Date.parse(wp.timestamp);
+      if (!Number.isNaN(parsed)) {
+        point.timestamp = parsed;
+      }
+      return point;
+    });
+
+const determineTraceShape = (): LatLonPoint[] => {
+  if (valhallaTrace.value.length >= 3) return valhallaTrace.value;
+  if (matchedPath.value.length >= 3) return matchedPath.value;
+  return buildPositionShape(waypoints.value);
+};
+
 watch(hasWaypointTab, (visible) => {
   if (!visible && activeTab.value === 'waypoints') {
     activeTab.value = 'info';
@@ -492,15 +510,7 @@ const sendRouteToValhalla = async () => {
     return;
   }
 
-  const positionWaypoints = waypoints.value.filter((wp) => wp.type === 'position');
-  const routePoints: LatLonPoint[] = positionWaypoints.map((wp) => {
-    const point: LatLonPoint = { latitude: wp.latitude, longitude: wp.longitude };
-    const parsed = Date.parse(wp.timestamp);
-    if (!isNaN(parsed)) {
-      point.timestamp = parsed;
-    }
-    return point;
-  });
+  const routePoints = buildPositionShape(waypoints.value);
 
     if (routePoints.length < 3) {
       const toast = await toastController.create({
@@ -817,7 +827,27 @@ const stopRecordingImpl = async () => {
   const endTime = new Date().toISOString();
   const trackedDistance = trackingDistance.value;
   const trackedDuration = trackingDuration.value;
+  const summaryShape = determineTraceShape();
+  const routeProfile = resolveTrackingProfile(routeData.value?.travelMode);
+  const costing =
+    routeData.value?.travelMode === 'pedestrian'
+      ? 'pedestrian'
+      : routeData.value?.travelMode ?? 'auto';
   await stopTracking();
+  let traceSummary: ValhallaTraceSummary | null = null;
+  if (summaryShape.length >= 3) {
+    try {
+      traceSummary = await traceRouteSummary(summaryShape, {
+        id: routeId ? routeId.toString() : undefined,
+        costing,
+        gpsAccuracy: routeProfile.valhallaGpsAccuracy,
+        searchRadius: routeProfile.valhallaSearchRadius,
+        shapeMatch: routeProfile.valhallaShapeMatch
+      });
+    } catch (error) {
+      console.warn('Valhalla trace_route summary failed', error);
+    }
+  }
 
   let finalDuration = trackedDuration;
   if (finalDuration == null && route && route.startTime) {
@@ -828,11 +858,19 @@ const stopRecordingImpl = async () => {
     }
   }
 
+  let finalDistance = trackedDistance;
+  if (traceSummary?.length && traceSummary.length > 0) {
+    finalDistance = Math.round(traceSummary.length * 1000);
+  }
+  if (traceSummary?.time && traceSummary.time > 0) {
+    finalDuration = Math.round(traceSummary.time);
+  }
+
   await db.updateRoute(routeId, {
     isRecording: false,
     endTime,
     duration: finalDuration,
-    distance: trackedDistance
+    distance: finalDistance
   });
   await loadData();
   const toast = await toastController.create({

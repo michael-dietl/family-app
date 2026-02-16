@@ -593,5 +593,9 @@ export default {
     timeline_events: "Events",
     timeline_event: "Event",
     timeline_date: "Date",
-    timeline_photos: "Photos"
+    timeline_photos: "Photos",
+    "gallery.add_header": "Add photo",
+    "gallery.take_photo": "Take photo",
+    "gallery.select_photo": "Select photo",
+    "gallery.select_multiple_photos": "Select multiple photos"
   }};

@@ -590,4 +590,8 @@ export default {
     timeline_events: "Evente",
     timeline_date: "Datum",
     timeline_photos: "Fotos",
+    "gallery.add_header": "Foto hinzufügen",
+    "gallery.take_photo": "Foto aufnehmen",
+    "gallery.select_photo": "Ein Foto auswählen",
+    "gallery.select_multiple_photos": "Mehrere Fotos auswählen"
   }};

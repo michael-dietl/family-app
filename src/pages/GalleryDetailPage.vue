@@ -834,7 +834,7 @@ const showPhotoOptions = async () => {
         handler: () => handleAddPhoto(CameraSource.Camera)
       },
       {
-        text: t('gallery.select_single_photo'),
+        text: t('gallery.select_photo'),
         icon: image,
         handler: () => handleAddPhotoFromGallery()
       },

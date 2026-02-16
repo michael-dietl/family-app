@@ -2,7 +2,7 @@ import { ref, computed } from 'vue';
 import { Geolocation, type Position } from '@capacitor/geolocation';
 import { db, type Route, type Waypoint } from '@/services/database';
 import { PositionSmoother, type LatLonPoint } from '@/services/positionSmoothing';
-import { matchPositionsWithValhalla } from '@/services/valhalla';
+import { matchPositionsWithValhalla, type ValhallaEndpoint } from '@/services/valhalla';
 
 export interface TrackingState {
   isTracking: boolean;
@@ -24,6 +24,8 @@ interface TrackingProfile {
   matchDelayMs?: number;
   valhallaGpsAccuracy?: number;
   valhallaSearchRadius?: number;
+  valhallaShapeMatch?: string;
+  valhallaEndpoint?: ValhallaEndpoint;
 }
 
 const TRACKING_PROFILES: Record<TravelMode, TrackingProfile> = {
@@ -33,8 +35,10 @@ const TRACKING_PROFILES: Record<TravelMode, TrackingProfile> = {
     persistDistanceMeters: 2,
     requiredAccuracyMeters: 10,
     matchDelayMs: 1000,
-    valhallaGpsAccuracy: 9,
-    valhallaSearchRadius: 15
+    valhallaGpsAccuracy: 20,
+    valhallaSearchRadius: 50,
+    valhallaShapeMatch: 'map_snap',
+    valhallaEndpoint: 'trace_attributes'
   },
   bicycle: {
     waypointDistanceMeters: 5,
@@ -122,6 +126,7 @@ export function useRouteTracking() {
   let positionWaypointCount = 0;
   let currentRouteId: number | null = null;
   let activeProfile: TrackingProfile = DEFAULT_PROFILE;
+  let activeTravelMode: TravelMode = 'car';
   let lastWaypointTimestamp = 0;
   let persistDistanceMeters = DEFAULT_PROFILE.persistDistanceMeters;
 
@@ -154,9 +159,14 @@ export function useRouteTracking() {
     }
     matchInFlight = true;
     try {
+      const routeIdString = currentRouteId?.toString();
       const matched = await matchPositionsWithValhalla(routePoints, {
         gpsAccuracy: activeProfile.valhallaGpsAccuracy,
-        searchRadius: activeProfile.valhallaSearchRadius
+        searchRadius: activeProfile.valhallaSearchRadius,
+        shapeMatch: activeProfile.valhallaShapeMatch,
+        endpoint: activeProfile.valhallaEndpoint,
+        costing: activeTravelMode,
+        id: routeIdString
       });
       if (matched.shape.length >= MIN_MATCH_POINTS) {
         matchedPath.value = matched.shape;
@@ -254,6 +264,7 @@ export function useRouteTracking() {
       }
       matchInFlight = false;
       const chosenMode: TravelMode = (travelMode ?? 'car') as TravelMode;
+      activeTravelMode = chosenMode;
       activeProfile = TRACKING_PROFILES[chosenMode] || DEFAULT_PROFILE;
       persistDistanceMeters = activeProfile.persistDistanceMeters;
       lastWaypointTimestamp = 0;

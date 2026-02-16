@@ -1,5 +1,5 @@
 
-import { ref, reactive, readonly } from 'vue';
+import { ref, reactive } from 'vue';
 import { Capacitor } from '@capacitor/core';
 import { pocketbase } from '@/services/pocketbase';
 import { db, type Gallery, type Photo, type Book } from '@/services/database';
@@ -7,6 +7,13 @@ import { Preferences } from '@capacitor/preferences';
 import { toastController } from '@ionic/vue';
 import type { UnsubscribeFunc } from 'pocketbase';
 import { uploadFileToPocketBase } from '@/utils/pbFileUploadExample';
+import {
+  hideSyncProgress,
+  runBackgroundOperation,
+  showSyncProgress,
+  syncProgressState,
+  updateSyncProgress
+} from '@/services/backgroundSyncService';
 
 const REMOTE_HTTP_RE = /^https?:\/\//i;
 const isRemoteHttpUrl = (value?: string) => Boolean(value && REMOTE_HTTP_RE.test(value));
@@ -112,28 +119,7 @@ export function usePocketbaseSync() {
   const isSyncing = ref(false);
   const lastSyncTime = ref<string | null>(null);
 
-  // Fortschritt-Overlay State
-  const syncProgress = reactive({
-    open: false,
-    entity: '', // z.B. 'Bücher', 'Fotos', 'Galerien'
-    current: 0,
-    total: 0
-  });
-
   let gallerySubscription: UnsubscribeFunc | null = null;
-
-  function showSyncProgress(entity: string, total: number) {
-    syncProgress.open = true;
-    syncProgress.entity = entity;
-    syncProgress.current = 0;
-    syncProgress.total = total;
-  }
-  function updateSyncProgress(current: number) {
-    syncProgress.current = current;
-  }
-  function hideSyncProgress() {
-    syncProgress.open = false;
-  }
 
   const presentRealtimeToast = async (message: string) => {
     const toast = await toastController.create({
@@ -503,7 +489,18 @@ export function usePocketbaseSync() {
     }
   };
 
-  // Full Sync
+  const runFullSync = async () => {
+    await loadLastSyncTime();
+    
+    await syncGalleries();
+    await syncPhotos();
+    await syncBooks();
+    
+    await saveLastSyncTime();
+    
+    console.log('✅ Full sync completed');
+  };
+
   const syncAll = async (): Promise<void> => {
     if (isSyncing.value) {
       console.warn('Sync already in progress');
@@ -525,15 +522,9 @@ export function usePocketbaseSync() {
     isSyncing.value = true;
 
     try {
-      await loadLastSyncTime();
-      
-      await syncGalleries();
-      await syncPhotos();
-      await syncBooks();
-      
-      await saveLastSyncTime();
-      
-      console.log('✅ Full sync completed');
+      await runBackgroundOperation(async () => {
+        await runFullSync();
+      });
     } catch (error) {
       console.error('Sync failed:', error);
       throw error;
@@ -595,6 +586,6 @@ export function usePocketbaseSync() {
     subscribeToAllEntities,
     unsubscribeFromGalleries,
     unsubscribeFromAllEntities,
-    syncProgress: readonly(syncProgress)
+    syncProgress: syncProgressState
   };
 }
