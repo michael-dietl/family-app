@@ -863,11 +863,12 @@ const refreshTimelineData = async () => {
   isTimelineLoading.value = true;
   try {
     await Promise.all([loadGalleries(), loadEvents(), loadRoutes()]);
-    scrollToToday();
   } catch (error) {
     console.error('Failed to refresh timeline data', error);
   } finally {
     isTimelineLoading.value = false;
+    await nextTick();
+    scrollToToday();
   }
 };
 

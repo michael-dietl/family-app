@@ -1,24 +1,86 @@
 #!/usr/bin/env node
 import fs from 'fs';
 import path from 'path';
+import ts from 'typescript';
 
 const I18N_DIR = path.resolve(process.cwd(), 'src', 'i18n');
 // Only check actual locale files
 const LOCALES = ['de','en','it','fr','bar'];
 const files = LOCALES.map(l => l + '.ts').filter(f => fs.existsSync(path.join(I18N_DIR, f)));
 
-function parseAutoBlock(content) {
-  const m = /\bauto\s*:\s*{([\s\S]*?)\n\s*}/m.exec(content);
-  if (!m) return {};
-  const inner = m[1];
-  const lines = inner.split(/,\n/);
+const unwrapExpression = (node) => {
+  let current = node;
+  while (ts.isParenthesizedExpression(current) || ts.isAsExpression(current)) {
+    current = current.expression;
+  }
+  return current;
+};
+
+const getPropertyName = (name) => {
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
+    return name.text;
+  }
+  if (ts.isComputedPropertyName(name)) {
+    const expression = unwrapExpression(name.expression);
+    if (ts.isStringLiteral(expression) || ts.isNumericLiteral(expression)) {
+      return expression.text;
+    }
+  }
+  return undefined;
+};
+
+const extractValueString = (node) => {
+  const valueNode = unwrapExpression(node);
+  if (ts.isStringLiteral(valueNode) || ts.isNoSubstitutionTemplateLiteral(valueNode)) {
+    return valueNode.text;
+  }
+  if (ts.isTemplateExpression(valueNode)) {
+    let text = valueNode.head.text;
+    valueNode.templateSpans.forEach(span => {
+      const expression = span.expression.getText().trim();
+      text += '${' + expression + '}' + span.literal.text;
+    });
+    return text;
+  }
+  return '';
+};
+
+const findAutoObject = (node) => {
+  if (!ts.isObjectLiteralExpression(node)) return undefined;
+  for (const property of node.properties) {
+    if (!ts.isPropertyAssignment(property)) continue;
+    const keyName = getPropertyName(property.name);
+    if (keyName !== 'auto') continue;
+    const initializer = unwrapExpression(property.initializer);
+    if (ts.isObjectLiteralExpression(initializer)) {
+      return initializer;
+    }
+  }
+  return undefined;
+};
+
+const parseAutoBlock = (content) => {
+  const sourceFile = ts.createSourceFile('locale.ts', content, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  let exportExpression = undefined;
+  ts.forEachChild(sourceFile, (node) => {
+    if (ts.isExportAssignment(node)) {
+      exportExpression = node.expression;
+    }
+  });
+  if (!exportExpression) return {};
+  const exported = unwrapExpression(exportExpression);
+  const autoObject = findAutoObject(exported);
+  if (!autoObject) return {};
   const map = {};
-  for (const line of lines) {
-    const mm = /"([^\"]+)"\s*:\s*(?:"([\s\S]*?)"|''|``|\'\')/.exec(line);
-    if (mm) map[mm[1]] = mm[2] ?? '';
+  for (const property of autoObject.properties) {
+    if (!ts.isPropertyAssignment(property)) continue;
+    const keyName = getPropertyName(property.name);
+    if (!keyName) continue;
+    const value = extractValueString(property.initializer).trim();
+    map[keyName] = value;
   }
   return map;
-}
+};
 
 const localeMaps = {};
 for (const f of files) {
