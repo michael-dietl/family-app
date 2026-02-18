@@ -192,11 +192,13 @@ export default {
     timeline_event: "Evento",
     timeline_events: "Eventi",
     timeline_date: "Data",
-    timeline_photos: "Foto",
-    "gallery.add_header": "Aggiungi foto",
-    "gallery.take_photo": "Scatta foto",
-    "gallery.select_photo": "Seleziona una foto",
-    "gallery.select_multiple_photos": "Seleziona più foto",
+    timeline_photos: "Foto"
+  },
+  gallery: {
+    add_header: "Aggiungi foto",
+    take_photo: "Scatta foto",
+    select_photo: "Seleziona una foto",
+    select_multiple_photos: "Seleziona più foto"
   },
   languageNames: {
     bar: 'Bavarese',

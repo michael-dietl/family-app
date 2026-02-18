@@ -40,7 +40,7 @@ const DEFAULT_MAX_POINTS = 400;
 const DEFAULT_GPS_ACCURACY = 20;
 const DEFAULT_SEARCH_RADIUS = 25;
 const DEFAULT_SHAPE_MATCH = 'walk_or_snap';
-const DEFAULT_ENDPOINT: ValhallaEndpoint = 'trace_route';
+const DEFAULT_ENDPOINT: ValhallaEndpoint = 'trace_attributes';
 const ENCODED_POLYLINE_THRESHOLD = 150;
 const MIN_SHAPE_POINTS = 4;
 const VALHALLA_URL_KEY = 'valhalla_url';
@@ -391,7 +391,7 @@ export async function matchPositionsWithValhalla(
     id: options.id
   };
   const payload =
-    targetEndpoint === 'trace_route'
+    targetEndpoint === 'trace_attributes'
       ? {
           ...basePayload,
           trace_options: limitOptions

@@ -270,6 +270,11 @@
               </ion-label>
             </ion-item>
 
+            <div class="photo-progress" v-if="isPhotoProcessing">
+              <ion-progress-bar type="indeterminate" color="primary"></ion-progress-bar>
+              <p class="photo-progress-text">Hintergrund wird freigestellt …</p>
+            </div>
+
             <!-- Foto Preview -->
             <div v-if="photoPreview" class="photo-preview">
               <img :src="getImageSrc(photoPreview)" alt="Weinvorschau" />
@@ -284,7 +289,7 @@
             <ion-button
               expand="block"
               @click="handleCreateWine"
-              :disabled="!newWine.name || isCreating"
+              :disabled="!newWine.name || isCreating || isPhotoProcessing"
             >
               <ion-spinner v-if="isCreating" slot="start"></ion-spinner>
               {{ isCreating ? 'Wird gespeichert...' : 'Wein hinzufügen' }}
@@ -334,6 +339,7 @@ import {
   IonText,
   IonChip,
   IonCheckbox,
+  IonProgressBar,
   alertController
 } from '@ionic/vue';
 import { add, wineOutline, camera, locationOutline, star as starIcon, starOutline, checkmarkCircleOutline, trashOutline } from 'ionicons/icons';
@@ -351,6 +357,7 @@ const { wines, filteredWines, isLoading, searchTerm, loadWines, createWine, take
 
 const showCreateModal = ref(false);
 const isCreating = ref(false);
+const isPhotoProcessing = ref(false);
 const photoPreview = ref<string | null>(null);
 const photoGPS = ref<{ latitude: number; longitude: number } | null>(null);
 const showImageEditor = ref(false);
@@ -382,6 +389,7 @@ const resetCreateForm = () => {
   photoPreview.value = null;
   photoGPS.value = null;
   tempPhotoForEdit.value = '';
+  isPhotoProcessing.value = false;
 };
 
 const closeCreateModal = () => {
@@ -452,17 +460,26 @@ const handleTakePhoto = async () => {
     
     // Vor dem Editieren den Hintergrund entfernen
     const capturePath = result.photoPath;
-      const processedPhotoPath = capturePath ? await applyBackgroundRemovalToCapture(capturePath) : capturePath;
-      setCapturedPhoto(processedPhotoPath);
-      tempPhotoForEdit.value = processedPhotoPath || '';
-      if (!processedPhotoPath) {
-        showImageEditor.value = false;
-        return;
+    let processedPhotoPath = capturePath;
+    if (capturePath) {
+      isPhotoProcessing.value = true;
+      try {
+        processedPhotoPath = await applyBackgroundRemovalToCapture(capturePath);
+      } finally {
+        isPhotoProcessing.value = false;
       }
-      await nextTick();
-      showImageEditor.value = true;
+    }
+    setCapturedPhoto(processedPhotoPath);
+    tempPhotoForEdit.value = processedPhotoPath || '';
+    if (!processedPhotoPath) {
+      showImageEditor.value = false;
+      return;
+    }
+    await nextTick();
+    showImageEditor.value = true;
   } catch (error: any) {
     console.error('Photo error in component:', error);
+    isPhotoProcessing.value = false;
     const alert = await alertController.create({
       header: 'Fehler',
       message: `Foto konnte nicht aufgenommen werden: ${error?.message || 'Unbekannter Fehler'}`,

@@ -366,10 +366,12 @@ export default {
     timeline_events: "Événements",
     timeline_event: "Événement",
     timeline_date: "Date",
-    timeline_photos: "Photos",
-    "gallery.add_header": "Ajouter une photo",
-    "gallery.take_photo": "Prendre une photo",
-    "gallery.select_photo": "Choisir une photo",
-    "gallery.select_multiple_photos": "Choisir plusieurs photos"
+    timeline_photos: "Photos"
+  },
+  gallery: {
+    add_header: "Ajouter une photo",
+    take_photo: "Prendre une photo",
+    select_photo: "Choisir une photo",
+    select_multiple_photos: "Choisir plusieurs photos"
   }
 };

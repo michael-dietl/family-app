@@ -41,7 +41,7 @@
           <ion-label>{{ $t('auto.timeline_events') }}</ion-label>
         </ion-chip>
       </div>
-      <ion-segment v-model="activeTab" class="timeline-tabs">
+      <ion-segment :value="activeTab" @ionChange="handleSegmentChange" class="timeline-tabs">
         <ion-segment-button value="timeline">Timeline</ion-segment-button>
         <ion-segment-button value="events">Events</ion-segment-button>
       </ion-segment>
@@ -51,7 +51,7 @@
       </div>
 
       <div v-else>
-        <div v-if="activeTab === 'timeline'">
+        <template v-if="activeTab === 'timeline'">
           <section class="timeline-section">
             <div
               ref="timelineScroll"
@@ -293,8 +293,8 @@
                 </article>
               </section>
           </section>
-        </div>
-        <div v-else>
+        </template>
+        <template v-else>
           <section class="manual-event-list">
             <header>
               <h3>{{ $t('auto.timeline_manual_events') }}</h3>
@@ -332,7 +332,7 @@
               </div>
             </article>
           </section>
-        </div>
+        </template>
       </div>
     </ion-content>
   </ion-page>
@@ -750,6 +750,13 @@ const handlePickPhotos = async () => {
 
 const removePendingPhoto = (index: number) => {
   pendingPhotos.value.splice(index, 1);
+};
+
+const handleSegmentChange = (event: CustomEvent<{ value?: 'timeline' | 'events' }>) => {
+  const newValue = event.detail?.value;
+  if (newValue === 'timeline' || newValue === 'events') {
+    activeTab.value = newValue;
+  }
 };
 
 const getPendingPhotoSrc = (photo: PickedPhoto) => {
