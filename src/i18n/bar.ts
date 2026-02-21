@@ -19,6 +19,22 @@ export default {
       wine: 'Weinrot',
       forest: 'Woid',
       ocean: 'Ozean'
+    },
+    placeholders: {
+      url: 'https://example.com',
+      email: 'dein@email.com',
+      password: '••••••••'
+    },
+    storageModes: {
+      web: 'In-Memory',
+      native: 'Native'
+    },
+    storageInfo: 'SQLite ({mode})',
+    toasts: {
+      pocketbase_not_configured: 'PocketBase ned konfiguriert!',
+      auth_failed: 'Automatisches Login is fehlgschlagen – prüf dei Zugangsdaten.',
+      sync_success: 'Büach erfolgreich synchronisiert!',
+      sync_error: 'Fehler beim Synchronisieren der Büach'
     }
   },
   languageNames: {
@@ -415,6 +431,13 @@ export default {
     "keine_aufgaben_in_der_liste": "Keine Aufgaben in der Liste",
     "todo": "ToDo",
     "keine_todo_listen": "Keine ToDo-Listen",
+    "todo_title_placeholder": "Was is z tun?",
+    "todo_description_placeholder": "Details hinzufügen (optional)",
+    "todo_segment_pending": "Offen",
+    "todo_segment_completed": "Erledigt",
+    "todo_empty_pending": "Koa offene Aufgaben",
+    "todo_empty_completed": "Koa erledigte Aufgaben",
+    "todo_done_on": "Erledigt am",
     "erstelle_deine_erste_aufgabenliste": "Erstelle deine erste Aufgabenliste",
     "faelligkeitsdatum": "Fälligkeitsdatum",
     "alle_aufgaben_dieser_liste_werden_ebenfalls_gelöscht": "Alle Aufgaben dieser Liste werden ebenfalls gelöscht.",

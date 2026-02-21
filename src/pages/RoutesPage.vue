@@ -42,30 +42,18 @@
       <!-- Routes List -->
       <div v-else class="routes-list-wrapper">
         <ion-list class="routes-list" lines="none">
-          <ion-card
-            v-for="route in routes"
-            :key="route.id"
-            class="route-card"
-            role="button"
-            tabindex="0"
-            @click="openRoute(route.id!)"
-          >
+          <ion-card v-for="route in routes" :key="route.id" class="route-card" role="button" tabindex="0"
+            @click="openRoute(route.id!)">
             <ion-card-header class="route-card-header">
-              <ion-icon
-                :icon="route.isRecording ? radioButtonOnOutline : mapOutline"
-                :color="route.isRecording ? 'danger' : 'primary'"
-                class="route-status-icon"
-              />
+              <ion-icon :icon="route.isRecording ? radioButtonOnOutline : mapOutline"
+                :color="route.isRecording ? 'danger' : 'primary'" class="route-status-icon" />
               <div class="route-card-titles">
                 <ion-card-title class="route-card-title">{{ route.name }}</ion-card-title>
                 <p v-if="route.description" class="route-description">
                   {{ route.description }}
                 </p>
                 <div class="route-mode-chip">
-                  <ion-icon
-                    :icon="getRouteModeIcon(route.travelMode)"
-                    :color="getRouteModeColor(route.travelMode)"
-                  />
+                  <ion-icon :icon="getRouteModeIcon(route.travelMode)" :color="getRouteModeColor(route.travelMode)" />
                   <span>{{ getRouteModeLabel(route.travelMode) }}</span>
                 </div>
               </div>
@@ -83,124 +71,105 @@
                 <ion-icon slot="start" :icon="pencilOutline" />
                 {{ $t('auto.route_bearbeiten') }}
               </ion-button>
-              <ion-button
-                size="small"
-                fill="outline"
-                color="danger"
-                @click.stop="confirmDeleteRoute(route)"
-              >
+              <ion-button size="small" fill="outline" color="danger" @click.stop="confirmDeleteRoute(route)">
                 <ion-icon slot="start" :icon="trashOutline" />
                 {{ $t('auto.route_löschen') }}
-      <ion-modal
-        css-class="route-edit-modal"
-        :is-open="editRouteModalOpen"
-        :backdropDismiss="false"
-        @didDismiss="closeEditRouteModal"
-      >
-        <ion-header translucent>
-          <ion-toolbar>
-            <ion-buttons slot="start">
-              <ion-button fill="clear" color="medium" @click="closeEditRouteModal" aria-label="{{ t('auto.abbrechen') }}">
-                <ion-icon :icon="closeOutline" />
-              </ion-button>
-            </ion-buttons>
-            <ion-title>{{ t('auto.route_bearbeiten') }}</ion-title>
-            <ion-buttons slot="end">
-              <ion-button :disabled="!isRouteEditValid" @click="saveRouteEdits">
-                {{ t('auto.speichern') }}
-              </ion-button>
-            </ion-buttons>
-          </ion-toolbar>
-        </ion-header>
-        <ion-content>
-          <ion-list lines="full">
-            <ion-item>
-              <ion-label position="stacked">{{ t('auto.route') }}</ion-label>
-              <ion-input
-                v-model="routeEditForm.name"
-                placeholder="{{ t('auto.route') }}"
-                clear-input
-              ></ion-input>
-            </ion-item>
-            <ion-item>
-              <ion-label position="stacked">{{ t('auto.beschreibung') }}</ion-label>
-              <ion-textarea
-                v-model="routeEditForm.description"
-                :rows="3"
-                auto-grow
-                :placeholder="t('auto.beschreibung')"
-              ></ion-textarea>
-            </ion-item>
-            <ion-radio-group v-model="routeEditForm.travelMode">
-              <ion-item v-for="option in travelModeOptions" :key="option.value">
-                <ion-icon slot="start" :icon="option.icon" :color="option.color" />
-                <ion-label>
-                  <strong>{{ option.label }}</strong>
-                </ion-label>
-                <ion-radio slot="end" :value="option.value" />
-              </ion-item>
-            </ion-radio-group>
-          </ion-list>
-        </ion-content>
-      </ion-modal>
+                <ion-modal css-class="route-edit-modal" :is-open="editRouteModalOpen" :backdropDismiss="false"
+                  @didDismiss="closeEditRouteModal">
+                  <ion-header translucent>
+                    <ion-toolbar>
+                      <ion-buttons slot="start">
+                        <ion-button fill="clear" color="medium" @click="closeEditRouteModal"
+                          aria-label="{{ t('auto.abbrechen') }}">
+                          <ion-icon :icon="closeOutline" />
+                        </ion-button>
+                      </ion-buttons>
+                      <ion-title>{{ t('auto.route_bearbeiten') }}</ion-title>
+                      <ion-buttons slot="end">
+                        <ion-button :disabled="!isRouteEditValid" @click="saveRouteEdits">
+                          {{ t('auto.speichern') }}
+                        </ion-button>
+                      </ion-buttons>
+                    </ion-toolbar>
+                  </ion-header>
+                  <ion-content>
+                    <ion-list lines="full">
+                      <ion-item>
+                        <ion-label position="stacked">{{ t('auto.route') }}</ion-label>
+                        <ion-input v-model="routeEditForm.name" placeholder="{{ t('auto.route') }}"
+                          clear-input></ion-input>
+                      </ion-item>
+                      <ion-item>
+                        <ion-label position="stacked">{{ t('auto.beschreibung') }}</ion-label>
+                        <ion-textarea v-model="routeEditForm.description" :rows="3" auto-grow
+                          :placeholder="t('auto.beschreibung')"></ion-textarea>
+                      </ion-item>
+                      <ion-radio-group v-model="routeEditForm.travelMode">
+                        <ion-item v-for="option in travelModeOptions" :key="option.value">
+                          <ion-icon slot="start" :icon="option.icon" :color="option.color" />
+                          <ion-label>
+                            <strong>{{ option.label }}</strong>
+                          </ion-label>
+                          <ion-radio slot="end" :value="option.value" />
+                        </ion-item>
+                      </ion-radio-group>
+                    </ion-list>
+                  </ion-content>
+                </ion-modal>
               </ion-button>
             </ion-card-content>
           </ion-card>
         </ion-list>
       </div>
     </ion-content>
-      <ion-modal
-        class="start-route-modal"
-        :is-open="startRouteModalOpen"
-        @didDismiss="cancelStartRoute"
-        :backdropDismiss="true"
-      >
-        <ion-header translucent>
-          <ion-toolbar>
-            <ion-title>{{ $t('auto.aufzeichnung_starten') }}</ion-title>
-          </ion-toolbar>
-        </ion-header>
-        <ion-content class="ion-padding">
-          <p class="modal-description">
-            {{ $t('auto.möchtest_du_eine_neue_routenaufzeichnung_starten') }}
-          </p>
-          <ion-item>
-            <ion-label position="stacked">{{ $t('auto.name') }}</ion-label>
-            <ion-input v-model="newRouteName" autofocus />
+    <ion-modal class="start-route-modal" :is-open="startRouteModalOpen" @didDismiss="cancelStartRoute"
+      :backdropDismiss="true">
+      <ion-header translucent>
+        <ion-toolbar>
+          <ion-title>{{ $t('auto.aufzeichnung_starten') }}</ion-title>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <p class="modal-description">
+          {{ $t('auto.möchtest_du_eine_neue_routenaufzeichnung_starten') }}
+        </p>
+        <ion-item>
+          <ion-label position="stacked">{{ $t('auto.name') }}</ion-label>
+          <ion-input v-model="newRouteName" autofocus />
+        </ion-item>
+        <p class="modal-label">Fahrmodus</p>
+        <ion-radio-group v-model="newRouteMode">
+          <ion-item button :detail="false" lines="none">
+            <ion-icon slot="start" :icon="carOutline" />
+            <ion-label>Auto</ion-label>
+            <ion-radio slot="end" value="car" />
           </ion-item>
-          <p class="modal-label">Fahrmodus</p>
-          <ion-radio-group v-model="newRouteMode">
-            <ion-item button :detail="false" lines="none">
-              <ion-icon slot="start" :icon="carOutline" />
-              <ion-label>Auto</ion-label>
-              <ion-radio slot="end" value="car" />
-            </ion-item>
-            <ion-item button :detail="false" lines="none">
-              <ion-icon slot="start" :icon="walkOutline" />
-              <ion-label>Fußgänger</ion-label>
-              <ion-radio slot="end" value="pedestrian" />
-            </ion-item>
-            <ion-item button :detail="false" lines="none">
-              <ion-icon slot="start" :icon="bicycleOutline" />
-              <ion-label>Fahrrad</ion-label>
-              <ion-radio slot="end" value="bicycle" />
-            </ion-item>
-            <ion-item button :detail="false" lines="none">
-              <ion-icon slot="start" :icon="scooterIcon" />
-              <ion-label>Vespa</ion-label>
-              <ion-radio slot="end" value="motor_scooter" />
-            </ion-item>
-          </ion-radio-group>
-          <div class="modal-actions">
-            <ion-button expand="block" fill="outline" color="medium" @click="cancelStartRoute">
-              {{ $t('buttons.cancel') }}
-            </ion-button>
-            <ion-button expand="block" color="primary" :disabled="!newRouteName.trim()" @click="confirmStartRoute">
-              {{ $t('auto.route_aufzeichnen') }}
-            </ion-button>
-          </div>
-        </ion-content>
-      </ion-modal>
+          <ion-item button :detail="false" lines="none">
+            <ion-icon slot="start" :icon="walkOutline" />
+            <ion-label>Fußgänger</ion-label>
+            <ion-radio slot="end" value="pedestrian" />
+          </ion-item>
+          <ion-item button :detail="false" lines="none">
+            <ion-icon slot="start" :icon="bicycleOutline" />
+            <ion-label>Fahrrad</ion-label>
+            <ion-radio slot="end" value="bicycle" />
+          </ion-item>
+          <ion-item button :detail="false" lines="none">
+            <ion-icon slot="start" :icon="scooterIcon" />
+            <ion-label>Vespa</ion-label>
+            <ion-radio slot="end" value="motor_scooter" />
+          </ion-item>
+        </ion-radio-group>
+        <div class="modal-actions">
+          <ion-button expand="block" fill="outline" color="medium" @click="cancelStartRoute">
+            {{ $t('buttons.cancel') }}
+          </ion-button>
+          <ion-button expand="block" color="primary" :disabled="!newRouteName.trim()" @click="confirmStartRoute">
+            {{ $t('auto.route_aufzeichnen') }}
+          </ion-button>
+        </div>
+      </ion-content>
+    </ion-modal>
   </ion-page>
 </template>
 
@@ -270,11 +239,11 @@ const TRAVEL_MODE_CONFIGS: Array<{
   icon: string;
   color: string;
 }> = [
-  { value: 'car', icon: carOutline, color: 'primary' },
-  { value: 'pedestrian', icon: walkOutline, color: 'medium' },
-  { value: 'bicycle', icon: bicycleOutline, color: 'success' },
-  { value: 'motor_scooter', icon: scooterIcon, color: 'warning' }
-];
+    { value: 'car', icon: carOutline, color: 'primary' },
+    { value: 'pedestrian', icon: walkOutline, color: 'medium' },
+    { value: 'bicycle', icon: bicycleOutline, color: 'success' },
+    { value: 'motor_scooter', icon: scooterIcon, color: 'warning' }
+  ];
 const travelModeOptions = computed(() =>
   TRAVEL_MODE_CONFIGS.map((config) => ({
     ...config,
@@ -629,16 +598,20 @@ const formatDate = (dateString: string): string => {
   flex-direction: column;
   gap: 0.75rem;
 }
+
 .route-edit-modal {
   --ion-background-color: var(--ion-color-step-100);
 }
+
 .route-edit-modal ion-header,
 .route-edit-modal ion-content {
   --background: var(--ion-background-color);
 }
+
 .route-edit-modal ion-item {
   --background: transparent;
 }
+
 .route-edit-modal ion-input::part(native),
 .route-edit-modal ion-textarea::part(native) {
   background: transparent;

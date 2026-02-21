@@ -71,7 +71,7 @@
               <ion-input
                 v-model="settings.pocketbaseUrl"
                 type="url"
-                placeholder="https://example.com"
+                :placeholder="t('settings.placeholders.url')"
                 clear-input
                 @ionBlur="validateUrl"
               />
@@ -90,7 +90,7 @@
               <ion-input
                 v-model="settings.email"
                 type="email"
-                placeholder="deine@email.com"
+                :placeholder="t('settings.placeholders.email')"
                 clear-input
               />
             </ion-item>
@@ -102,7 +102,7 @@
               <ion-input
                 v-model="settings.password"
                 type="password"
-                placeholder="••••••••"
+                :placeholder="t('settings.placeholders.password')"
                 clear-input
               />
             </ion-item>
@@ -225,7 +225,7 @@
             <ion-item>
               <ion-label>
                 <h3>{{ $t('auto.lokale_datenbank') }}</h3>
-                <p>SQLite ({{ isWebPlatform ? 'In-Memory' : 'Native' }})</p>
+                <p>{{ t('settings.storageInfo', { mode: t(isWebPlatform ? 'settings.storageModes.web' : 'settings.storageModes.native') }) }}</p>
               </ion-label>
             </ion-item>
 
@@ -326,9 +326,9 @@ async function handleBookSync() {
     const ready = await ensurePocketbaseConfiguredAndAuthenticated();
     if (!ready) {
       const toast = await toastController.create({
-        message: !pocketbase.isConfigured()
-          ? 'PocketBase nicht konfiguriert!'
-          : 'Automatische Anmeldung fehlgeschlagen – bitte Zugangsdaten prüfen.',
+          message: !pocketbase.isConfigured()
+            ? t('settings.toasts.pocketbase_not_configured')
+            : t('settings.toasts.auth_failed'),
         duration: 2000,
         color: 'danger',
         position: 'bottom'
@@ -338,7 +338,7 @@ async function handleBookSync() {
     }
     await syncBooks();
     const toast = await toastController.create({
-      message: 'Bücher erfolgreich synchronisiert!',
+        message: t('settings.toasts.sync_success'),
       duration: 2000,
       color: 'success',
       position: 'bottom'
@@ -346,7 +346,7 @@ async function handleBookSync() {
     await toast.present();
   } catch (error) {
     const toast = await toastController.create({
-      message: 'Fehler beim Synchronisieren der Bücher',
+      message: t('settings.toasts.sync_error'),
       duration: 2000,
       color: 'danger',
       position: 'bottom'

@@ -19,6 +19,23 @@ export default {
       forest: 'Forêt',
       ocean: 'Océan'
     }
+    ,
+    placeholders: {
+      url: 'https://exemple.com',
+      email: 'votre@email.com',
+      password: '••••••••'
+    },
+    storageModes: {
+      web: 'En mémoire',
+      native: 'Native'
+    },
+    storageInfo: 'SQLite ({mode})',
+    toasts: {
+      pocketbase_not_configured: 'PocketBase non configuré !',
+      auth_failed: 'Connexion automatique échouée – vérifie tes identifiants.',
+      sync_success: 'Livres synchronisés avec succès !',
+      sync_error: 'Erreur lors de la synchronisation des livres.'
+    }
   },
   languageNames: {
     de: 'Deutsch',
@@ -274,6 +291,13 @@ export default {
     "keine_aufgaben_in_der_liste": "Aucune tâche dans la liste",
     "todo": "ToDo",
     "keine_todo_listen": "Aucune liste de tâches",
+    "todo_title_placeholder": "Quoi faire ?",
+    "todo_description_placeholder": "Ajoute des détails (optionnel)",
+    "todo_segment_pending": "En cours",
+    "todo_segment_completed": "Terminées",
+    "todo_empty_pending": "Aucune tâche en cours",
+    "todo_empty_completed": "Aucune tâche terminée",
+    "todo_done_on": "Terminé le",
     "erstelle_deine_erste_aufgabenliste": "Crée ta première liste de tâches",
     "faelligkeitsdatum": "Date d'échéance",
     "alle_aufgaben_dieser_liste_werden_ebenfalls_gelöscht": "Toutes les tâches de cette liste seront supprimées.",

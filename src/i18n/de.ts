@@ -22,6 +22,23 @@ export default {
       forest: 'Waldgrün',
       ocean: 'Ozeanblau'
     }
+    ,
+    placeholders: {
+      url: 'https://example.com',
+      email: 'deine@email.com',
+      password: '••••••••'
+    },
+    storageModes: {
+      web: 'In-Memory',
+      native: 'Native'
+    },
+    storageInfo: 'SQLite ({mode})',
+    toasts: {
+      pocketbase_not_configured: 'PocketBase nicht konfiguriert!',
+      auth_failed: 'Automatische Anmeldung fehlgeschlagen – bitte Zugangsdaten prüfen.',
+      sync_success: 'Bücher erfolgreich synchronisiert!',
+      sync_error: 'Fehler beim Synchronisieren der Bücher'
+    }
   },
   languageNames: {
     de: 'Deutsch',
@@ -420,6 +437,13 @@ export default {
     "neue_aufgabe": "Neue Aufgabe",
     "fotos_hinzufuegen": "Fotos hinzufügen",
     "keine_todo_listen": "Keine ToDo-Listen",
+    "todo_title_placeholder": "Was ist zu tun?",
+    "todo_description_placeholder": "Details hinzufügen (optional)",
+    "todo_segment_pending": "Offen",
+    "todo_segment_completed": "Erledigt",
+    "todo_empty_pending": "Keine offenen Aufgaben",
+    "todo_empty_completed": "Keine erledigten Aufgaben",
+    "todo_done_on": "Erledigt am",
     "erstelle_deine_erste_aufgabenliste": "Erstelle deine erste Aufgabenliste",
     "faelligkeitsdatum": "Fälligkeitsdatum",
     "alle_aufgaben_dieser_liste_werden_ebenfalls_gelöscht": "Alle Aufgaben dieser Liste werden ebenfalls gelöscht.",

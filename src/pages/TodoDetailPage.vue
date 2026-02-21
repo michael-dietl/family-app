@@ -30,14 +30,14 @@
               <div class="task-input-row">
                 <ion-input
                   v-model="newItemTitle"
-                  placeholder="$t('titel-der-aufgabe')"
+                  :placeholder="$t('auto.todo_title_placeholder')"
                   @keyup.enter="handleAddItem"
                 />
               </div>
               <ion-item lines="full">
                 <ion-textarea
                   v-model="newItemDescription"
-                  placeholder="$t('beschreibung-optional')"
+                  :placeholder="$t('auto.todo_description_placeholder')"
                   :rows="2"
                   auto-grow
                 />
@@ -89,8 +89,8 @@
         </div>
 
         <ion-segment class="todo-segment" v-model="activeSegment">
-          <ion-segment-button value="pending">Offen</ion-segment-button>
-          <ion-segment-button value="completed">Erledigt</ion-segment-button>
+          <ion-segment-button value="pending">{{ $t('auto.todo_segment_pending') }}</ion-segment-button>
+          <ion-segment-button value="completed">{{ $t('auto.todo_segment_completed') }}</ion-segment-button>
         </ion-segment>
 
         <ion-list v-if="visibleItems.length > 0" class="todo-list">
@@ -117,7 +117,7 @@
                   {{ $t('auto.faelligkeitsdatum') }}: {{ formatSimpleDate(item.dueDate) }}
                 </span>
                 <span v-if="item.completed && item.completionDate">
-                  Erledigt am: {{ formatSimpleDate(item.completionDate) }}
+                  {{ $t('auto.todo_done_on') }}: {{ formatSimpleDate(item.completionDate) }}
                 </span>
               </div>
             </div>
@@ -130,7 +130,7 @@
         <div v-else class="empty-state small">
           <ion-icon :icon="checkboxOutline" size="large" />
           <p>
-            {{ activeSegment === 'pending' ? 'Keine offenen Aufgaben' : 'Keine erledigten Aufgaben' }}
+            {{ activeSegment === 'pending' ? $t('auto.todo_empty_pending') : $t('auto.todo_empty_completed') }}
           </p>
         </div>
       </template>
@@ -148,15 +148,17 @@
         </ion-toolbar>
       </ion-header>
       <ion-content class="ion-padding">
-        <ion-datetime
-          v-model="dueDatePickerValue"
-          presentation="date-time"
-          display-format="DD.MM.YYYY HH:mm"
-          :show-default-buttons="false"
-        />
+        <div class="date-picker-wrapper">
+          <ion-datetime
+            v-model="dueDatePickerValue"
+            presentation="date"
+            display-format="DD.MM.YYYY"
+            :show-default-buttons="false"
+          />
+        </div>
         <div class="modal-actions">
           <ion-button expand="block" fill="clear" color="medium" @click="clearDueDate">
-            Zurücksetzen
+            {{ $t('auto.zuruecksetzen') }}
           </ion-button>
         </div>
       </ion-content>
@@ -463,6 +465,16 @@ const getImageSrc = (path: string | null | undefined) => {
   margin-top: 1rem;
 }
 
+.date-picker-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.25rem;
+}
+
+.date-picker-wrapper ion-datetime {
+  width: min(360px, 100%);
+}
+
 .calendar-icon-only::part(icon) {
   font-size: 1.25rem;
 }
@@ -592,6 +604,6 @@ const getImageSrc = (path: string | null | undefined) => {
 }
 
 ::v-deep .half-modal .modal-wrapper ion-datetime {
-  width: 100%;
+  max-width: 100%;
 }
 </style>

@@ -42,6 +42,7 @@ export default {
     erstellen: 'Crea',
     fortsetzen: 'Continua',
     foto: 'Foto',
+    foto_machen: 'Scatta una foto',
     foto_aufnehmen: 'Scatta foto',
     fotos: 'Foto',
     fotos_auf_der_karte_anzeigen: 'Mostra le foto sulla mappa',
@@ -84,6 +85,13 @@ export default {
     keine_kategorie_zugewiesen: 'Nessuna categoria assegnata.',
     keine_routen: 'Nessun percorso',
     keine_todo_listen: 'Nessuna lista ToDo',
+    todo_title_placeholder: 'Cosa fare?',
+    todo_description_placeholder: 'Aggiungi dettagli (opzionale)',
+    todo_segment_pending: 'In sospeso',
+    todo_segment_completed: 'Completate',
+    todo_empty_pending: 'Nessuna attività in sospeso',
+    todo_empty_completed: 'Nessuna attività completata',
+    todo_done_on: 'Completato il',
     faelligkeitsdatum: 'Data di scadenza',
     keine_weine_gefunden: 'Nessun vino trovato',
     konfigurriere_die_verbindung_zu_deinem_pocketbase_server_für_: 'Configura la connessione al tuo server PocketBase per la sincronizzazione cloud',
@@ -219,6 +227,22 @@ export default {
       wine: 'Vino',
       forest: 'Foresta',
       ocean: 'Oceano'
+    },
+    placeholders: {
+      url: 'https://example.com',
+      email: 'tuo@email.com',
+      password: '••••••••'
+    },
+    storageModes: {
+      web: 'In memoria',
+      native: 'Nativo'
+    },
+    storageInfo: 'SQLite ({mode})',
+    toasts: {
+      pocketbase_not_configured: 'PocketBase non configurato!',
+      auth_failed: 'Accesso automatico fallito – verifica le credenziali.',
+      sync_success: 'Libri sincronizzati con successo!',
+      sync_error: 'Errore durante la sincronizzazione dei libri.'
     }
   }
 } as const;

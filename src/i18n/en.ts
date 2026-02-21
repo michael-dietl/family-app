@@ -22,6 +22,23 @@ export default {
       forest: 'Forest',
       ocean: 'Ocean'
     }
+    ,
+    placeholders: {
+      url: 'https://example.com',
+      email: 'you@example.com',
+      password: '••••••••'
+    },
+    storageModes: {
+      web: 'In-Memory',
+      native: 'Native'
+    },
+    storageInfo: 'SQLite ({mode})',
+    toasts: {
+      pocketbase_not_configured: 'PocketBase is not configured!',
+      auth_failed: 'Automatic login failed – please check your credentials.',
+      sync_success: 'Books synchronized successfully!',
+      sync_error: 'Failed to synchronize books'
+    }
   },
   languageNames: {
     de: 'Deutsch',
@@ -152,7 +169,7 @@ export default {
     "radio": "radio",
     "keine": "Keine",
     "kategorie_wählen": "Kategorie wählen",
-    "speichern": "Speichern",
+    "speichern": "Save",
     "kategorie_aktualisiert": "Kategorie aktualisiert",
     "fehler_beim_aktualisieren_der_kategorie": "Fehler beim Aktualisieren der Kategorie",
     "als_ungelesen_markiert": "Als ungelesen markiert",
@@ -271,7 +288,7 @@ export default {
     "api_fehler": "📚 API Fehler",
     "buch_nicht_gefunden": "Buch nicht gefunden",
     "kein_cover_gefunden": "Kein Cover gefunden",
-    "foto_machen": "Foto machen",
+    "foto_machen": "Take photo",
     "kategorie_erstellen": "Kategorie erstellen",
     "kategorien_verwalten": "Kategorien verwalten",
     "api_key_einrichten": "API-Key einrichten",
@@ -420,6 +437,13 @@ export default {
     "neue_aufgabe": "New task",
     "fotos_hinzufuegen": "Add photos",
     "keine_todo_listen": "Keine ToDo-Listen",
+    "todo_title_placeholder": "What needs to be done?",
+    "todo_description_placeholder": "Add details (optional)",
+    "todo_segment_pending": "Pending",
+    "todo_segment_completed": "Completed",
+    "todo_empty_pending": "No pending todos",
+    "todo_empty_completed": "No completed todos",
+    "todo_done_on": "Done on",
     "erstelle_deine_erste_aufgabenliste": "Erstelle deine erste Aufgabenliste",
     "faelligkeitsdatum": "Due date",
     "alle_aufgaben_dieser_liste_werden_ebenfalls_gelöscht": "Alle Aufgaben dieser Liste werden ebenfalls gelöscht.",
