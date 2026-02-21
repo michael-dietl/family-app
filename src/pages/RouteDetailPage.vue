@@ -2,11 +2,9 @@
   <ion-page>
     <ion-header :translucent="true">
       <ion-toolbar>
-        <template #start>
-          <ion-buttons>
-            <ion-back-button default-href="router.back()" />
+          <ion-buttons slot="start">
+            <ion-back-button default-href="/routes"  router-direction="back"/>
           </ion-buttons>
-        </template>
         <ion-title>{{ routeData?.name || $t('auto.route') }}</ion-title>
         <template #end>
           <ion-buttons>
@@ -244,12 +242,56 @@
         <p v-else class="photo-preview-placeholder">{{ $t('auto.foto') }}</p>
       </div>
     </ion-modal>
+
+    <ion-modal :is-open="editRouteModalOpen" :backdrop-dismiss="false" css-class="route-edit-modal">
+      <ion-header>
+        <ion-toolbar>
+          <ion-buttons slot="start">
+            <ion-button fill="clear" color="medium" @click="closeEditRouteModal" aria-label="{{ $t('auto.abbrechen') }}">
+              <ion-icon :icon="closeOutline" />
+            </ion-button>
+          </ion-buttons>
+          <ion-title>{{ $t('auto.route_bearbeiten') }}</ion-title>
+          <ion-buttons slot="end">
+            <ion-button :disabled="!isRouteEditValid" @click="saveRouteEdits">
+              {{ $t('auto.speichern') }}
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content>
+        <ion-list lines="full">
+          <ion-item>
+            <ion-label position="stacked">{{ $t('auto.route') }}</ion-label>
+            <ion-input v-model="routeEditForm.name" placeholder="{{ $t('auto.route') }}" clear-input></ion-input>
+          </ion-item>
+          <ion-item>
+            <ion-label position="stacked">{{ $t('auto.beschreibung') }}</ion-label>
+            <ion-textarea
+              v-model="routeEditForm.description"
+              :rows="3"
+              auto-grow
+              :placeholder="t('auto.beschreibung')"
+            ></ion-textarea>
+          </ion-item>
+          <ion-radio-group v-model="routeEditForm.travelMode">
+            <ion-item v-for="option in travelModeOptions" :key="option.value">
+              <ion-icon slot="start" :icon="option.icon" :color="option.color" />
+              <ion-label>
+                <strong>{{ option.label }}</strong>
+              </ion-label>
+              <ion-radio slot="end" :value="option.value" />
+            </ion-item>
+          </ion-radio-group>
+        </ion-list>
+      </ion-content>
+    </ion-modal>
   </ion-page>
 </template>
 
 <script setup lang="ts">
 
-import { ref, watch, watchEffect, computed, onMounted, onUnmounted } from 'vue';
+import { ref, watch, watchEffect, computed, onMounted, onUnmounted, reactive } from 'vue';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Geolocation } from '@capacitor/geolocation';
 import { useRoute, useRouter } from 'vue-router';
@@ -261,6 +303,7 @@ import {
   IonContent,
   IonButtons,
   IonButton,
+  IonBackButton,
   IonIcon,
   IonModal,
   IonImg,
@@ -268,6 +311,10 @@ import {
   IonItem,
   IonLabel,
   IonSpinner,
+  IonInput,
+  IonTextarea,
+  IonRadioGroup,
+  IonRadio,
   actionSheetController,
   alertController,
   toastController
@@ -321,6 +368,19 @@ const routeModeIcon = computed(() => getRouteModeIcon(routeMode.value));
 const routeModeColor = computed(() => getRouteModeColor(routeMode.value));
 const routeModeLabel = computed(() => getRouteModeLabel(routeMode.value));
 
+const editRouteModalOpen = ref(false);
+const routeEditForm = reactive({
+  name: '',
+  description: '',
+  travelMode: 'car' as RouteData['travelMode']
+});
+const travelModeOptions = computed(() =>
+  TRAVEL_MODE_CONFIGS.map((config) => ({
+    ...config,
+    label: getRouteModeLabel(config.value)
+  }))
+);
+
 function getRouteModeIcon(mode: RouteData['travelMode'] | undefined) {
   switch (mode) {
     case 'pedestrian':
@@ -359,6 +419,17 @@ function getRouteModeLabel(mode: RouteData['travelMode'] | undefined) {
       return 'Auto';
   }
 }
+
+const TRAVEL_MODE_CONFIGS: Array<{
+  value: RouteData['travelMode'];
+  icon: string;
+  color: string;
+}> = [
+  { value: 'car', icon: carOutline, color: 'primary' },
+  { value: 'pedestrian', icon: walkOutline, color: 'medium' },
+  { value: 'bicycle', icon: bicycleOutline, color: 'success' },
+  { value: 'motor_scooter', icon: scooterIcon, color: 'warning' }
+];
 
 let map: L.Map | null = null;
 let routeLine: L.Polyline | null = null;
@@ -420,17 +491,41 @@ const hasTrackPoints = computed(() =>
   waypoints.value.filter((wp) => wp.type === 'position').length >= 3
 );
 
-const buildPositionShape = (sourceWaypoints: Waypoint[]): LatLonPoint[] =>
-  sourceWaypoints
-    .filter((wp) => wp.type === 'position')
-    .map((wp) => {
-      const point: LatLonPoint = { latitude: wp.latitude, longitude: wp.longitude };
-      const parsed = Date.parse(wp.timestamp);
-      if (!Number.isNaN(parsed)) {
-        point.timestamp = parsed;
+const SHAPABLE_WAYPOINT_TYPES: Waypoint['type'][] = ['position', 'manual', 'photo'];
+
+type ShapableWaypointEntry = { point: LatLonPoint; timestamp: number | undefined; index: number };
+
+const compareWaypointTimestamps = (a?: number, b?: number): number => {
+  if (a === undefined && b === undefined) return 0;
+  if (a === undefined) return 1;
+  if (b === undefined) return -1;
+  return a - b;
+};
+
+const buildPositionShape = (sourceWaypoints: Waypoint[]): LatLonPoint[] => {
+  const entries: ShapableWaypointEntry[] = sourceWaypoints
+    .map<ShapableWaypointEntry | null>((waypoint, index) => {
+      if (!SHAPABLE_WAYPOINT_TYPES.includes(waypoint.type)) {
+        return null;
       }
-      return point;
-    });
+      const point: LatLonPoint = { latitude: waypoint.latitude, longitude: waypoint.longitude };
+      const parsed = Date.parse(waypoint.timestamp);
+      const timestamp = Number.isNaN(parsed) ? undefined : parsed;
+      if (timestamp !== undefined) {
+        point.timestamp = timestamp;
+      }
+      return { point, timestamp, index };
+    })
+    .filter((entry): entry is ShapableWaypointEntry => entry !== null);
+
+  return entries
+    .sort((a, b) => {
+      const timestampDiff = compareWaypointTimestamps(a.timestamp, b.timestamp);
+      if (timestampDiff !== 0) return timestampDiff;
+      return a.index - b.index;
+    })
+    .map(({ point }) => point);
+};
 
 const determineTraceShape = (): LatLonPoint[] => {
   if (valhallaTrace.value.length >= 3) return valhallaTrace.value;
@@ -949,7 +1044,7 @@ onMounted(async () => {
 // Map-Redraw bei Datenänderung
 watch(waypoints, () => {
   drawRoute();
-  void preloadWaypointPhotos(waypoints.value);
+  void preloadWaypointPhotos(waypoints.value).then(() => drawRoute());
 });
 
 watch(matchedPath, () => {
@@ -1079,6 +1174,33 @@ const initMap = () => {
   }, 100);
 };
 
+const escapeHtml = (value = ''): string =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const createWaypointPopupContent = (waypoint: Waypoint): string => {
+  const title = escapeHtml(waypoint.name || t('auto.wegpunkt'));
+  let content = `<strong>${title}</strong>`;
+  if (waypoint.description) {
+    content += `<br>${escapeHtml(waypoint.description)}`;
+  }
+  if (waypoint.timestamp) {
+    content += `<br><span style='font-size:11px;color:#888;'>${escapeHtml(formatTime(waypoint.timestamp))}</span>`;
+  }
+  if (waypoint.type === 'photo') {
+    const photoSrc = getWaypointPhotoSrc(waypoint);
+    if (photoSrc) {
+      const altText = escapeHtml(waypoint.name || t('auto.foto'));
+      content += `<br><img class="waypoint-popup-photo" src="${escapeHtml(photoSrc)}" alt="${altText}" />`;
+    }
+  }
+  return content;
+};
+
 function drawRoute() {
   if (!map) return;
 
@@ -1136,7 +1258,7 @@ function drawRoute() {
   }
 
   // Marker für manuelle, Foto- und Video-Wegpunkte
-    waypoints.value.forEach(waypoint => {
+  waypoints.value.forEach(waypoint => {
     let iconHtml = '';
     let className = '';
     switch (waypoint.type) {
@@ -1163,14 +1285,21 @@ function drawRoute() {
         iconSize: [30, 30]
       })
     });
-    // Popup mit Name, Beschreibung, Zeit
-    let popup = `<strong>${waypoint.name || t('auto.wegpunkt')}</strong>`;
-    if (waypoint.description) popup += `<br>${waypoint.description}`;
-    if (waypoint.timestamp) popup += `<br><span style='font-size:11px;color:#888;'>${formatTime(waypoint.timestamp)}</span>`;
-    marker.bindPopup(popup);
+    const popupContent = createWaypointPopupContent(waypoint);
+    marker.bindPopup(popupContent);
     if (map) marker.addTo(map);
     if (waypoint.type === 'photo') {
       marker.on('click', () => previewPhoto(waypoint));
+      marker.on('popupopen', () => {
+        const popupElement = marker.getPopup()?.getElement();
+        const image = popupElement?.querySelector<HTMLImageElement>('.waypoint-popup-photo');
+        if (!image) return;
+        image.onclick = (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          previewPhoto(waypoint);
+        };
+      });
     }
     if (waypoint.id) waypointMarkers.set(waypoint.id, marker);
   });
@@ -1194,7 +1323,7 @@ const showOptionsMenu = async () => {
         text: t('auto.bearbeiten'),
         icon: createOutline,
         handler: () => {
-          editRoute();
+          openEditRouteModal();
         }
       },
       {
@@ -1214,51 +1343,38 @@ const showOptionsMenu = async () => {
   await actionSheet.present();
 };
 
-const editRoute = async () => {
-  if (!routeData.value) return;
+const isRouteEditValid = computed(() => routeEditForm.name.trim().length > 0);
 
-    const alert = await alertController.create({
-      header: t('auto.route_bearbeiten'),
-    inputs: [
-      {
-        name: 'name',
-        type: 'text',
-          placeholder: t('auto.name'),
-        value: routeData.value.name
-      },
-      {
-        name: 'description',
-        type: 'textarea',
-          placeholder: t('auto.beschreibung'),
-        value: routeData.value.description || ''
-      }
-    ],
-    buttons: [
-      {
-          text: t('auto.abbrechen'),
-        role: 'cancel'
-      },
-      {
-          text: t('auto.speichern'),
-        handler: async (data) => {
-          if (data.name) {
-            await db.updateRoute(routeId, {
-              name: data.name,
-              description: data.description
-            });
-            await loadData();
-            const toast = await toastController.create({
-              message: t('auto.route_aktualisiert'),
-              duration: 2000,
-              color: 'success'
-            });
-            await toast.present();
-          }
-        }
-      }
-    ]
+const openEditRouteModal = () => {
+  if (!routeData.value) return;
+  routeEditForm.name = routeData.value.name;
+  routeEditForm.description = routeData.value.description ?? '';
+  routeEditForm.travelMode = routeData.value.travelMode ?? 'car';
+  editRouteModalOpen.value = true;
+};
+
+const closeEditRouteModal = () => {
+  editRouteModalOpen.value = false;
+};
+
+const saveRouteEdits = async () => {
+  if (!routeData.value) return;
+  const name = routeEditForm.name.trim();
+  if (!name) return;
+  const updates: Partial<RouteData> = {
+    name,
+    description: routeEditForm.description.trim() || undefined,
+    travelMode: routeEditForm.travelMode
+  };
+  await db.updateRoute(routeId, updates);
+  await loadData();
+  editRouteModalOpen.value = false;
+  const toast = await toastController.create({
+    message: t('auto.route_aktualisiert'),
+    duration: 2000,
+    color: 'success'
   });
-  await alert.present();
+  await toast.present();
 };
 
 const deleteRoute = async () => {
@@ -1585,21 +1701,21 @@ function formatTime(dateString: string): string {
   color: var(--ion-text-color);
 }
 
-.waypoint-time {
-  /* nur CSS, kein Script! */
-  font-size: 12px;
-  color: var(--ion-color-medium);
-  margin-top: 4px;
+.waypoint-photo {
+  border: 2px solid #eb445a;
 }
-.waypoint-preview {
-  width: 48px;
-  height: 48px;
+
+.waypoint-popup-photo {
+  width: 140px;
+  max-width: 160px;
   border-radius: 12px;
-  overflow: hidden;
-  background: var(--ion-color-light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  margin-top: 6px;
+  display: block;
+  cursor: pointer;
+  object-fit: cover;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+.waypoint-photo ion-icon {
 }
 .waypoint-preview img {
   width: 100%;
@@ -1650,6 +1766,20 @@ function formatTime(dateString: string): string {
   text-align: center;
   color: var(--ion-color-medium);
 }
+.route-edit-modal {
+  --ion-background-color: #ffffff;
+}
+.route-edit-modal ion-header,
+.route-edit-modal ion-content {
+  --background: var(--ion-background-color);
+}
+.route-edit-modal ion-item {
+  --background: transparent;
+}
+.route-edit-modal ion-input::part(native),
+.route-edit-modal ion-textarea::part(native) {
+  background: transparent;
+}
 </style>
 
 <style>
@@ -1669,6 +1799,17 @@ function formatTime(dateString: string): string {
 
 .waypoint-photo {
   border: 2px solid #eb445a;
+}
+
+.waypoint-popup-photo {
+  width: 140px;
+  max-width: 160px;
+  border-radius: 12px;
+  margin-top: 6px;
+  display: block;
+  cursor: pointer;
+  object-fit: cover;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
 }
 
 .waypoint-photo ion-icon {

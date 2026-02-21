@@ -79,7 +79,7 @@
               <span>{{ formatDate(route.startTime) }}</span>
             </ion-card-content>
             <ion-card-content class="route-actions" @click.stop>
-              <ion-button size="small" fill="outline" @click.stop="editRoute(route)">
+              <ion-button size="small" fill="outline" @click.stop="openEditRouteModal(route)">
                 <ion-icon slot="start" :icon="pencilOutline" />
                 {{ $t('auto.route_bearbeiten') }}
               </ion-button>
@@ -91,6 +91,58 @@
               >
                 <ion-icon slot="start" :icon="trashOutline" />
                 {{ $t('auto.route_löschen') }}
+      <ion-modal
+        css-class="route-edit-modal"
+        :is-open="editRouteModalOpen"
+        :backdropDismiss="false"
+        @didDismiss="closeEditRouteModal"
+      >
+        <ion-header translucent>
+          <ion-toolbar>
+            <ion-buttons slot="start">
+              <ion-button fill="clear" color="medium" @click="closeEditRouteModal" aria-label="{{ t('auto.abbrechen') }}">
+                <ion-icon :icon="closeOutline" />
+              </ion-button>
+            </ion-buttons>
+            <ion-title>{{ t('auto.route_bearbeiten') }}</ion-title>
+            <ion-buttons slot="end">
+              <ion-button :disabled="!isRouteEditValid" @click="saveRouteEdits">
+                {{ t('auto.speichern') }}
+              </ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
+        <ion-content>
+          <ion-list lines="full">
+            <ion-item>
+              <ion-label position="stacked">{{ t('auto.route') }}</ion-label>
+              <ion-input
+                v-model="routeEditForm.name"
+                placeholder="{{ t('auto.route') }}"
+                clear-input
+              ></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-label position="stacked">{{ t('auto.beschreibung') }}</ion-label>
+              <ion-textarea
+                v-model="routeEditForm.description"
+                :rows="3"
+                auto-grow
+                :placeholder="t('auto.beschreibung')"
+              ></ion-textarea>
+            </ion-item>
+            <ion-radio-group v-model="routeEditForm.travelMode">
+              <ion-item v-for="option in travelModeOptions" :key="option.value">
+                <ion-icon slot="start" :icon="option.icon" :color="option.color" />
+                <ion-label>
+                  <strong>{{ option.label }}</strong>
+                </ion-label>
+                <ion-radio slot="end" :value="option.value" />
+              </ion-item>
+            </ion-radio-group>
+          </ion-list>
+        </ion-content>
+      </ion-modal>
               </ion-button>
             </ion-card-content>
           </ion-card>
@@ -153,7 +205,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, reactive, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
@@ -174,6 +226,7 @@ import {
   IonCardTitle,
   IonModal,
   IonInput,
+  IonTextarea,
   IonItem,
   IonLabel,
   IonRadioGroup,
@@ -191,7 +244,8 @@ import {
   carOutline,
   walkOutline,
   pencilOutline,
-  trashOutline
+  trashOutline,
+  closeOutline
 } from 'ionicons/icons';
 import { scooterIcon } from '@/icons/scooter';
 import { db, type Route } from '@/services/database';
@@ -203,6 +257,30 @@ const isLoading = ref(true);
 const startRouteModalOpen = ref(false);
 const newRouteName = ref('');
 const newRouteMode = ref<Route['travelMode']>('car');
+const editRouteModalOpen = ref(false);
+const routeToEdit = ref<Route | null>(null);
+const routeEditForm = reactive({
+  name: '',
+  description: '',
+  travelMode: 'car' as Route['travelMode']
+});
+const isRouteEditValid = computed(() => routeEditForm.name.trim().length > 0);
+const TRAVEL_MODE_CONFIGS: Array<{
+  value: Route['travelMode'];
+  icon: string;
+  color: string;
+}> = [
+  { value: 'car', icon: carOutline, color: 'primary' },
+  { value: 'pedestrian', icon: walkOutline, color: 'medium' },
+  { value: 'bicycle', icon: bicycleOutline, color: 'success' },
+  { value: 'motor_scooter', icon: scooterIcon, color: 'warning' }
+];
+const travelModeOptions = computed(() =>
+  TRAVEL_MODE_CONFIGS.map((config) => ({
+    ...config,
+    label: getRouteModeLabel(config.value)
+  }))
+);
 
 onMounted(async () => {
   await loadRoutes();
@@ -265,84 +343,39 @@ const openRoute = (routeId: number) => {
   router.push(`/routes/${routeId}`);
 };
 
-const editRoute = async (route: Route) => {
-  const alert = await alertController.create({
-    header: t('auto.route_bearbeiten'),
-    inputs: [
-      {
-        name: 'name',
-        type: 'text',
-        placeholder: t('auto.route'),
-        value: route.name
-      },
-      {
-        name: 'description',
-        type: 'textarea',
-        placeholder: t('auto.beschreibung'),
-        value: route.description || ''
-      },
-      {
-        name: 'travelMode',
-        type: 'radio',
-        label: '🚗 Auto',
-        value: 'car',
-        checked: route.travelMode === 'car' || !route.travelMode
-      },
-      {
-        name: 'travelMode',
-        type: 'radio',
-        label: '🚶 Fußgänger',
-        value: 'pedestrian',
-        checked: route.travelMode === 'pedestrian'
-      },
-      {
-        name: 'travelMode',
-        type: 'radio',
-        label: '🚲 Fahrrad',
-        value: 'bicycle',
-        checked: route.travelMode === 'bicycle'
-      },
-      {
-        name: 'travelMode',
-        type: 'radio',
-        label: '🛵 Vespa',
-        value: 'motor_scooter',
-        checked: route.travelMode === 'motor_scooter'
-      }
-    ],
-    buttons: [
-      {
-        text: t('auto.abbrechen'),
-        role: 'cancel'
-      },
-      {
-        text: t('auto.speichern'),
-        handler: async (data) => {
-          if (!data.name?.trim()) {
-            return false;
-          }
+const openEditRouteModal = (route: Route) => {
+  routeToEdit.value = route;
+  routeEditForm.name = route.name;
+  routeEditForm.description = route.description ?? '';
+  routeEditForm.travelMode = route.travelMode ?? 'car';
+  editRouteModalOpen.value = true;
+};
 
-          const updates: Partial<Route> = {
-            name: data.name.trim(),
-            description: data.description?.trim() ? data.description.trim() : null,
-            travelMode: (data.travelMode || 'car') as Route['travelMode']
-          };
+const closeEditRouteModal = () => {
+  editRouteModalOpen.value = false;
+  routeToEdit.value = null;
+};
 
-          await db.updateRoute(route.id!, updates);
-          await loadRoutes();
+const saveRouteEdits = async () => {
+  if (!routeToEdit.value) return;
+  const name = routeEditForm.name.trim();
+  if (!name) return;
+  const updates: Partial<Route> = {
+    name,
+    description: routeEditForm.description.trim() || undefined,
+    travelMode: routeEditForm.travelMode
+  };
 
-          const toast = await toastController.create({
-            message: t('auto.route_aktualisiert'),
-            duration: 2000,
-            color: 'success'
-          });
-          await toast.present();
-        }
-      }
-    ]
+  await db.updateRoute(routeToEdit.value.id!, updates);
+  await loadRoutes();
+  closeEditRouteModal();
+
+  const toast = await toastController.create({
+    message: t('auto.route_aktualisiert'),
+    duration: 2000,
+    color: 'success'
   });
-
-  await alert.present();
+  await toast.present();
 };
 
 const confirmDeleteRoute = async (route: Route) => {
@@ -595,5 +628,19 @@ const formatDate = (dateString: string): string => {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+.route-edit-modal {
+  --ion-background-color: var(--ion-color-step-100);
+}
+.route-edit-modal ion-header,
+.route-edit-modal ion-content {
+  --background: var(--ion-background-color);
+}
+.route-edit-modal ion-item {
+  --background: transparent;
+}
+.route-edit-modal ion-input::part(native),
+.route-edit-modal ion-textarea::part(native) {
+  background: transparent;
 }
 </style>
