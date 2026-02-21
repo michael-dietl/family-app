@@ -164,6 +164,7 @@ import {
   alertController,
   toastController
 } from '@ionic/vue';
+import type { ActionSheetButton } from '@ionic/vue';
 import { onIonViewWillEnter } from '@ionic/vue';
 import {
   ellipsisVertical,
@@ -188,6 +189,7 @@ import { db, type Book, type BookCategory } from '@/services/database';
 import { downloadRemoteCoverImage, findLocalCoverImage, isRemoteImageUrl } from '@/services/imageStorage';
 import { buildSharedStoragePath, ensureDirectoryExists, getSharedStorageDirectory } from '@/services/storagePaths';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { lookupBookByISBN } from '@/services/books';
 
 const route = useRoute();
 const router = useRouter();
@@ -475,29 +477,90 @@ const showQuantityPicker = async () => {
 };
 
 const showMenu = async () => {
+  const buttons: ActionSheetButton[] = [
+    {
+      text: 'Kategorie bearbeiten',
+      icon: createOutline,
+      handler: async () => {
+        await router.push('/library/categories');
+      }
+    }
+  ];
+
+  if (!book.value?.coverImage && book.value?.isbn) {
+    buttons.push({
+      text: 'Cover bei Google Books laden',
+      icon: bookOutline,
+      handler: () => requestCoverFromGoogle()
+    });
+  }
+
+  buttons.push(
+    {
+      text: 'Buch löschen',
+      role: 'destructive',
+      icon: trashOutline,
+      handler: () => confirmDelete()
+    }
+  );
+
   const actionSheet = await actionSheetController.create({
     header: 'Optionen',
-    buttons: [
-      {
-        text: 'Kategorie bearbeiten',
-        icon: createOutline,
-        handler: async () => {
-          await router.push('/library/categories');
-        }
-      },
-      {
-        text: 'Buch löschen',
-        role: 'destructive',
-        icon: trashOutline,
-        handler: () => confirmDelete()
-      },
-      {
-        text: 'Abbrechen',
-        role: 'cancel'
-      }
-    ]
+    buttons
   });
   await actionSheet.present();
+};
+
+const requestCoverFromGoogle = async () => {
+  if (!book.value || !book.value.id || !book.value.isbn) return;
+
+  const toast = await toastController.create({
+    message: 'Suche Cover...',
+    duration: 2000,
+    color: 'primary'
+  });
+  await toast.present();
+
+  const { data, error } = await lookupBookByISBN(book.value.isbn);
+  if (error) {
+    const errorToast = await toastController.create({
+      message: `Cover konnte nicht geladen werden: ${error.message}`,
+      duration: 2500,
+      color: 'danger'
+    });
+    await errorToast.present();
+    return;
+  }
+
+  const coverUri = data?.localCoverUri || data?.imageLinks?.thumbnail;
+  if (!coverUri) {
+    const infoToast = await toastController.create({
+      message: 'Keine Cover-URL gefunden',
+      duration: 2000,
+      color: 'warning'
+    });
+    await infoToast.present();
+    return;
+  }
+
+  try {
+    await db.updateBook(book.value.id, { coverImage: coverUri });
+    await loadBook();
+    const successToast = await toastController.create({
+      message: 'Cover aktualisiert',
+      duration: 1500,
+      color: 'success'
+    });
+    await successToast.present();
+  } catch (updateError) {
+    console.error('Cover Update Error', updateError);
+    const failureToast = await toastController.create({
+      message: 'Cover konnte nicht gespeichert werden',
+      duration: 2000,
+      color: 'danger'
+    });
+    await failureToast.present();
+  }
 };
 
 const confirmDelete = async () => {

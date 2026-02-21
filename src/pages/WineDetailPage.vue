@@ -1,6 +1,6 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header :translucent="false">
       <ion-toolbar>
         <ion-buttons slot="start">
           <ion-back-button default-href="/wine"></ion-back-button>
@@ -17,7 +17,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content :fullscreen="true">
+    <ion-content :fullscreen="false"   class="content-safe">
       <div v-if="isLoading" class="loading-container">
         <ion-spinner></ion-spinner>
       </div>
@@ -34,7 +34,7 @@
         </ion-segment>
 
         <!-- Tab: Foto -->
-        <div v-show="selectedTab === 'photo'" class="tab-content">
+        <div v-show="selectedTab === 'photo'" class="tab-content photo-tab ion-padding-bottom">>
           <div v-if="wine.photoPath" class="wine-photo">
             <img :src="getImageSrc(wine.photoPath)" />
             <div class="wine-photo-actions">
@@ -668,8 +668,11 @@ const convertBlobToBase64 = (blob: Blob): Promise<string> => {
 
 .wine-photo {
   width: 100%;
-  max-height: 100%;
+  max-height: 90%;
   overflow: hidden;
+  object-fit: contain;
+  display: flex;
+  justify-content: center;
 }
 
 .wine-photo-actions {
@@ -683,7 +686,7 @@ const convertBlobToBase64 = (blob: Blob): Promise<string> => {
 }
 
 .wine-photo img {
-  width: 100%;
+  width: 50%;
   height: auto;
   object-fit: cover;
 }
@@ -733,5 +736,23 @@ const convertBlobToBase64 = (blob: Blob): Promise<string> => {
   font-size: 80px;
   color: var(--ion-color-medium);
   margin-bottom: 16px;
+}
+
+/* Deine Klasse am ion-content */
+ion-content.content-safe {
+  /* Füge das Padding dem Scroll-Content hinzu */
+  --padding-top: calc(var(--ion-safe-area-top) + var(--offset-top, 0px));
+  --padding-bottom: var(--ion-safe-area-bottom);
+}
+
+/* Falls du lieber das Scroll-Element selbst paddest: */
+ion-content.content-safe::part(scroll) {
+  padding-top: calc(var(--ion-safe-area-top) + var(--offset-top, 0px));
+  padding-bottom: var(--ion-safe-area-bottom);
+}
+
+/* gilt nur im Photo-Tab */
+.tab-content.photo-tab {
+  padding-top: calc(var(--ion-safe-area-top) + var(--offset-top, 56px));
 }
 </style>

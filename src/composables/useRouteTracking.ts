@@ -59,8 +59,7 @@ const TRACKING_PROFILES: Record<TravelMode, TrackingProfile> = {
     waypointIntervalMs: 2000,
     persistDistanceMeters: 10,
     requiredAccuracyMeters: 20,
-    minSpeedMs: 0.5
-    ,
+    minSpeedMs: 0.5,
     matchDelayMs: 2500
   }
 };
@@ -153,6 +152,31 @@ export function useRouteTracking() {
     return R * c; // Distance in meters
   };
 
+  const MIN_VALHALLA_MATCH_DISTANCE_METERS = 50;
+
+  const findClosestValhallaPoint = (point: LatLonPoint): LatLonPoint | null => {
+    if (matchedPath.value.length === 0) {
+      return null;
+    }
+
+    let closest: LatLonPoint | null = null;
+    let minDistance = Number.POSITIVE_INFINITY;
+    for (const candidate of matchedPath.value) {
+      const distance = calculateDistance(point.latitude, point.longitude, candidate.latitude, candidate.longitude);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closest = candidate;
+      }
+    }
+
+    if (!closest) {
+      return null;
+    }
+
+    const threshold = Math.max(activeProfile.valhallaSearchRadius ?? 0, MIN_VALHALLA_MATCH_DISTANCE_METERS);
+    return minDistance <= threshold ? closest : null;
+  };
+
   const matchRouteWithValhalla = async () => {
     if (matchInFlight || routePoints.length < MIN_MATCH_POINTS) {
       return;
@@ -225,11 +249,14 @@ export function useRouteTracking() {
       }
 
       const timestamp = new Date(point.timestamp ?? Date.now()).toISOString();
+      const matchedPoint = findClosestValhallaPoint(point);
       const waypoint: Omit<Waypoint, 'id'> = {
         routeId: currentRouteId,
         type: 'position',
         latitude: point.latitude,
         longitude: point.longitude,
+        valLatitude: matchedPoint?.latitude,
+        valLongitude: matchedPoint?.longitude,
         timestamp,
         updated: timestamp
       };
@@ -399,11 +426,18 @@ export function useRouteTracking() {
     if (!currentRouteId) return;
 
     const now = new Date().toISOString();
+    const gpsPoint: LatLonPoint = {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude
+    };
+    const matchedPoint = findClosestValhallaPoint(gpsPoint);
     const waypoint: Omit<Waypoint, 'id'> = {
       routeId: currentRouteId,
       type: 'position',
       latitude: position.coords.latitude,
       longitude: position.coords.longitude,
+      valLatitude: matchedPoint?.latitude,
+      valLongitude: matchedPoint?.longitude,
       altitude: position.coords.altitude || undefined,
       accuracy: position.coords.accuracy,
       timestamp: new Date(position.timestamp).toISOString(),

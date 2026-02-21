@@ -9,7 +9,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content :fullscreen="true">
+    <ion-content :fullscreen="true" class="ion-padding-bottom">
       <ion-searchbar
         v-model="activeSearchQuery"
         :debounce="200"

@@ -298,6 +298,7 @@ export default {
     "fotos_und_videos_verwalten": "Gérer photos et vidéos",
     "bücher_per_isbn_scannen_und_verwalten": "Scanner et gérer des livres via ISBN",
     "fotos_auf_der_karte_anzeigen": "Afficher des photos sur la carte",
+    "show_on_map": "Afficher sur la carte",
     "gps_routen_aufzeichnen_mit_wegpunkten": "Enregistrer des parcours GPS avec points de passage",
     "weinkeller": "Cave à vin",
     "wein_sammlung_verwalten": "Gérer ta collection de vins",

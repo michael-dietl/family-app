@@ -156,6 +156,14 @@
               </p>
             </ion-card-content>
           </ion-card>
+
+          <div class="sync-status" v-if="isSyncing && syncProgress.open && syncProgress.total > 0">
+            <ion-icon class="sync-status-icon" :icon="syncOutline" />
+            <div class="sync-status-text">
+              <strong>{{ syncProgress.entity }}</strong>
+              <span>{{ syncProgress.current }} / {{ syncProgress.total }}</span>
+            </div>
+          </div>
         </div>
 
         <div class="settings-section">
@@ -266,12 +274,6 @@
         </ion-button>
       </div>
     </ion-content>
-    <SyncProgressModal
-      :open="syncProgress.open"
-      :entity="syncProgress.entity"
-      :current="syncProgress.current"
-      :total="syncProgress.total"
-    />
   </ion-page>
   </template>
 
@@ -300,7 +302,7 @@ import {
   IonSpinner,
   toastController
 } from '@ionic/vue';
-import { save, flash, lockClosed, checkmarkCircle, closeCircle, timeOutline } from 'ionicons/icons';
+import { save, flash, lockClosed, checkmarkCircle, closeCircle, timeOutline, syncOutline } from 'ionicons/icons';
 import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
 import { useI18n } from 'vue-i18n';
@@ -309,7 +311,6 @@ import PocketBase from 'pocketbase';
 import { pocketbase } from '@/services/pocketbase';
 import { setValhallaBaseUrl } from '@/services/valhalla';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
-import SyncProgressModal from '@/components/SyncProgressModal.vue';
 import type { AppTheme } from '@/services/theme';
 import { applyTheme, availableThemes, loadTheme, persistTheme } from '@/services/theme';
 type StatusCard = {
@@ -318,24 +319,16 @@ type StatusCard = {
   color: string;
   icon: string;
 };
-const { syncBooks, isSyncing, lastSyncTime, syncProgress } = usePocketbaseSync();
+const { syncBooks, isSyncing, lastSyncTime, syncProgress, ensurePocketbaseConfiguredAndAuthenticated } = usePocketbaseSync();
 
 async function handleBookSync() {
   try {
-    await pocketbase.initialize();
-    if (!pocketbase.isConfigured()) {
+    const ready = await ensurePocketbaseConfiguredAndAuthenticated();
+    if (!ready) {
       const toast = await toastController.create({
-        message: 'PocketBase nicht konfiguriert!',
-        duration: 2000,
-        color: 'danger',
-        position: 'bottom'
-      });
-      await toast.present();
-      return;
-    }
-    if (!pocketbase.isAuthenticated()) {
-      const toast = await toastController.create({
-        message: 'Nicht bei PocketBase angemeldet - Mike!',
+        message: !pocketbase.isConfigured()
+          ? 'PocketBase nicht konfiguriert!'
+          : 'Automatische Anmeldung fehlgeschlagen – bitte Zugangsdaten prüfen.',
         duration: 2000,
         color: 'danger',
         position: 'bottom'
@@ -751,6 +744,35 @@ ion-item ion-label h3 {
 
 ion-button {
   margin-bottom: 0.5rem;
+}
+
+.sync-status {
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--ion-color-primary-tint);
+  background: var(--ion-color-light);
+  color: var(--ion-color-primary);
+  width: fit-content;
+}
+
+.sync-status-icon {
+  font-size: 1rem;
+}
+
+.sync-status-text {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.9rem;
+  line-height: 1.1;
+}
+
+.sync-status-text span {
+  font-size: 0.75rem;
+  color: var(--ion-color-medium);
 }
 </style>
 

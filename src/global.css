@@ -1,0 +1,21 @@
+body {
+  min-height: 100vh;
+  background: var(--ion-background-color);
+}
+
+ion-app,
+ion-page {
+  min-height: 100vh;
+  background: var(--ion-background-color);
+}
+
+ion-content {
+  --padding-bottom: var(--ion-safe-area-bottom, env(safe-area-inset-bottom, 0px));
+}
+
+.wine-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  position: static !important;
+}

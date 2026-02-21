@@ -20,6 +20,7 @@ import '@ionic/vue/css/text-transformation.css';
 import '@ionic/vue/css/flex-utils.css';
 import '@ionic/vue/css/display.css';
 
+
 /**
  * Ionic Dark Mode
  * -----------------------------------------------------
@@ -74,10 +75,15 @@ const initializeLocale = async () => {
   }
 };
 
+
 const initializeTheme = async () => {
   const savedTheme = await loadTheme();
   applyTheme(savedTheme);
 };
+
+
+/* ⬇️ GANZ WICHTIG: global.css MUSS HIER stehen */
+import './global.css';
 
 router.isReady().then(async () => {
   await ensureSharedStorageFoldersExist();

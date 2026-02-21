@@ -2,7 +2,15 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title>{{ $t('auto.dietl_mobi') }}</ion-title>
+        <ion-title>
+          <div class="title-stack">
+            <span class="title-main">{{ $t('auto.dietl_mobi') }}</span>
+            <span class="title-sync" v-if="isSyncing && syncProgress.open && syncProgress.total > 0">
+              <ion-icon :icon="syncOutline" class="title-sync-icon" />
+              {{ syncProgress.entity }} · {{ syncProgress.current }} / {{ syncProgress.total }}
+            </span>
+          </div>
+        </ion-title>
         <ion-buttons slot="end">
           <ion-button v-if="pocketbaseUrl" @click="manualSync" :disabled="isSyncing">
             <ion-spinner v-if="isSyncing" />
@@ -98,12 +106,6 @@
         </ion-list>
       </div>
     </ion-content>
-    <SyncProgressModal
-      :open="syncProgress.open"
-      :entity="syncProgress.entity"
-      :current="syncProgress.current"
-      :total="syncProgress.total"
-    />
   </ion-page>
 </template>
 
@@ -144,7 +146,10 @@ import {
 } from 'ionicons/icons';
 import { Preferences } from '@capacitor/preferences';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
-import SyncProgressModal from '@/components/SyncProgressModal.vue';
+/* ⬇️ GANZ WICHTIG: global.css MUSS HIER stehen */
+import '../global.css';
+
+
 
 const router = useRouter();
 const pocketbaseUrl = ref('');
@@ -191,7 +196,17 @@ const goToSettings = () => {
 
 const manualSync = async () => {
   try {
-    await syncAll();
+    const didRun = await syncAll();
+    if (!didRun) {
+      const toast = await toastController.create({
+        message: 'Synchronisation nicht gestartet. Bitte PocketBase konfigurieren und anmelden.',
+        duration: 2500,
+        color: 'warning',
+        position: 'bottom'
+      });
+      await toast.present();
+      return;
+    }
     const toast = await toastController.create({
       message: 'Synchronisation abgeschlossen',
       duration: 2000,
@@ -251,8 +266,7 @@ const manualSync = async () => {
 .feature-list {
   margin: 0;
   border-radius: 12px;
-  overflow: hidden;
-  flex: 1;
+  overflow: visible;
 }
 
 .feature-list ion-item {
@@ -276,5 +290,30 @@ const manualSync = async () => {
   color: var(--ion-color-medium);
   font-size: 0.9rem;
   margin: 0;
+}
+
+.title-stack {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.title-main {
+  font-size: 1.1rem;
+}
+
+.title-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--ion-color-medium);
+  margin-left: auto;
+}
+
+.title-sync-icon {
+  font-size: 0.85rem;
 }
 </style>

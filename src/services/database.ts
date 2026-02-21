@@ -125,6 +125,8 @@ export interface Waypoint {
   type: 'photo' | 'video' | 'manual' | 'position'; // position = GPS track point
   latitude: number;
   longitude: number;
+  valLatitude?: number;
+  valLongitude?: number;
   altitude?: number;
   accuracy?: number;
   name?: string;
@@ -164,6 +166,20 @@ export interface Wine {
   purchaseDate?: string; // Kaufdatum
   storageLocation?: string; // Lagerort (z.B. "Regal 3, Fach 2")
   categoryId?: number; // Kategorie-Referenz (analog Buchmodul)
+  showOnMap?: boolean;
+  created: string;
+  updated: string;
+}
+
+export interface WinePhoto {
+  id?: number;
+  foreignID?: string;
+  wineId: number;
+  filename: string;
+  filepath: string;
+  mimeType?: string;
+  filesize?: number;
+  isPrimary?: boolean;
   created: string;
   updated: string;
 }
@@ -565,6 +581,8 @@ class DatabaseService {
         type TEXT NOT NULL CHECK(type IN ('photo', 'video', 'manual', 'position')),
         latitude REAL NOT NULL,
         longitude REAL NOT NULL,
+        valLatitude REAL,
+        valLongitude REAL,
         altitude REAL,
         accuracy REAL,
         name TEXT,
@@ -601,6 +619,7 @@ class DatabaseService {
         photoPath TEXT,
         latitude REAL,
         longitude REAL,
+        showOnMap INTEGER DEFAULT 0,
         purchaseDate TEXT,
         storageLocation TEXT,
         categoryId INTEGER,
@@ -614,6 +633,25 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_wines_name ON wines(name);
       CREATE INDEX IF NOT EXISTS idx_wines_region ON wines(region);
       CREATE INDEX IF NOT EXISTS idx_wines_year ON wines(year);
+    `;
+
+    const winePhotosTable = `
+      CREATE TABLE IF NOT EXISTS wine_photos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
+        wineId INTEGER NOT NULL,
+        filename TEXT NOT NULL,
+        filepath TEXT NOT NULL,
+        mimeType TEXT,
+        filesize INTEGER,
+        isPrimary INTEGER DEFAULT 0,
+        created TEXT NOT NULL,
+        updated TEXT NOT NULL,
+        FOREIGN KEY (wineId) REFERENCES wines(id) ON DELETE CASCADE
+      );
+    `;
+    const winePhotosIndexes = `
+      CREATE INDEX IF NOT EXISTS idx_wine_photos_wine ON wine_photos(wineId);
     `;
     // Einkaufslisten Tabellen
     const shoppingListsTable = `
@@ -729,6 +767,8 @@ class DatabaseService {
     await this.db.execute(routeIndexes);
     await this.db.execute(winesTable);
     await this.db.execute(wineIndexes);
+    await this.db.execute(winePhotosTable);
+    await this.db.execute(winePhotosIndexes);
     await this.db.execute(shoppingListsTable);
     await this.db.execute(shoppingItemsTable);
     await this.db.execute(shoppingIndexes);
@@ -788,8 +828,11 @@ class DatabaseService {
     await runAlter("ALTER TABLE routes ADD COLUMN travelMode TEXT NOT NULL DEFAULT 'car';");
     await runAlter('ALTER TABLE waypoints ADD COLUMN foreignID TEXT;');
     await runAlter('ALTER TABLE waypoints ADD COLUMN updated TEXT;');
+    await runAlter('ALTER TABLE waypoints ADD COLUMN valLatitude REAL;');
+    await runAlter('ALTER TABLE waypoints ADD COLUMN valLongitude REAL;');
     await runAlter('ALTER TABLE wines ADD COLUMN foreignID TEXT;');
     await runAlter('ALTER TABLE wines ADD COLUMN updated TEXT;');
+    await runAlter('ALTER TABLE wines ADD COLUMN showOnMap INTEGER NOT NULL DEFAULT 0;');
     await runAlter('ALTER TABLE shopping_lists ADD COLUMN foreignID TEXT;');
     await runAlter('ALTER TABLE shopping_items ADD COLUMN foreignID TEXT;');
     await runAlter('ALTER TABLE shopping_items ADD COLUMN updated TEXT;');
@@ -863,8 +906,8 @@ class DatabaseService {
 
     const sql = 'SELECT * FROM galleries WHERE id = ?;';
     const result = await this.db.query(sql, [id]);
-    
-    return result.values?.[0] as Gallery || null;
+
+    return (result.values?.[0] as Gallery) || null;
   }
 
   async updateGallery(id: number, updates: Partial<Gallery>): Promise<void> {
@@ -1210,7 +1253,7 @@ class DatabaseService {
     return result.changes?.lastId || 0;
   }
 
-  async updateBookCategory(id: number, updates: { name?: string; description?: string | null; updated?: string }): Promise<void> {
+  async updateBookCategory(id: number, updates: { name?: string; description?: string | null; foreignID?: string | null; updated?: string }): Promise<void> {
     if (!this.isInitialized) await this.initialize();
 
     if (this.useInMemory) return;
@@ -1228,6 +1271,11 @@ class DatabaseService {
     if (updates.description !== undefined) {
       fields.push('description = ?');
       values.push(updates.description);
+    }
+
+    if (updates.foreignID !== undefined) {
+      fields.push('foreignID = ?');
+      values.push(updates.foreignID);
     }
 
     if (fields.length === 0) return;
@@ -1525,9 +1573,9 @@ class DatabaseService {
 
     const sql = `
       INSERT INTO waypoints (
-        foreignID, routeId, type, latitude, longitude, altitude, accuracy, 
+        foreignID, routeId, type, latitude, longitude, valLatitude, valLongitude, altitude, accuracy, 
         name, description, photoId, timestamp, updated
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
     
     const result = await this.db.run(sql, [
@@ -1536,6 +1584,8 @@ class DatabaseService {
       waypoint.type,
       waypoint.latitude,
       waypoint.longitude,
+      waypoint.valLatitude ?? null,
+      waypoint.valLongitude ?? null,
       waypoint.altitude || null,
       waypoint.accuracy || null,
       waypoint.name || null,
@@ -1587,8 +1637,8 @@ class DatabaseService {
     const now = new Date().toISOString();
     const updated = wine.updated ?? now;
     const sql = `
-      INSERT INTO wines (foreignID, name, winery, region, country, year, grapeVariety, type, price, quantity, rating, notes, photoPath, latitude, longitude, purchaseDate, storageLocation, created, updated)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      INSERT INTO wines (foreignID, name, winery, region, country, year, grapeVariety, type, price, quantity, rating, notes, photoPath, latitude, longitude, showOnMap, purchaseDate, storageLocation, created, updated)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
     
     const result = await this.db.run(sql, [
@@ -1607,6 +1657,7 @@ class DatabaseService {
       wine.photoPath || null,
       wine.latitude || null,
       wine.longitude || null,
+      wine.showOnMap ? 1 : 0,
       wine.purchaseDate || null,
       wine.storageLocation || null,
       now,
@@ -1614,6 +1665,99 @@ class DatabaseService {
     ]);
 
     return result.changes?.lastId || 0;
+  }
+
+  async createWinePhoto(photo: CreationParams<WinePhoto>): Promise<number> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return 0;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const updated = photo.updated ?? now;
+    const sql = `
+      INSERT INTO wine_photos (foreignID, wineId, filename, filepath, mimeType, filesize, isPrimary, created, updated)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+    `;
+
+    const result = await this.db.run(sql, [
+      photo.foreignID || null,
+      photo.wineId,
+      photo.filename,
+      photo.filepath,
+      photo.mimeType || null,
+      photo.filesize || null,
+      photo.isPrimary ? 1 : 0,
+      now,
+      updated
+    ]);
+
+    return result.changes?.lastId || 0;
+  }
+
+  async updateWinePhoto(id: number, updates: Partial<WinePhoto>): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.filename !== undefined) {
+      fields.push('filename = ?');
+      values.push(updates.filename);
+    }
+    if (updates.filepath !== undefined) {
+      fields.push('filepath = ?');
+      values.push(updates.filepath);
+    }
+    if (updates.mimeType !== undefined) {
+      fields.push('mimeType = ?');
+      values.push(updates.mimeType ?? null);
+    }
+    if (updates.filesize !== undefined) {
+      fields.push('filesize = ?');
+      values.push(updates.filesize);
+    }
+    if (updates.isPrimary !== undefined) {
+      fields.push('isPrimary = ?');
+      values.push(updates.isPrimary ? 1 : 0);
+    }
+    if (updates.wineId !== undefined) {
+      fields.push('wineId = ?');
+      values.push(updates.wineId);
+    }
+    if (updates.foreignID !== undefined) {
+      fields.push('foreignID = ?');
+      values.push(updates.foreignID ?? null);
+    }
+
+    if (fields.length === 0) return;
+
+    fields.push('updated = ?');
+    values.push(updates.updated ?? new Date().toISOString());
+
+    values.push(id);
+    const sql = `UPDATE wine_photos SET ${fields.join(', ')} WHERE id = ?;`;
+    await this.db.run(sql, values);
+  }
+
+  async getWinePhotos(wineId: number): Promise<WinePhoto[]> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return [];
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'SELECT * FROM wine_photos WHERE wineId = ? ORDER BY created DESC;';
+    const result = await this.db.query(sql, [wineId]);
+    return result.values || [];
+  }
+
+  async deleteWinePhotosForWine(wineId: number): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'DELETE FROM wine_photos WHERE wineId = ?;';
+    await this.db.run(sql, [wineId]);
   }
 
   async getWines(searchTerm?: string): Promise<Wine[]> {
@@ -1680,6 +1824,8 @@ class DatabaseService {
     if (this.useInMemory) return;
     if (!this.db) throw new Error('Database not initialized');
 
+    await this.deleteWinePhotosForWine(id);
+
     const sql = 'DELETE FROM wines WHERE id = ?;';
     await this.db.run(sql, [id]);
   }
@@ -1706,6 +1852,56 @@ class DatabaseService {
       const sql = 'SELECT * FROM wine_categories ORDER BY name ASC;';
       const result = await this.db.query(sql);
       return result.values as WineCategory[] || [];
+    }
+
+    async createWineCategory(category: CreationParams<WineCategory>): Promise<number> {
+      if (!this.isInitialized) await this.initialize();
+      if (this.useInMemory) return 0;
+      if (!this.db) throw new Error('Database not initialized');
+
+      const now = new Date().toISOString();
+      const updated = category.updated ?? now;
+      const sql = 'INSERT INTO wine_categories (foreignID, name, description, created, updated) VALUES (?, ?, ?, ?, ?);';
+      const result = await this.db.run(sql, [
+        category.foreignID || null,
+        category.name,
+        category.description || null,
+        now,
+        updated
+      ]);
+
+      return result.changes?.lastId || 0;
+    }
+
+    async updateWineCategory(id: number, updates: Partial<WineCategory>): Promise<void> {
+      if (!this.isInitialized) await this.initialize();
+      if (this.useInMemory) return;
+      if (!this.db) throw new Error('Database not initialized');
+
+      const now = new Date().toISOString();
+      const fields: string[] = [];
+      const values: any[] = [];
+
+      if (updates.name !== undefined) {
+        fields.push('name = ?');
+        values.push(updates.name);
+      }
+      if (updates.description !== undefined) {
+        fields.push('description = ?');
+        values.push(updates.description);
+      }
+      if (updates.foreignID !== undefined) {
+        fields.push('foreignID = ?');
+        values.push(updates.foreignID);
+      }
+      if (fields.length === 0) return;
+
+      fields.push('updated = ?');
+      values.push(updates.updated ?? now);
+      values.push(id);
+
+      const sql = `UPDATE wine_categories SET ${fields.join(', ')} WHERE id = ?;`;
+      await this.db.run(sql, values);
     }
 
   // Shopping List CRUD Operations

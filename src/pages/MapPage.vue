@@ -14,7 +14,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content  class="page-content">
+    <ion-content class="page-content" fullscreen>
       <!-- Loading State -->
       <div v-if="isLoading" class="loading-container">
         <ion-spinner />
@@ -407,10 +407,19 @@ const showFilterOptions = async () => {
   margin-top: 0.5rem;
 }
 
-/* Make ion-content a flex container so the map can size to the available client area */
-ion-content {
+ion-page {
   display: flex;
   flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Make ion-content a flex container so the map can size to the available client area */
+ion-content.page-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  --padding-top: 0;
+  --padding-bottom: 0;
 }
 
 /* Ensure loading/empty states fill the content area for centering */
@@ -422,11 +431,16 @@ ion-content {
 
 .map-container {
   width: 100%;
-  /* Fill the available content area and reserve bottom safe-area so system navigation remains visible */
+  /* Fill the available content area and respect the system safe-area inset */
   flex: 1 1 auto;
   min-height: 0;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+  height: 100%;
+  padding-bottom: env(safe-area-inset-bottom);
   box-sizing: border-box;
   position: relative;
+}
+
+.map-container > .leaflet-container {
+  height: 100%;
 }
 </style>

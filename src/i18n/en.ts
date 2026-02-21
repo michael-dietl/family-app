@@ -118,6 +118,7 @@ export default {
     "abbrezn": "Abbrezn",
     "galerie": "Galerie",
     "karte": "Karte",
+    "show_on_map": "Show on map",
     "routen": "Routen",
     "einstellungen": "Einstellungen",
     "sprache_wählen": "Sprache wählen",
