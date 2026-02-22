@@ -34,29 +34,42 @@
           </ion-segment>
 
           <div v-show="selectedTab === 'photo'" class="tab-content photo-tab ion-padding-bottom">
-            <div v-if="wineLightboxItems.length" id="wine-photo-gallery" class="wine-photo-gallery">
-              <div
-                v-for="(media, index) in wineLightboxItems"
-                :key="media.id ?? media.filepath"
-                class="wine-photo-card"
-              >
+            <div v-if="wineLightboxItems.length" class="wine-photo-viewer">
+              <button class="wine-photo-active" type="button" @click="triggerLightbox">
+                <div v-if="isVideoMedia(currentActiveMedia)" class="wine-photo-video">
+                  <video
+                    :src="getImageSrc(currentActiveMedia?.filepath)"
+                    playsinline
+                    muted
+                    preload="metadata"
+                    controlsList="nodownload"
+                  ></video>
+                  <div class="wine-photo-video-overlay">
+                    <ion-icon :icon="playCircle"></ion-icon>
+                  </div>
+                </div>
+                <img
+                  v-else
+                  :src="getImageSrc(currentActiveMedia?.filepath)"
+                  :alt="currentActiveMedia?.filename || $t('auto.foto')"
+                  loading="lazy"
+                />
+                <span class="wine-photo-count">
+                  {{ activePhotoIndex + 1 }} / {{ wineLightboxItems.length }}
+                </span>
+              </button>
+              <div id="wine-photo-gallery" class="wine-photo-gallery" aria-hidden="true">
                 <a
-                  :href="getImageSrc(media.filepath)"
+                  v-for="(media, index) in wineLightboxItems"
+                  :key="media.id ?? media.filepath"
                   class="photo-link glightbox"
+                  :href="getImageSrc(media.filepath)"
                   :data-type="isVideoMedia(media) ? 'video' : 'image'"
                   :data-source="isVideoMedia(media) ? 'local' : undefined"
                   :data-video="isVideoMedia(media) ? getVideoData(media.filepath, media.mimeType) : undefined"
                   @click.prevent="handlePhotoClick(index)"
                 >
-                  <div v-if="isVideoMedia(media)" class="video-thumbnail-wrapper">
-                    <ion-icon :icon="playCircle"></ion-icon>
-                  </div>
-                  <img
-                    v-else
-                    :src="getImageSrc(media.filepath)"
-                    :alt="media.filename || $t('auto.foto')"
-                    loading="lazy"
-                  />
+                  <span class="visually-hidden">{{ $t('auto.foto') }}</span>
                 </a>
               </div>
             </div>
@@ -495,7 +508,10 @@ const inferMimeTypeFromPath = (path: string) => {
   return 'image/jpeg';
 };
 
-const isVideoMedia = (media: { filepath?: string; mimeType?: string }) => {
+const isVideoMedia = (
+  media?: { filepath?: string; mimeType?: string } | null
+) => {
+  if (!media) return false;
   if (media.mimeType?.startsWith('video/')) return true;
   const ext = getFileExtension(media.filepath || '');
   return videoExtensions.includes(ext);
@@ -570,6 +586,21 @@ const wineLightboxItems = computed<MediaItem[]>(() => {
   return items;
 });
 
+const activePhotoIndex = ref(0);
+const currentActiveMedia = computed<MediaItem | null>(() => {
+  const items = wineLightboxItems.value;
+  if (!items.length) {
+    return null;
+  }
+  const normalizedIndex = Math.min(Math.max(activePhotoIndex.value, 0), items.length - 1);
+  return items[normalizedIndex];
+});
+
+const triggerLightbox = () => {
+  if (!wineLightboxItems.value.length) return;
+  openLightbox(activePhotoIndex.value);
+};
+
 const loadWinePhotos = async (id?: number) => {
   if (!id) return;
   try {
@@ -581,7 +612,8 @@ const loadWinePhotos = async (id?: number) => {
 
 const handlePhotoClick = (index: number) => {
   if (!wineLightboxItems.value.length) return;
-  openLightbox(index);
+  activePhotoIndex.value = Math.min(Math.max(index, 0), wineLightboxItems.value.length - 1);
+  triggerLightbox();
 };
 
 watch(wineLightboxItems, (items) => {
@@ -591,7 +623,10 @@ watch(wineLightboxItems, (items) => {
   }
   nextTick(() => {
     destroyLightbox();
-    initLightbox('#wine-photo-gallery', items);
+    activePhotoIndex.value = Math.min(activePhotoIndex.value, items.length - 1);
+    initLightbox('#wine-photo-gallery', items, (index) => {
+      activePhotoIndex.value = index;
+    });
   });
 }, { immediate: true });
 
@@ -674,7 +709,8 @@ const handleSaveEdit = async () => {
 };
 
 const handleBackgroundRemoval = async () => {
-  if (isRemovingBackground.value || !wine.value?.photoPath || !wine.value.id) return;
+  const media = currentActiveMedia.value;
+  if (!media?.filepath || isVideoMedia(media) || isRemovingBackground.value || !wine.value?.id) return;
   isRemovingBackground.value = true;
   const loading = await loadingController.create({
     spinner: 'crescent',
@@ -683,7 +719,7 @@ const handleBackgroundRemoval = async () => {
   await loading.present();
 
   try {
-    const imageUrl = getImageSrc(wine.value.photoPath);
+    const imageUrl = getImageSrc(media.filepath);
     const response = await fetch(imageUrl);
     if (!response.ok) {
       throw new Error('Unable to fetch wine photo');
@@ -800,9 +836,12 @@ const showOptions = async () => {
         }
       },
       {
-        text: 'Hintergrund entfernen',
+        text: 'Freistellen',
         icon: sparkles,
-        disabled: !wine.value?.photoPath || isRemovingBackground.value,
+        disabled:
+          !currentActiveMedia.value?.filepath ||
+          isRemovingBackground.value ||
+          isVideoMedia(currentActiveMedia.value),
         handler: () => {
           handleBackgroundRemoval();
         }
@@ -897,49 +936,78 @@ onMounted(async () => {
   font-size: 14px;
 }
 
-.wine-photo-gallery {
+.wine-photo-viewer {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-top: 16px;
-  width: 100%;
+  margin-top: 4px;
 }
 
-.wine-photo-card {
-  width: 100%;
-  border-radius: 18px;
+.wine-photo-active {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22px;
   overflow: hidden;
+  padding: 0;
+  border: none;
   background: var(--ion-color-step-50);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  width: 100%;
+  min-height: 280px;
+  cursor: pointer;
 }
 
-.photo-link {
+.wine-photo-active img,
+.wine-photo-active video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   display: block;
+}
+
+.wine-photo-video {
+  position: relative;
   width: 100%;
   height: 100%;
 }
 
-.photo-link img {
-  width: 100%;
-  height: auto;
-  max-height: 70vh;
-  object-fit: contain;
-  display: block;
+.wine-photo-video video {
+  height: 100%;
 }
 
-.video-thumbnail-wrapper {
-  width: 100%;
-  min-height: 220px;
+.wine-photo-video-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.55));
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.15);
+  color: var(--ion-color-light);
+  font-size: 48px;
 }
 
-.video-thumbnail-wrapper ion-icon {
-  font-size: 36px;
+.wine-photo-count {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
   color: var(--ion-color-light);
+  font-weight: 600;
+  font-size: 12px;
 }
+
+.wine-photo-gallery {
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
 
 .wine-detail ion-list-header h1 {
   font-size: 24px;

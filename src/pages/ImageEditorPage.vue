@@ -17,7 +17,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content class="ion-no-padding" :scroll-y="false">
+    <ion-content class="ion-no-padding image-editor-content" :scroll-y="false">
       <div v-if="!imageSrc" class="empty-state">
         <p>Kein Bild zum Bearbeiten</p>
         <ion-button expand="block" @click="handleClose">{{ t('auto.zurueck') }}</ion-button>
@@ -197,14 +197,22 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.image-editor-content {
+  min-height: 100vh;
+  display: flex;
+}
+
 .image-editor-container {
-  width: 100vw;
-  height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  width: 100%;
+  flex: 1;
+  min-height: 0;
   background: #1e1e1e;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-sizing: border-box;
+  margin-top: calc(env(safe-area-inset-top, 0px) + 8px);
+  margin-bottom: env(safe-area-inset-bottom, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
