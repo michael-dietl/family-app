@@ -15,6 +15,7 @@ const router = createRouter({
     {path : '/gallery/:id', component: () => import('@/pages/GalleryDetailPage.vue')},
     {path : '/gallery/:galleryId/editor', component: () => import('@/pages/EditorPage.vue')},
     {path : '/gallery/:galleryId/video-editor', component: () => import('@/pages/VideoEditorPage.vue')},
+    {path : '/image-editor', component: () => import('@/pages/ImageEditorPage.vue')},
     {path : '/timeline', component: () => import('@/pages/TimelinePage.vue')},
     {path : '/map',  component: () => import('@/pages/MapPage.vue')},
     {path : '/wine', component: () => import('@/pages/WinePage.vue')},

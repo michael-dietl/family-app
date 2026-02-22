@@ -96,6 +96,10 @@ export function useLightbox() {
       loop: true,
       touchNavigation: true,
       autoplayVideos: true,
+      plyr: {
+        muted: true,
+        autopause: false
+      },
       autoplay: true,
       autoplayDelay,
       history: false,

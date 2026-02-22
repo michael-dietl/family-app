@@ -23,6 +23,14 @@
         </ion-toolbar>
       </ion-header>
 
+      <ion-searchbar
+        class="routes-search"
+        v-model="routeSearchQuery"
+        :placeholder="t('auto.routen_durchsuchen')"
+        :debounce="300"
+        show-cancel-button="never"
+      />
+
       <!-- Loading -->
       <div v-if="isLoading" class="ion-text-center ion-padding">
         <ion-spinner name="crescent" />
@@ -39,10 +47,16 @@
         </ion-button>
       </div>
 
+      <div v-else-if="filteredRoutes.length === 0" class="empty-state">
+        <ion-icon :icon="mapOutline" class="empty-icon" />
+        <h2>{{ $t('auto.keine_passenden_routen') }}</h2>
+        <p>{{ $t('auto.probiere_andere_stichworte') }}</p>
+      </div>
+
       <!-- Routes List -->
       <div v-else class="routes-list-wrapper">
         <ion-list class="routes-list" lines="none">
-          <ion-card v-for="route in routes" :key="route.id" class="route-card" role="button" tabindex="0"
+          <ion-card v-for="route in filteredRoutes" :key="route.id" class="route-card" role="button" tabindex="0"
             @click="openRoute(route.id!)">
             <div v-if="route && route.id && routePreviewPaths[route.id]" class="route-card-background">
               <svg viewBox="0 0 200 110" preserveAspectRatio="none">
@@ -193,6 +207,7 @@ import {
   IonButton,
   IonIcon,
   IonList,
+  IonSearchbar,
   IonSpinner,
   IonBadge,
   IonCard,
@@ -229,6 +244,7 @@ type Waypoint = import('@/services/database').Waypoint;
 const router = useRouter();
 const { t } = useI18n();
 const routes = ref<Route[]>([]);
+const routeSearchQuery = ref('');
 const isLoading = ref(true);
 const startRouteModalOpen = ref(false);
 const newRouteName = ref('');
@@ -485,6 +501,24 @@ const getRouteModeColor = (mode: Route['travelMode'] | undefined) => {
   }
 };
 
+const filteredRoutes = computed(() => {
+  const query = routeSearchQuery.value.trim().toLowerCase();
+  if (!query) {
+    return routes.value;
+  }
+  return routes.value.filter((route) => {
+    const haystack = [
+      route.name ?? '',
+      route.description ?? '',
+      getRouteModeLabel(route.travelMode)
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(query);
+  });
+});
+
 const formatDuration = (seconds: number): string => {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -521,6 +555,10 @@ onMounted(async () => {
   height: 100%;
   padding: 2rem;
   text-align: center;
+}
+
+.routes-search {
+  margin: 0 16px 12px;
 }
 
 .empty-icon {

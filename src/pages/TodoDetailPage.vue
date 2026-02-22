@@ -81,9 +81,14 @@
 
         <div v-if="tempPhotos.length > 0" class="photo-preview-grid">
           <div v-for="(p, idx) in tempPhotos" :key="idx" class="thumb">
-            <img :src="getImageSrc(p.path || p.data)" />
-            <ion-button fill="clear" color="danger" @click="removeTempPhoto(idx)">
-              {{ $t('entfernen') }}
+            <img :src="getTempPhotoSrc(p)" />
+            <ion-button
+              fill="clear"
+              color="warning"
+              class="photo-remove-button"
+              @click="removeTempPhoto(idx)"
+            >
+              <ion-icon :icon="trashOutline" slot="icon-only" />
             </ion-button>
           </div>
         </div>
@@ -392,6 +397,18 @@ const getImageSrc = (path: string | null | undefined) => {
   return Capacitor.convertFileSrc(path);
 };
 
+const getTempPhotoSrc = (photo: { path?: string | null; data?: string | null }) => {
+  if (photo.path) {
+    return Capacitor.convertFileSrc(photo.path);
+  }
+  if (photo.data) {
+    return photo.data.startsWith('data:')
+      ? photo.data
+      : `data:image/jpeg;base64,${photo.data}`;
+  }
+  return '';
+};
+
 // ...existing code...
 
 
@@ -418,6 +435,28 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.add-task-card ion-item {
+  --inner-border-width: 0;
+  padding-inline-start: 0.35rem;
+  padding-inline-end: 0.35rem;
+}
+
+.add-task-card ion-textarea {
+  --padding-start: 0;
+  --padding-end: 0;
+}
+
+.add-task-card ion-textarea textarea {
+  font-size: 0.9rem;
+  color: var(--ion-color-dark);
+  padding: 0.35rem 0;
+}
+
+.add-task-card ion-textarea textarea::placeholder {
+  color: var(--ion-color-medium);
+  font-size: 0.9rem;
 }
 
 .due-date-item {
@@ -525,10 +564,23 @@ onMounted(async () => {
 
 .photo-preview-grid .thumb ion-button {
   position: absolute;
-  top: 0;
-  right: 0;
-  --padding-start: 4px;
-  --padding-end: 4px;
+  bottom: 6px;
+  right: 6px;
+  top: auto;
+  left: auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.photo-preview-grid .thumb ion-icon {
+  font-size: 1.1rem;
 }
 
 .todo-segment {

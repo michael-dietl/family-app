@@ -23,6 +23,7 @@ dependencies {
     implementation project(':capawesome-capacitor-file-picker')
     implementation project(':capgo-capacitor-keep-awake')
     implementation project(':capgo-capacitor-navigation-bar')
+    implementation project(':capgo-capacitor-share-target')
     implementation project(':whiteguru-capacitor-plugin-video-editor')
 
 }

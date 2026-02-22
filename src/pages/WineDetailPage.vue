@@ -17,175 +17,183 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content :fullscreen="false"   class="content-safe">
+    <ion-content :fullscreen="true">
       <div v-if="isLoading" class="loading-container">
         <ion-spinner></ion-spinner>
       </div>
 
-      <div v-else-if="wine" class="wine-detail">
-        <!-- Tabs -->
-        <ion-segment v-model="selectedTab" class="wine-tabs">
-          <ion-segment-button value="info">
-            <ion-label>{{ $t('auto.info') }}</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="photo">
-            <ion-label>{{ $t('auto.foto') }}</ion-label>
-          </ion-segment-button>
-        </ion-segment>
+      <template v-else-if="wine">
+        <div class="wine-detail">
+          <ion-segment v-model="selectedTab" class="wine-tabs">
+            <ion-segment-button value="info">
+              <ion-label>{{ $t('auto.info') }}</ion-label>
+            </ion-segment-button>
+            <ion-segment-button value="photo">
+              <ion-label>{{ $t('auto.foto') }}</ion-label>
+            </ion-segment-button>
+          </ion-segment>
 
-        <!-- Tab: Foto -->
-        <div v-show="selectedTab === 'photo'" class="tab-content photo-tab ion-padding-bottom">>
-          <div v-if="wine.photoPath" class="wine-photo">
-            <img :src="getImageSrc(wine.photoPath)" />
-            <div class="wine-photo-actions">
-              <ion-button
-                expand="block"
-                size="small"
-                class="background-removal-button"
-                fill="outline"
-                color="primary"
-                :disabled="isRemovingBackground"
-                @click="handleBackgroundRemoval"
+          <div v-show="selectedTab === 'photo'" class="tab-content photo-tab ion-padding-bottom">
+            <div v-if="wineLightboxItems.length" id="wine-photo-gallery" class="wine-photo-gallery">
+              <div
+                v-for="(media, index) in wineLightboxItems"
+                :key="media.id ?? media.filepath"
+                class="wine-photo-card"
               >
-                <ion-icon slot="start" :icon="sparkles" />
-                <span v-if="!isRemovingBackground">{{ $t('auto.hintergrund_entfernen') }}</span>
-                <ion-spinner v-else name="crescent" />
-              </ion-button>
+                <a
+                  :href="getImageSrc(media.filepath)"
+                  class="photo-link glightbox"
+                  :data-type="isVideoMedia(media) ? 'video' : 'image'"
+                  :data-source="isVideoMedia(media) ? 'local' : undefined"
+                  :data-video="isVideoMedia(media) ? getVideoData(media.filepath, media.mimeType) : undefined"
+                  @click.prevent="handlePhotoClick(index)"
+                >
+                  <div v-if="isVideoMedia(media)" class="video-thumbnail-wrapper">
+                    <ion-icon :icon="playCircle"></ion-icon>
+                  </div>
+                  <img
+                    v-else
+                    :src="getImageSrc(media.filepath)"
+                    :alt="media.filename || $t('auto.foto')"
+                    loading="lazy"
+                  />
+                </a>
+              </div>
+            </div>
+            <div v-else class="wine-photo-placeholder">
+              <ion-icon :icon="wineOutline" size="large"></ion-icon>
+              <p>{{ $t('auto.kein_foto_vorhanden') }}</p>
+              <p class="wine-photo-placeholder__hint">{{ $t('auto.fotos_hinzufuegen') }}</p>
             </div>
           </div>
-          <div v-else class="wine-photo-placeholder">
-            <ion-icon :icon="wineOutline" size="large"></ion-icon>
-            <p>{{ $t('auto.kein_foto_vorhanden') }}</p>
+
+          <div v-show="selectedTab === 'info'">
+            <ion-list>
+              <!-- Name & Bewertung -->
+              <ion-list-header>
+                <ion-label>
+                  <h1>{{ wine.name }}</h1>
+                  <div v-if="wine.rating" class="rating">
+                    <ion-icon
+                      v-for="star in 5"
+                      :key="star"
+                      :icon="star <= wine.rating ? starIcon : starOutline"
+                      :color="star <= wine.rating ? 'warning' : 'medium'"
+                    ></ion-icon>
+                  </div>
+                </ion-label>
+              </ion-list-header>
+
+              <!-- Weingut -->
+              <ion-item v-if="wine.winery">
+                <ion-icon :icon="business" slot="start"></ion-icon>
+                <ion-label>
+                  <p>{{ $t('auto.weingut') }}</p>
+                  <h3>{{ wine.winery }}</h3>
+                </ion-label>
+              </ion-item>
+
+              <!-- Region & Land -->
+              <ion-item v-if="wine.region || wine.country">
+                <ion-icon :icon="locationOutline" slot="start"></ion-icon>
+                <ion-label>
+                  <p>{{ $t('auto.herkunft') }}</p>
+                  <h3>{{ [wine.region, wine.country].filter(Boolean).join(', ') }}</h3>
+                </ion-label>
+              </ion-item>
+
+              <!-- Jahrgang -->
+              <ion-item v-if="wine.year">
+                <ion-icon :icon="calendar" slot="start"></ion-icon>
+                <ion-label>
+                  <p>{{ $t('auto.jahrgang') }}</p>
+                  <h3>{{ wine.year }}</h3>
+                </ion-label>
+              </ion-item>
+
+              <!-- Rebsorte -->
+              <ion-item v-if="wine.grapeVariety">
+                <ion-icon :icon="leaf" slot="start"></ion-icon>
+                <ion-label>
+                  <p>{{ $t('auto.rebsorte') }}</p>
+                  <h3>{{ wine.grapeVariety }}</h3>
+                </ion-label>
+              </ion-item>
+
+              <!-- Weintyp -->
+              <ion-item v-if="wine.type">
+                <ion-icon :icon="wineOutline" slot="start"></ion-icon>
+                <ion-label>
+                  <p>{{ $t('auto.weintyp') }}</p>
+                  <h3>{{ wine.type }}</h3>
+                </ion-label>
+              </ion-item>
+
+              <!-- Preis -->
+              <ion-item v-if="wine.price">
+                <ion-icon :icon="cash" slot="start"></ion-icon>
+                <ion-label>
+                  <p>{{ $t('auto.preis') }}</p>
+                  <h3>{{ wine.price.toFixed(2) }} €</h3>
+                </ion-label>
+              </ion-item>
+
+              <!-- Anzahl -->
+              <ion-item v-if="wine.quantity">
+                <ion-icon :icon="layers" slot="start"></ion-icon>
+                <ion-label>
+                  <p>{{ $t('auto.anzahl_flaschen') }}</p>
+                  <h3>{{ wine.quantity }}</h3>
+                </ion-label>
+              </ion-item>
+
+              <!-- Lagerort -->
+              <ion-item v-if="wine.storageLocation">
+                <ion-icon :icon="cube" slot="start"></ion-icon>
+                <ion-label>
+                  <p>{{ $t('auto.lagerort') }}</p>
+                  <h3>{{ wine.storageLocation }}</h3>
+                </ion-label>
+              </ion-item>
+
+              <!-- Kaufdatum -->
+              <ion-item v-if="wine.purchaseDate">
+                <ion-icon :icon="cartOutline" slot="start"></ion-icon>
+                <ion-label>
+                  <p>{{ $t('auto.kaufdatum') }}</p>
+                  <h3>{{ formatDate(wine.purchaseDate) }}</h3>
+                </ion-label>
+              </ion-item>
+
+              <!-- GPS Koordinaten -->
+              <ion-item v-if="wine.latitude && wine.longitude" button @click="showOnMap">
+                <ion-icon :icon="map" slot="start"></ion-icon>
+                <ion-label>
+                  <p>{{ $t('auto.gps_position') }}</p>
+                  <h3>{{ wine.latitude.toFixed(6) }}, {{ wine.longitude.toFixed(6) }}</h3>
+                </ion-label>
+                <ion-icon :icon="chevronForward" slot="end"></ion-icon>
+              </ion-item>
+
+              <!-- Notizen -->
+              <ion-item v-if="wine.notes">
+                <ion-label class="ion-text-wrap">
+                  <p>{{ $t('auto.notizen') }}</p>
+                  <ion-text>{{ wine.notes }}</ion-text>
+                </ion-label>
+              </ion-item>
+
+              <!-- Timestamps -->
+              <ion-item>
+                <ion-label class="ion-text-wrap">
+                  <p>Erstellt: {{ formatDate(wine.created) }}</p>
+                  <p>Aktualisiert: {{ formatDate(wine.updated) }}</p>
+                </ion-label>
+              </ion-item>
+            </ion-list>
           </div>
         </div>
-
-        <!-- Tab: Info (Metadaten) -->
-        <div v-show="selectedTab === 'info'">
-        <ion-list>
-          <!-- Name & Bewertung -->
-          <ion-list-header>
-            <ion-label>
-              <h1>{{ wine.name }}</h1>
-              <div v-if="wine.rating" class="rating">
-                <ion-icon
-                  v-for="star in 5"
-                  :key="star"
-                  :icon="star <= wine.rating ? starIcon : starOutline"
-                  :color="star <= wine.rating ? 'warning' : 'medium'"
-                ></ion-icon>
-              </div>
-            </ion-label>
-          </ion-list-header>
-
-          <!-- Weingut -->
-          <ion-item v-if="wine.winery">
-            <ion-icon :icon="business" slot="start"></ion-icon>
-            <ion-label>
-              <p>{{ $t('auto.weingut') }}</p>
-              <h3>{{ wine.winery }}</h3>
-            </ion-label>
-          </ion-item>
-
-          <!-- Region & Land -->
-          <ion-item v-if="wine.region || wine.country">
-            <ion-icon :icon="locationOutline" slot="start"></ion-icon>
-            <ion-label>
-              <p>{{ $t('auto.herkunft') }}</p>
-              <h3>{{ [wine.region, wine.country].filter(Boolean).join(', ') }}</h3>
-            </ion-label>
-          </ion-item>
-
-          <!-- Jahrgang -->
-          <ion-item v-if="wine.year">
-            <ion-icon :icon="calendar" slot="start"></ion-icon>
-            <ion-label>
-              <p>{{ $t('auto.jahrgang') }}</p>
-              <h3>{{ wine.year }}</h3>
-            </ion-label>
-          </ion-item>
-
-          <!-- Rebsorte -->
-          <ion-item v-if="wine.grapeVariety">
-            <ion-icon :icon="leaf" slot="start"></ion-icon>
-            <ion-label>
-              <p>{{ $t('auto.rebsorte') }}</p>
-              <h3>{{ wine.grapeVariety }}</h3>
-            </ion-label>
-          </ion-item>
-
-          <!-- Weintyp -->
-          <ion-item v-if="wine.type">
-            <ion-icon :icon="wineOutline" slot="start"></ion-icon>
-            <ion-label>
-              <p>{{ $t('auto.weintyp') }}</p>
-              <h3>{{ wine.type }}</h3>
-            </ion-label>
-          </ion-item>
-
-          <!-- Preis -->
-          <ion-item v-if="wine.price">
-            <ion-icon :icon="cash" slot="start"></ion-icon>
-            <ion-label>
-              <p>{{ $t('auto.preis') }}</p>
-              <h3>{{ wine.price.toFixed(2) }} €</h3>
-            </ion-label>
-          </ion-item>
-
-          <!-- {{ $t('auto.anzahl') }} -->
-          <ion-item v-if="wine.quantity">
-            <ion-icon :icon="layers" slot="start"></ion-icon>
-            <ion-label>
-              <p>{{ $t('auto.anzahl_flaschen') }}</p>
-              <h3>{{ wine.quantity }}</h3>
-            </ion-label>
-          </ion-item>
-
-          <!-- Lagerort -->
-          <ion-item v-if="wine.storageLocation">
-            <ion-icon :icon="cube" slot="start"></ion-icon>
-            <ion-label>
-              <p>{{ $t('auto.lagerort') }}</p>
-              <h3>{{ wine.storageLocation }}</h3>
-            </ion-label>
-          </ion-item>
-
-          <!-- Kaufdatum -->
-          <ion-item v-if="wine.purchaseDate">
-            <ion-icon :icon="cartOutline" slot="start"></ion-icon>
-            <ion-label>
-              <p>{{ $t('auto.kaufdatum') }}</p>
-              <h3>{{ formatDate(wine.purchaseDate) }}</h3>
-            </ion-label>
-          </ion-item>
-
-          <!-- GPS Koordinaten -->
-          <ion-item v-if="wine.latitude && wine.longitude" button @click="showOnMap">
-            <ion-icon :icon="map" slot="start"></ion-icon>
-            <ion-label>
-              <p>{{ $t('auto.gps_position') }}</p>
-              <h3>{{ wine.latitude.toFixed(6) }}, {{ wine.longitude.toFixed(6) }}</h3>
-            </ion-label>
-            <ion-icon :icon="chevronForward" slot="end"></ion-icon>
-          </ion-item>
-
-          <!-- Notizen -->
-          <ion-item v-if="wine.notes">
-            <ion-label class="ion-text-wrap">
-              <p>{{ $t('auto.notizen') }}</p>
-              <ion-text>{{ wine.notes }}</ion-text>
-            </ion-label>
-          </ion-item>
-
-          <!-- Timestamps -->
-          <ion-item>
-            <ion-label class="ion-text-wrap">
-              <p>Erstellt: {{ formatDate(wine.created) }}</p>
-              <p>Aktualisiert: {{ formatDate(wine.updated) }}</p>
-            </ion-label>
-          </ion-item>
-        </ion-list>
-        </div>
-      </div>
+      </template>
 
       <div v-else class="empty-state">
         <ion-icon :icon="wineOutline" size="large"></ion-icon>
@@ -200,7 +208,6 @@
           <ion-buttons slot="start">
             <ion-button @click="closeEditModal">{{ $t('auto.abbrechen') }}</ion-button>
           </ion-buttons>
-          <ion-title>{{ $t('auto.wein_bearbeiten') }}</ion-title>
           <ion-buttons slot="end">
             <ion-button :strong="true" @click="handleSaveEdit">{{ $t('auto.speichern') }}</ion-button>
           </ion-buttons>
@@ -246,7 +253,7 @@
               v-model="editWine.country"
               label="Land"
               label-placement="stacked"
-              placeholder="z.B. Frankreich, {{ $t('auto.deutsch') }}land"
+              placeholder="z.B. Frankreich, Deutschland"
             ></ion-input>
           </ion-item>
 
@@ -298,12 +305,11 @@
             ></ion-input>
           </ion-item>
 
-          <!-- {{ $t('auto.anzahl') }} -->
           <ion-item>
             <ion-input
               v-model.number="editWine.quantity"
               type="number"
-              label="{{ $t('auto.anzahl') }} Flaschen"
+              :label="$t('auto.anzahl_flaschen')"
               label-placement="stacked"
               placeholder="z.B. 6"
             ></ion-input>
@@ -362,7 +368,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch, computed, nextTick, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
@@ -390,7 +396,8 @@ import {
   IonTextarea,
   actionSheetController,
   alertController,
-  toastController
+  toastController,
+  loadingController
 } from '@ionic/vue';
 import {
   ellipsisVertical,
@@ -410,10 +417,13 @@ import {
   create,
   createOutline,
   trash,
-  sparkles
+  playCircle,
+  sparkles,
+  camera
 } from 'ionicons/icons';
 import { useWine } from '@/composables/useWine';
-import type { Wine } from '@/services/database';
+import { useLightbox, type MediaItem } from '@/composables/useLightbox';
+import { db, type Wine, type WinePhoto } from '@/services/database';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Filesystem } from '@capacitor/filesystem';
@@ -423,7 +433,8 @@ import { buildSharedStoragePath, getSharedStorageDirectory, ensureDirectoryExist
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
-const { getWine, updateWine, deleteWine } = useWine();
+const { getWine, updateWine, deleteWine, takeWinePhoto } = useWine();
+const { initLightbox, openLightbox, destroyLightbox } = useLightbox();
 
 const wine = ref<Wine | null>(null);
 const isLoading = ref(true);
@@ -431,6 +442,9 @@ const selectedTab = ref('info');
 const showEditModal = ref(false);
 const editWine = ref<Partial<Wine>>({});
 const isRemovingBackground = ref(false);
+const isUpdatingPhoto = ref(false);
+const winePhotos = ref<WinePhoto[]>([]);
+const videoExtensions = ['mp4', 'mov', 'webm', 'mkv', 'avi', '3gp', 'm4v'];
 
 onMounted(async () => {
   const id = parseInt(route.params.id as string);
@@ -441,6 +455,7 @@ onMounted(async () => {
 
   try {
     wine.value = await getWine(id);
+    await loadWinePhotos(id);
   } catch (error) {
     console.error('Failed to load wine:', error);
   } finally {
@@ -461,6 +476,128 @@ const getImageSrc = (path: string | undefined) => {
   if (!path) return '';
   return Capacitor.convertFileSrc(path);
 };
+
+const getFileExtension = (path: string) => path.split('.').pop()?.toLowerCase() || '';
+
+const getFileNameFromPath = (path: string) => path.split('/').pop() || `wine_${Date.now()}`;
+
+const inferMimeTypeFromPath = (path: string) => {
+  const ext = getFileExtension(path);
+  if (!ext) return 'image/jpeg';
+  if (videoExtensions.includes(ext)) {
+    if (ext === '3gp') return 'video/3gpp';
+    if (ext === 'mkv') return 'video/x-matroska';
+    return `video/${ext}`;
+  }
+  if (ext === 'png') return 'image/png';
+  if (ext === 'webp') return 'image/webp';
+  if (ext === 'gif') return 'image/gif';
+  return 'image/jpeg';
+};
+
+const isVideoMedia = (media: { filepath?: string; mimeType?: string }) => {
+  if (media.mimeType?.startsWith('video/')) return true;
+  const ext = getFileExtension(media.filepath || '');
+  return videoExtensions.includes(ext);
+};
+
+const getVideoData = (filepath: string, mimeType?: string) => {
+  const source = getImageSrc(filepath);
+  if (!source) return undefined;
+  const type = mimeType || inferMimeTypeFromPath(filepath) || 'video/mp4';
+  return JSON.stringify({
+    source: [{ src: source, type }],
+    attributes: {
+      preload: 'metadata',
+      playsinline: true
+    }
+  });
+};
+
+const wineLightboxItems = computed<MediaItem[]>(() => {
+  const currentWine = wine.value;
+  if (!currentWine) return [];
+  const items: MediaItem[] = [];
+  const seenPaths = new Set<string>();
+
+  const pushItem = (payload: {
+    filepath?: string;
+    filename?: string;
+    mimeType?: string;
+    id?: number;
+    foreignID?: string;
+    created?: string;
+    updated?: string;
+  }) => {
+    if (!payload.filepath) return;
+    if (seenPaths.has(payload.filepath)) return;
+    seenPaths.add(payload.filepath);
+    const video = isVideoMedia(payload);
+    items.push({
+      id: payload.id,
+      foreignID: payload.foreignID,
+      galleryId: currentWine.id,
+      filename: payload.filename || getFileNameFromPath(payload.filepath),
+      filepath: payload.filepath,
+      created: payload.created ?? currentWine.created,
+      updated: payload.updated ?? currentWine.updated,
+      mimeType: payload.mimeType || inferMimeTypeFromPath(payload.filepath),
+      isVideo: video,
+      videoUrl: payload.filepath
+    } as MediaItem);
+  };
+
+  pushItem({
+    filepath: currentWine.photoPath,
+    filename: currentWine.photoPath ? `wine_${currentWine.id}_primary` : undefined,
+    created: currentWine.created,
+    updated: currentWine.updated,
+    mimeType: 'image/jpeg'
+  });
+
+  for (const photo of winePhotos.value) {
+    pushItem({
+      id: photo.id,
+      foreignID: photo.foreignID,
+      filepath: photo.filepath,
+      filename: photo.filename,
+      created: photo.created,
+      updated: photo.updated,
+      mimeType: photo.mimeType
+    });
+  }
+
+  return items;
+});
+
+const loadWinePhotos = async (id?: number) => {
+  if (!id) return;
+  try {
+    winePhotos.value = await db.getWinePhotos(id);
+  } catch (error) {
+    console.error('Could not load wine photos:', error);
+  }
+};
+
+const handlePhotoClick = (index: number) => {
+  if (!wineLightboxItems.value.length) return;
+  openLightbox(index);
+};
+
+watch(wineLightboxItems, (items) => {
+  if (!items.length) {
+    destroyLightbox();
+    return;
+  }
+  nextTick(() => {
+    destroyLightbox();
+    initLightbox('#wine-photo-gallery', items);
+  });
+}, { immediate: true });
+
+onBeforeUnmount(() => {
+  destroyLightbox();
+});
 
 const showOnMap = () => {
   if (!wine.value?.latitude || !wine.value?.longitude) return;
@@ -539,6 +676,11 @@ const handleSaveEdit = async () => {
 const handleBackgroundRemoval = async () => {
   if (isRemovingBackground.value || !wine.value?.photoPath || !wine.value.id) return;
   isRemovingBackground.value = true;
+  const loading = await loadingController.create({
+    spinner: 'crescent',
+    message: `${t('auto.hintergrund_entfernen')} …`
+  });
+  await loading.present();
 
   try {
     const imageUrl = getImageSrc(wine.value.photoPath);
@@ -584,6 +726,58 @@ const handleBackgroundRemoval = async () => {
     await failureToast.present();
   } finally {
     isRemovingBackground.value = false;
+    if (loading) {
+      try {
+        await loading.dismiss();
+      } catch (dismissError) {
+        console.warn('Background removal loader already dismissed', dismissError);
+      }
+    }
+  }
+};
+
+const createWinePhotoRecord = async (photoPath: string) => {
+  if (!wine.value?.id) return;
+  await db.createWinePhoto({
+    wineId: wine.value.id,
+    filename: getFileNameFromPath(photoPath),
+    filepath: photoPath,
+    mimeType: inferMimeTypeFromPath(photoPath)
+  });
+};
+
+const handleAddPhoto = async () => {
+  if (isUpdatingPhoto.value || !wine.value?.id) return;
+  isUpdatingPhoto.value = true;
+
+  try {
+    const { photoPath, latitude, longitude } = await takeWinePhoto();
+    if (!photoPath) {
+      throw new Error('Foto konnte nicht gespeichert werden.');
+    }
+    await createWinePhotoRecord(photoPath);
+    if (latitude !== undefined && longitude !== undefined) {
+      await updateWine(wine.value.id, { latitude, longitude });
+    }
+    await loadWinePhotos(wine.value.id);
+    wine.value = await getWine(wine.value.id);
+
+    const successToast = await toastController.create({
+      message: t('auto.foto_aufgenommen'),
+      duration: 2000,
+      color: 'success'
+    });
+    await successToast.present();
+  } catch (error) {
+    console.error('Failed to add wine photo:', error);
+    const failureToast = await toastController.create({
+      message: 'Foto konnte nicht hinzugefügt werden.',
+      duration: 2500,
+      color: 'danger'
+    });
+    await failureToast.present();
+  } finally {
+    isUpdatingPhoto.value = false;
   }
 };
 
@@ -592,10 +786,25 @@ const showOptions = async () => {
     header: 'Optionen',
     buttons: [
       {
+        text: 'Foto hinzufügen',
+        icon: camera,
+        handler: () => {
+          handleAddPhoto();
+        }
+      },
+      {
         text: 'Bearbeiten',
         icon: create,
         handler: () => {
           openEditModal();
+        }
+      },
+      {
+        text: 'Hintergrund entfernen',
+        icon: sparkles,
+        disabled: !wine.value?.photoPath || isRemovingBackground.value,
+        handler: () => {
+          handleBackgroundRemoval();
         }
       },
       {
@@ -635,10 +844,6 @@ const showOptions = async () => {
           await alert.present();
         }
       },
-      {
-        text: 'Abbrechen',
-        role: 'cancel'
-      }
     ]
   });
 
@@ -673,31 +878,6 @@ onMounted(async () => {
   height: 200px;
 }
 
-.wine-photo {
-  width: 100%;
-  max-height: 90%;
-  overflow: hidden;
-  object-fit: contain;
-  display: flex;
-  justify-content: center;
-}
-
-.wine-photo-actions {
-  margin-top: 12px;
-  padding: 0 1rem;
-}
-
-.background-removal-button ion-spinner {
-  --width: 24px;
-  --height: 24px;
-}
-
-.wine-photo img {
-  width: 50%;
-  height: auto;
-  object-fit: cover;
-}
-
 .wine-photo-placeholder {
   width: 100%;
   height: 300px;
@@ -706,10 +886,59 @@ onMounted(async () => {
   justify-content: center;
   background: var(--ion-color-light);
 }
-
 .wine-photo-placeholder ion-icon {
   font-size: 120px;
   color: var(--ion-color-medium);
+}
+
+.wine-photo-placeholder__hint {
+  color: var(--ion-color-medium);
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.wine-photo-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+  width: 100%;
+}
+
+.wine-photo-card {
+  width: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--ion-color-step-50);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.photo-link {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.photo-link img {
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+  object-fit: contain;
+  display: block;
+}
+
+.video-thumbnail-wrapper {
+  width: 100%;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.video-thumbnail-wrapper ion-icon {
+  font-size: 36px;
+  color: var(--ion-color-light);
 }
 
 .wine-detail ion-list-header h1 {

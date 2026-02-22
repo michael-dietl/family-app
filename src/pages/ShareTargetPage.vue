@@ -26,20 +26,44 @@
               {{ items.length }} {{ t('shareTarget.itemsLabel') }}
             </ion-card-subtitle>
           </ion-card-header>
-          <ion-list>
-            <ion-item v-for="item in items" :key="item.uri">
-              <ion-thumbnail slot="start" v-if="previewFor(item.uri)" class="share-target-thumb">
-                <img :src="previewFor(item.uri)" alt="" />
-              </ion-thumbnail>
-              <ion-label>
-                <h3>{{ mimeLabel(item.mimeType) }}</h3>
-                <p>{{ shortenUri(item.uri) }}</p>
-              </ion-label>
-              <ion-badge :color="badgeColor(item.mimeType)" slot="end">
-                {{ badgeText(item.mimeType) }}
-              </ion-badge>
-            </ion-item>
-          </ion-list>
+            <div class="share-target-list">
+              <article v-for="item in items" :key="item.uri" class="share-target-entry">
+                <div class="share-target-entry-preview" role="presentation">
+                  <video
+                    v-if="isVideoMimeType(item.mimeType) && previewFor(item.uri, item.mimeType)"
+                    :src="previewFor(item.uri, item.mimeType)"
+                    autoplay
+                    loop
+                    muted
+                    playsinline
+                    preload="metadata"
+                  />
+                  <img
+                    v-else-if="previewFor(item.uri, item.mimeType)"
+                    :src="previewFor(item.uri, item.mimeType)"
+                    alt="{{ mimeLabel(item.mimeType) }}"
+                  />
+                  <span v-else class="share-target-entry-placeholder"></span>
+                </div>
+                <div class="share-target-entry-info">
+                  <p class="share-target-entry-title">{{ mimeLabel(item.mimeType) }}</p>
+                  <p class="share-target-entry-uri">{{ shortenUri(item.uri) }}</p>
+                </div>
+                <div class="share-target-entry-actions">
+                  <ion-badge :color="badgeColor(item.mimeType)">
+                    {{ badgeText(item.mimeType) }}
+                  </ion-badge>
+                  <ion-button
+                    fill="clear"
+                    size="small"
+                    color="medium"
+                    @click.stop="removeItem(item.uri)"
+                  >
+                    {{ t('shareTarget.removeItem') }}
+                  </ion-button>
+                </div>
+              </article>
+            </div>
         </ion-card>
 
         <ion-text v-else class="share-target-empty">
@@ -80,6 +104,10 @@
           {{ t('shareTarget.createGalleryButton') }}
         </ion-button>
 
+        <ion-button expand="block" fill="clear" color="medium" @click="cancelShareImport">
+          {{ t('shareTarget.cancelButton') }}
+        </ion-button>
+
         <ion-toast
           :is-open="toast.isOpen"
           :message="toast.message"
@@ -101,11 +129,14 @@ import { useRouter } from 'vue-router';
 import { useGallery } from '@/composables/useGallery';
 import { usePhoto } from '@/composables/usePhoto';
 import { useShareTarget } from '@/composables/useShareTarget';
+import { readContentUri } from '@/services/contentReader';
+
+import type { SharedTargetItem } from '@/composables/useShareTarget';
 
 const router = useRouter();
 const { t } = useI18n();
 const { galleries, initialize, createGallery } = useGallery();
-const { sharedItems, clearSharedItems } = useShareTarget();
+const { sharedItems, clearSharedItems, removeSharedItem } = useShareTarget();
 const { saveMultiplePhotos, isProcessing } = usePhoto();
 
 const selectedGalleryId = ref<number | null>(null);
@@ -213,13 +244,71 @@ onMounted(async () => {
   }
 });
 
-const previewFor = (uri: string) => {
+const isVideoMimeType = (mime?: string | null) => !!mime?.startsWith('video/');
+
+const previewCache = ref<Record<string, string>>({});
+const rawPreviewBase64 = ref<Record<string, string>>({});
+const loadingPreviewUris = new Set<string>();
+
+const buildDataUrl = (base64: string, mime?: string | null) => {
+  const prefix = mime ? `data:${mime};base64,` : 'data:image/jpeg;base64,';
+  return `${prefix}${base64}`;
+};
+
+const loadPreviewFor = async (item: SharedTargetItem) => {
+  const { uri, mimeType } = item;
+  if (!uri || previewCache.value[uri] || loadingPreviewUris.has(uri)) {
+    return;
+  }
+  if (typeof window === 'undefined') return;
+  if (!uri.startsWith('content://') && !uri.startsWith('file://')) {
+    return;
+  }
+  loadingPreviewUris.add(uri);
+  try {
+    const result = await readContentUri(uri);
+    if (result?.data) {
+      rawPreviewBase64.value[uri] = result.data;
+      previewCache.value[uri] = buildDataUrl(result.data, mimeType);
+    }
+  } catch (error) {
+    console.warn('Could not read share preview', uri, error);
+  } finally {
+    loadingPreviewUris.delete(uri);
+  }
+};
+
+const resetPreviewCache = () => {
+  previewCache.value = {};
+  rawPreviewBase64.value = {};
+  loadingPreviewUris.clear();
+};
+
+watch(
+  items,
+  (list) => {
+    if (!list.length) {
+      resetPreviewCache();
+      return;
+    }
+    list.forEach((item) => {
+      void loadPreviewFor(item);
+    });
+  },
+  { immediate: true }
+);
+
+const previewFor = (uri: string, mime?: string | null) => {
   if (!uri) {
     return '';
+  }
+  if (previewCache.value[uri]) {
+    return previewCache.value[uri];
   }
   try {
     return Capacitor.convertFileSrc(uri);
   } catch (error) {
+    console.warn('Could not convert share preview uri', uri, error);
     return '';
   }
 };
@@ -254,13 +343,30 @@ const showToast = (message: string, color: 'success' | 'danger') => {
   toast.value = { isOpen: true, message, color };
 };
 
+const collectSharePayload = async () => {
+  const payload: Array<string | { path: string | null; data?: string | null }> = [];
+  for (const item of items.value) {
+    if (!item?.uri) continue;
+    if (item.uri.startsWith('content://') || item.uri.startsWith('file://')) {
+      await loadPreviewFor(item);
+    }
+    const base64 = rawPreviewBase64.value[item.uri];
+    if (base64) {
+      payload.push({ path: item.uri, data: base64 });
+    } else {
+      payload.push(item.uri);
+    }
+  }
+  return payload;
+};
+
 const importSharedMedia = async () => {
   const galleryId = selectedGalleryIdNumber.value;
   if (!canUpload.value || galleryId == null) {
     return;
   }
 
-  const uris = items.value.map((item) => item.uri);
+  const uris = await collectSharePayload();
   if (uris.length === 0) {
     return;
   }
@@ -274,6 +380,7 @@ const importSharedMedia = async () => {
     });
     showToast(t('shareTarget.successToast'), 'success');
     clearSharedItems();
+    resetPreviewCache();
     await router.replace('/gallery');
   } catch (error) {
     console.error('Import failed', error);
@@ -305,6 +412,20 @@ const createShareGallery = async () => {
   }
 };
 
+const cancelShareImport = () => {
+  clearSharedItems();
+  resetPreviewCache();
+  selectedGalleryId.value = null;
+  router.replace('/gallery').catch(() => {});
+};
+
+const removeItem = (uri: string) => {
+  if (!uri) return;
+  removeSharedItem(uri);
+  delete previewCache.value[uri];
+  delete rawPreviewBase64.value[uri];
+};
+
 
 onMounted(async () => {
   await StatusBar.setOverlaysWebView({ overlay: false });
@@ -334,12 +455,82 @@ onMounted(async () => {
   --ion-card-background: var(--ion-color-step-50);
 }
 
-.share-target-thumb img {
+.share-target-list {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.share-target-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 13px;
+  background: var(--ion-color-step-50);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.share-target-entry-preview {
+  flex: 0 0 72px;
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--ion-color-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-target-entry-preview img,
+.share-target-entry-preview video {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  height: 56px;
-  width: 56px;
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
+  display: block;
+}
+
+.share-target-entry-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.03), rgba(0, 0, 0, 0));
+}
+
+.share-target-entry-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.share-target-entry-title {
+  font-weight: 600;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.share-target-entry-uri {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--ion-color-medium);
+  word-break: break-all;
+}
+
+.share-target-entry-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.share-target-entry-actions ion-button {
+  font-size: 0.75rem;
+  --padding-start: 6px;
+  --padding-end: 6px;
 }
 
 .share-target-empty {

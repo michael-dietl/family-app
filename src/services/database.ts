@@ -15,6 +15,7 @@ export interface Gallery {
   color?: string;  // Hex-Farbe für Map-Marker (z.B. '#FF5733')
   startDate?: string;
   endDate?: string;
+  showOnMapAndTimeline?: boolean;
   created: string;
   updated: string;
 }
@@ -500,6 +501,7 @@ class DatabaseService {
         color TEXT,
         startDate TEXT,
         endDate TEXT,
+        showOnMapAndTimeline INTEGER NOT NULL DEFAULT 1,
         created TEXT NOT NULL,
         updated TEXT NOT NULL
       );
@@ -845,6 +847,7 @@ class DatabaseService {
 
     await runAlter('ALTER TABLE galleries ADD COLUMN startDate TEXT;');
     await runAlter('ALTER TABLE galleries ADD COLUMN endDate TEXT;');
+    await runAlter('ALTER TABLE galleries ADD COLUMN showOnMapAndTimeline INTEGER NOT NULL DEFAULT 1;');
     await runAlter('ALTER TABLE todo_items ADD COLUMN dueDate TEXT;');
     await runAlter('ALTER TABLE todo_items ADD COLUMN completionDate TEXT;');
     await runAlter('ALTER TABLE galleries ADD COLUMN foreignID TEXT;');
@@ -945,8 +948,8 @@ class DatabaseService {
 
     const now = new Date().toISOString();
     const sql = `
-      INSERT INTO galleries (foreignID, name, description, coverPhotoId, color, startDate, endDate, created, updated)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+      INSERT INTO galleries (foreignID, name, description, coverPhotoId, color, startDate, endDate, showOnMapAndTimeline, created, updated)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
 
     const updated = gallery.updated ?? now;
@@ -958,6 +961,7 @@ class DatabaseService {
       gallery.color || null,
       gallery.startDate || null,
       gallery.endDate || null,
+      gallery.showOnMapAndTimeline === false ? 0 : 1,
       now,
       updated
     ]);
@@ -1013,6 +1017,7 @@ class DatabaseService {
           color = COALESCE(?, color),
           startDate = COALESCE(?, startDate),
           endDate = COALESCE(?, endDate),
+          showOnMapAndTimeline = COALESCE(?, showOnMapAndTimeline),
           foreignID = COALESCE(?, foreignID),
           updated = ?
       WHERE id = ?;
@@ -1025,6 +1030,7 @@ class DatabaseService {
       updates.color || null,
       updates.startDate || null,
       updates.endDate || null,
+      typeof updates.showOnMapAndTimeline === 'boolean' ? (updates.showOnMapAndTimeline ? 1 : 0) : null,
       updates.foreignID || null,
       updated,
       id

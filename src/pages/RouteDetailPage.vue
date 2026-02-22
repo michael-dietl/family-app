@@ -41,7 +41,12 @@
           <div class="info-card">
             <div class="info-header">
               <h2>{{ routeData?.name || 'Route' }}</h2>
-              <p class="description" v-if="routeData?.description">{{ routeData.description }}</p>
+            </div>
+            <div v-if="manualPlacementActive" class="manual-placement-banner">
+              <p>{{ $t('auto.wegpunkt_karte_tippen') }}</p>
+              <ion-button size="small" fill="clear" color="medium" @click="cancelManualPlacement">
+                {{ $t('buttons.cancel') }}
+              </ion-button>
             </div>
             <div class="stats-grid">
               <div class="stat">
@@ -69,8 +74,6 @@
 
             <!-- Meta-Infos -->
             <div class="info-meta">
-              <p class="meta-row"><strong>{{$t('auto.start')}}</strong> {{ routeData?.startTime ? formatDateTime(routeData.startTime) : '-' }}</p>
-              <p v-if="routeData?.endTime" class="meta-row"><strong>{{$t('auto.ende')}}</strong> {{ formatDateTime(routeData.endTime) }}</p>
               <div class="status-row">
                 <p class="status-text"><strong>{{$t('auto.status')}}</strong>
                   <span :style="{color: routeData?.isRecording ? '#3880ff' : '#eb445a'}">{{ routeData?.isRecording ? $t('auto.aufzeichnung_läuft') : $t('auto.beendet_status') }}</span>
@@ -115,6 +118,8 @@
                   </ion-button>
                 </div>
               </div>
+              <p class="meta-row"><strong>{{$t('auto.start')}}</strong> {{ routeData?.startTime ? formatDateTime(routeData.startTime) : '-' }}</p>
+              <p v-if="routeData?.endTime" class="meta-row"><strong>{{$t('auto.ende')}}</strong> {{ formatDateTime(routeData.endTime) }}</p>
             </div>
 
             <!-- Aufzeichnungs-Controls -->
@@ -366,6 +371,7 @@ import 'leaflet/dist/leaflet.css';
 import { db } from '@/services/database';
 import { useRouteTracking, resolveTrackingProfile } from '@/composables/useRouteTracking';
 import { matchPositionsWithValhalla, traceRouteSummary, type ValhallaTraceSummary } from '@/services/valhalla';
+import { extractGPSFromCameraExif } from '@/services/exif';
 import { useI18n } from 'vue-i18n';
 import { scooterIcon } from '@/icons/scooter';
 import { valhallaIcon } from '@/icons/valhalla';
@@ -508,6 +514,8 @@ const waypointEntries = computed(() => {
 });
 
 const hasWaypointTab = computed(() => waypointEntries.value.length > 0);
+
+const manualPlacementActive = ref(false);
 
 const valhallaTrace = ref<LatLonPoint[]>([]);
 const valhallaMatching = ref(false);
@@ -878,38 +886,65 @@ const preloadWaypointPhotos = async (list: Waypoint[]) => {
   function addManualWaypoint() {
     return addManualWaypointImpl();
   }
-  const addManualWaypointImpl = async () => {
+
+  const presentManualWaypointOutcome = async (success: boolean) => {
+    const toast = await toastController.create({
+      message: success ? t('auto.manueller_wegpunkt_hinzugefuegt') : t('auto.manueller_wegpunkt_fehlgeschlagen'),
+      duration: 1500,
+      color: success ? 'success' : 'danger'
+    });
+    await toast.present();
+  };
+
+  const createManualWaypoint = async (location: LatLonPoint) => {
+    await db.createWaypoint({
+      routeId,
+      type: 'manual',
+      latitude: location.latitude,
+      longitude: location.longitude,
+      name: t('auto.wegpunkt'),
+      description: '',
+      timestamp: new Date().toISOString(),
+      updated: new Date().toISOString()
+    });
+    await loadData();
+    setTimeout(() => drawRoute(), 100);
+  };
+
+  const finalizeManualWaypointPlacement = async (location: LatLonPoint) => {
+    manualPlacementActive.value = false;
     try {
-      const location = await resolveCurrentWaypointLocation();
-      if (!location) {
-        throw new Error('Unable to resolve manual waypoint location');
-      }
-      await db.createWaypoint({
-        routeId,
-        type: 'manual',
-        latitude: location.latitude,
-        longitude: location.longitude,
-        name: 'Manueller Wegpunkt',
-        description: '',
-        timestamp: new Date().toISOString(),
-        updated: new Date().toISOString()
-      });
-      await loadData();
-      setTimeout(() => drawRoute(), 100); // Fix: Karte bleibt sichtbar
-      const toast = await toastController.create({
-        message: t('auto.manueller_wegpunkt_hinzugefuegt'),
-        duration: 1500,
-        color: 'success'
-      });
-      await toast.present();
-    } catch (err) {
-      const toast = await toastController.create({
-        message: t('auto.manueller_wegpunkt_fehlgeschlagen'),
-        duration: 1500,
-        color: 'danger'
-      });
-      await toast.present();
+      await createManualWaypoint(location);
+      await presentManualWaypointOutcome(true);
+    } catch (error) {
+      console.error('Manual waypoint placement failed', error);
+      await presentManualWaypointOutcome(false);
     }
+  };
+
+  const addManualWaypointImpl = async () => {
+    const location = await resolveCurrentWaypointLocation();
+    if (!location) {
+      await presentManualWaypointOutcome(false);
+      return;
+    }
+    await finalizeManualWaypointPlacement(location);
+  };
+
+  const startManualWaypointPlacement = () => {
+    manualPlacementActive.value = true;
+  };
+
+  const cancelManualPlacement = () => {
+    manualPlacementActive.value = false;
+  };
+
+  const handleManualWaypointMapClick = async (event: L.LeafletMouseEvent) => {
+    if (!manualPlacementActive.value) return;
+    await finalizeManualWaypointPlacement({
+      latitude: event.latlng.lat,
+      longitude: event.latlng.lng
+    });
   };
 
 // --- Aufzeichnung pausieren ---
@@ -1006,18 +1041,29 @@ const stopRecordingImpl = async () => {
   }
   const addPhotoWaypointImpl = async () => {
     try {
-      const location = await resolveCurrentWaypointLocation();
-      if (!location) {
-        throw new Error('Unable to resolve photo waypoint location');
-      }
       const photo = await Camera.getPhoto({
         resultType: CameraResultType.Base64,
         source: CameraSource.Camera,
         quality: 70
       });
-      // Foto als Gallery-Photo speichern (Dummy-GalleryId 1, oder eigene Logik)
+      let location: LatLonPoint | null = null;
+      if (photo.exif) {
+        const coords = extractGPSFromCameraExif(photo.exif);
+        if (coords?.latitude != null && coords.longitude != null) {
+          location = {
+            latitude: coords.latitude,
+            longitude: coords.longitude
+          };
+        }
+      }
+      if (!location) {
+        location = await resolveCurrentWaypointLocation();
+      }
+      if (!location) {
+        throw new Error('Unable to resolve photo waypoint location');
+      }
       const photoId = await db.createPhoto({
-        galleryId: 1, // ggf. eigene Logik für GalleryId
+        galleryId: 1,
         filename: `route-photo-${Date.now()}.jpg`,
         filepath: `data:image/jpeg;base64,${photo.base64String}`,
         thumbnail: photo.base64String,
@@ -1025,7 +1071,6 @@ const stopRecordingImpl = async () => {
         latitude: location.latitude,
         longitude: location.longitude
       });
-      // Wegpunkt anlegen
       await db.createWaypoint({
         routeId,
         type: 'photo',
@@ -1085,6 +1130,7 @@ onUnmounted(() => {
     matchedLine = null;
   }
   if (map) {
+    map.off('click', handleManualWaypointMapClick);
     map.remove();
     map = null;
   }
@@ -1159,6 +1205,7 @@ const loadData = async () => {
     // Robust: isRecording immer Boolean
     route.isRecording = !!route.isRecording;
     routeData.value = route;
+    manualPlacementActive.value = false;
     valhallaTrace.value = [];
     waypoints.value = await db.getWaypointsByRoute(routeId);
     waypointPhotoCache.value = {};
@@ -1182,6 +1229,7 @@ const initMap = () => {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19
     }).addTo(map);
+    map.on('click', handleManualWaypointMapClick);
 
     // Wenn Route läuft und keine Wegpunkte vorhanden sind, auf aktuellen Standort zentrieren
     if (routeData.value?.isRecording && waypoints.value.length === 0) {
@@ -1343,6 +1391,20 @@ const showOptionsMenu = async () => {
   const actionSheet = await actionSheetController.create({
     header: t('auto.route_optionen'),
     buttons: [
+      {
+        text: t('auto.wegpunkt_hinzufügen'),
+        icon: flagOutline,
+        handler: () => {
+          startManualWaypointPlacement();
+        }
+      },
+      {
+        text: t('auto.foto_hinzufügen'),
+        icon: cameraOutline,
+        handler: () => {
+          addPhotoWaypoint();
+        }
+      },
       {
         text: t('auto.bearbeiten'),
         icon: createOutline,
@@ -1632,10 +1694,22 @@ onMounted(async () => {
   font-weight: 600;
 }
 
-.description {
+.manual-placement-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 10px 12px;
+  border: 1px dashed var(--ion-color-medium);
+  border-radius: 14px;
+  margin-bottom: 12px;
+  background: var(--ion-background-color);
+}
+
+.manual-placement-banner p {
   margin: 0;
+  font-size: 13px;
   color: var(--ion-color-medium);
-  font-size: 14px;
 }
 
 .status-row {

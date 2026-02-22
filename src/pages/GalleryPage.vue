@@ -9,7 +9,7 @@
         </ion-buttons>
         <ion-title>{{ $t('auto.gallerien') }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button @click="showCreateDialog = true">
+          <ion-button @click="openCreateDialog">
             <ion-icon :icon="add" />
           </ion-button>
         </ion-buttons>
@@ -77,6 +77,10 @@
                 <ion-card-subtitle>
                   <ion-icon :icon="imageOutline" />
                   {{ photoCount(gallery.id!) }} {{ t('auto.fotos') }}
+                  <span
+                    class="gallery-color-swatch"
+                    :style="{ backgroundColor: gallery.color || '#a0a0a0' }"
+                  />
                 </ion-card-subtitle>
               </ion-card-header>
             </ion-card>
@@ -85,12 +89,12 @@
       </ion-grid>
 
       <!-- Create Gallery Dialog -->
-      <ion-modal :is-open="showCreateDialog" @did-dismiss="showCreateDialog = false">
+      <ion-modal :is-open="showCreateDialog" @did-dismiss="closeCreateDialog">
         <ion-header>
           <ion-toolbar>
             <ion-title>{{ $t('auto.neue_gallerie') }}</ion-title>
             <ion-buttons slot="end">
-              <ion-button @click="showCreateDialog = false">
+              <ion-button @click="closeCreateDialog">
                 <ion-icon :icon="close" />
               </ion-button>
             </ion-buttons>
@@ -158,6 +162,11 @@
             >
               <ion-icon :icon="calendarOutline" />
             </ion-button>
+          </ion-item>
+
+          <ion-item lines="none">
+            <ion-label>{{ $t('auto.auf_karte_und_zeitachse_anzeigen') }}</ion-label>
+            <ion-toggle slot="end" v-model="newGalleryShowOnMap" />
           </ion-item>
           
           <ion-button 
@@ -241,6 +250,7 @@ import {
   IonTextarea,
   IonLabel,
   IonDatetime,
+  IonToggle,
   alertController
 } from '@ionic/vue';
 import { add, close, imagesOutline, imageOutline, calendarOutline } from 'ionicons/icons';
@@ -266,6 +276,7 @@ const newGalleryDescription = ref('');
 const newGalleryColor = ref('#3880ff'); // Ionic Blue als Standard
 const newGalleryStartDate = ref('');
 const newGalleryEndDate = ref('');
+const newGalleryShowOnMap = ref(true);
 const photoCounts = ref<Record<number, number>>({});
 const galleryCoverPhotos = ref<Record<number, string>>({});
 const searchQuery = ref('');
@@ -385,6 +396,24 @@ const clearDatePicker = () => {
   showDatePickerModal.value = false;
 };
 
+const resetCreateDialogFields = () => {
+  newGalleryName.value = '';
+  newGalleryDescription.value = '';
+  newGalleryColor.value = '#3880ff';
+  newGalleryStartDate.value = '';
+  newGalleryEndDate.value = '';
+  newGalleryShowOnMap.value = true;
+};
+
+const closeCreateDialog = () => {
+  showCreateDialog.value = false;
+};
+
+const openCreateDialog = () => {
+  resetCreateDialogFields();
+  showCreateDialog.value = true;
+};
+
 const handleCreateGallery = async () => {
   if (!newGalleryName.value) return;
 
@@ -395,21 +424,17 @@ const handleCreateGallery = async () => {
       newGalleryDescription.value,
       newGalleryColor.value,
       newGalleryStartDate.value || undefined,
-      newGalleryEndDate.value || undefined
+      newGalleryEndDate.value || undefined,
+      newGalleryShowOnMap.value
     );
     
     // Photo counts laden (verwendet die aktualisierte galleries-Liste aus useGallery)
     await loadPhotoCounts();
     
     // Dialog schließen und Felder zurücksetzen (mit nextTick für proper state update)
-    showCreateDialog.value = false;
+    closeCreateDialog();
     await nextTick();
-    
-    newGalleryName.value = '';
-    newGalleryDescription.value = '';
-    newGalleryColor.value = '#3880ff';
-    newGalleryStartDate.value = '';
-    newGalleryEndDate.value = '';
+    resetCreateDialogFields();
     
     console.log('✅ Galerie erfolgreich erstellt, Dialog geschlossen und Liste aktualisiert');
   } catch (error) {
@@ -511,6 +536,18 @@ onMounted(async () => {
   gap: 8px;
   border-radius: 6px;
   z-index: 2;
+}
+
+.gallery-color-swatch {
+  margin-left: auto;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  flex-shrink: 0;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+  align-self: center;
 }
 
 .gallery-label-text {

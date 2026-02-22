@@ -250,6 +250,7 @@ const buildGalleryPayload = (gallery: Gallery) => ({
   color: gallery.color ?? null,
   startDate: gallery.startDate ?? null,
   endDate: gallery.endDate ?? null,
+  showOnMapAndTimeline: gallery.showOnMapAndTimeline ?? true,
   updated: gallery.updated
 });
 
@@ -681,6 +682,7 @@ export function usePocketbaseSync() {
               color: remote.color || undefined,
               startDate: remote.startDate || undefined,
               endDate: remote.endDate || undefined,
+              showOnMapAndTimeline: remote.showOnMapAndTimeline ?? true,
               foreignID: remote.id,
               updated: remote.updated
             });
@@ -709,6 +711,7 @@ export function usePocketbaseSync() {
           color: remote.color || undefined,
           startDate: remote.startDate || undefined,
           endDate: remote.endDate || undefined,
+          showOnMapAndTimeline: remote.showOnMapAndTimeline ?? true,
           foreignID: remote.id,
           updated: remote.updated
         });

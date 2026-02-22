@@ -213,31 +213,6 @@
       @confirm="handleLocationConfirm"
       @cancel="handleLocationCancel"
     />
-    <ion-modal :is-open="photoEditorOpen" @didDismiss="closeImageEditor">
-      <ion-header>
-        <ion-toolbar>
-          <ion-buttons>
-            <ion-button slot="start" @click="closeImageEditor">{{ $t('auto.abbrechen') }}</ion-button>
-          </ion-buttons>
-          <ion-title>{{ $t('auto.bild_bearbeiten') }}</ion-title>
-          <ion-buttons>
-            <ion-button slot="end" :strong="true" @click="saveImageEditor" :disabled="isSaving">
-              <ion-icon v-if="!isSaving" :icon="checkmark" />
-              <ion-spinner v-else name="crescent" />
-            </ion-button>
-          </ion-buttons>
-        </ion-toolbar>
-      </ion-header>
-      <ion-content class="ion-no-padding">
-        <ImageEditor
-          :is-open="true"
-          :image-src="photoEditorSrc"
-          :compact="true"
-          @close="closeImageEditor"
-          @save="handleImageEditorSave"
-        />
-      </ion-content>
-    </ion-modal>
     <ion-modal
       :is-open="videoPreviewOpen"
       @did-dismiss="closeVideoPreview"
@@ -409,7 +384,6 @@ import {
   IonToolbar,
   IonTitle,
   IonContent,
-  IonModal,
   IonButtons,
   IonButton,
   IonBackButton,
@@ -462,10 +436,10 @@ import { useWakeLock } from '@/composables/useWakeLock';
 import { extractExifFromUri, extractExifFromImage } from '@/services/exif';
 import { default as GalleryMap } from '@/components/GalleryMap.vue';
 import { default as LocationPickerModal } from '@/components/LocationPickerModal.vue';
-import { default as ImageEditor } from '@/components/ImageEditor.vue';
 // import { extractExifFromUri, extractExifFromImage } from '@/services/exif'; // ungenutzt
 import { db, type Photo } from '@/services/database';
 import { buildSharedStoragePath, getSharedStorageDirectory } from '@/services/storagePaths';
+import { setImageEditorNavigationContext } from '@/composables/useImageEditorNavigation';
 
 // Default Back-Link für ion-back-button
 const backHref = '/gallery';
@@ -599,12 +573,7 @@ const pendingPhotoData = ref<{
   cameraExifData?: any;
 } | null>(null);
 // Image editor state
-const photoEditorOpen = ref(false);
 const photoBeingEdited = ref<Photo | null>(null);
-const photoEditorSrc = computed(() => {
-  if (!photoBeingEdited.value) return '';
-  return getImageSrc(photoBeingEdited.value.filepath);
-});
 // Video preview state
 const videoPreviewOpen = ref(false);
 const videoPreviewSrc = ref<string | null>(null);
@@ -665,29 +634,27 @@ const handleViewChange = (event: CustomEvent) => {
   }
 };
 const openImageEditor = (photo: Photo) => {
+  const source = getImageSrc(photo.filepath);
+  if (!source) return;
   photoBeingEdited.value = photo;
-  photoEditorOpen.value = true;
+  setImageEditorNavigationContext({
+    imageSrc: source,
+    onSave: handleImageEditorSave,
+    onClose: handleImageEditorClose
+  });
+  router.push({
+    path: '/image-editor',
+    query: {
+      return: route.fullPath
+    }
+  });
 };
 
-const isSaving = ref(false);
-const closeImageEditor = () => {
-  if (isSaving.value) return;
-  photoEditorOpen.value = false;
+const handleImageEditorClose = () => {
   photoBeingEdited.value = null;
 };
 
-const saveImageEditor = async () => {
-  if (isSaving.value) return;
-  isSaving.value = true;
-  try {
-    // Trigger save in ImageEditor via ref or event (ImageEditor emits 'save' with imageBlob)
-    // Hier wird handleImageEditorSave aufgerufen, wenn ImageEditor speichert
-    // Falls direkter Zugriff nötig: ggf. $refs nutzen
-    // (ImageEditor ruft handleImageEditorSave auf, das schließt das Modal und setzt isSaving=false)
-  } finally {
-    isSaving.value = false;
-  }
-};
+const isSaving = ref(false);
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -700,10 +667,11 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
   });
 };
 const handleImageEditorSave = async (blob: Blob) => {
-  if (!photoBeingEdited.value || !currentGallery.value) return;
+  if (isSaving.value || !photoBeingEdited.value || !currentGallery.value) return;
   const galleryId = currentGallery.value.id;
   if (!galleryId) return;
 
+  isSaving.value = true;
   try {
     const base64 = await blobToBase64(blob);
     const fileName = photoBeingEdited.value.filename || `photo_${photoBeingEdited.value.id}_${Date.now()}.jpg`;
@@ -721,19 +689,20 @@ const handleImageEditorSave = async (blob: Blob) => {
       recursive: true
     });
 
-        const nativePath = result.uri;
+    const nativePath = result.uri;
 
-        await db.updatePhoto(photoBeingEdited.value.id!, {
-          filepath: nativePath,
-          storagePath: nativePath,
-          thumbnail: `data:image/jpeg;base64,${base64}`
-        });
+    await db.updatePhoto(photoBeingEdited.value.id!, {
+      filepath: nativePath,
+      storagePath: nativePath,
+      thumbnail: `data:image/jpeg;base64,${base64}`
+    });
 
     await loadGallery(galleryId);
   } catch (error) {
     console.error('Error saving edited photo:', error);
   } finally {
-    closeImageEditor();
+    isSaving.value = false;
+    photoBeingEdited.value = null;
   }
 };
 const openVideoPreview = (photo: Photo) => {

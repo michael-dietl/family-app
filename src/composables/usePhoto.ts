@@ -197,6 +197,9 @@ export function usePhoto() {
   };
 
   // Hilfsfunktion: File zu Data URL
+  const THUMBNAIL_MAX_DIMENSION = 480;
+  const THUMBNAIL_QUALITY = 0.85;
+
   const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -233,7 +236,7 @@ export function usePhoto() {
     return buffer;
   };
 
-  // Foto-Thumbnail generieren (200x200px max)
+  // Foto-Thumbnail generieren (bis zu 480px Kantenlänge)
   const generatePhotoThumbnail = async (photoDataUrl: string): Promise<{ thumbnailBlob: Blob; exifData: any }> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -247,25 +250,16 @@ export function usePhoto() {
           return;
         }
 
-        // Berechne Thumbnail-Größe (max 200x200, Aspect Ratio erhalten)
-        const maxSize = 200;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > maxSize) {
-            height = height * (maxSize / width);
-            width = maxSize;
-          }
-        } else {
-          if (height > maxSize) {
-            width = width * (maxSize / height);
-            height = maxSize;
-          }
-        }
+        const maxSize = THUMBNAIL_MAX_DIMENSION;
+        const ratio = Math.max(img.width, img.height) || maxSize;
+        const scale = Math.min(1, maxSize / ratio);
+        const width = Math.max(1, Math.round(img.width * scale));
+        const height = Math.max(1, Math.round(img.height * scale));
 
         canvas.width = width;
         canvas.height = height;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
 
         // EXIF-Daten extrahieren
@@ -278,7 +272,7 @@ export function usePhoto() {
           } else {
             reject(new Error('Could not generate thumbnail blob'));
           }
-        }, 'image/jpeg', 0.6);
+        }, 'image/jpeg', THUMBNAIL_QUALITY);
       };
 
       img.onerror = () => {

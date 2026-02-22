@@ -49,7 +49,8 @@ export function useGallery() {
     description?: string,
     color?: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    showOnMapAndTimeline = true
   ) => {
     try {
       const id = await db.createGallery({
@@ -57,7 +58,8 @@ export function useGallery() {
         description,
         color,
         startDate,
-        endDate
+        endDate,
+        showOnMapAndTimeline
       });
       await loadGalleries();
       return id;

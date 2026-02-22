@@ -298,20 +298,13 @@
         </ion-content>
       </ion-modal>
 
-      <!-- Image Editor Modal -->
-      <ImageEditor
-        :is-open="showImageEditor"
-        :image-src="getImageSrc(tempPhotoForEdit)"
-        @save="handleImageEditorSave"
-        @close="handleImageEditorClose"
-      />
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import {
   IonPage,
   IonHeader,
@@ -346,14 +339,15 @@ import { add, wineOutline, camera, locationOutline, star as starIcon, starOutlin
 import { useWine } from '@/composables/useWine';
 import type { Wine } from '@/services/database';
 import { db } from '@/services/database';
-import ImageEditor from '@/components/ImageEditor.vue';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Filesystem } from '@capacitor/filesystem';
 import { removeBackground } from '@imgly/background-removal';
 import { buildSharedStoragePath, ensureDirectoryExists, getSharedStorageDirectory } from '@/services/storagePaths';
+import { setImageEditorNavigationContext } from '@/composables/useImageEditorNavigation';
 
 const router = useRouter();
+const route = useRoute();
 const { wines, filteredWines, isLoading, searchTerm, loadWines, createWine, takeWinePhoto } = useWine();
 
 const showCreateModal = ref(false);
@@ -361,7 +355,6 @@ const isCreating = ref(false);
 const isPhotoProcessing = ref(false);
 const photoPreview = ref<string | null>(null);
 const photoGPS = ref<{ latitude: number; longitude: number } | null>(null);
-const showImageEditor = ref(false);
 const tempPhotoForEdit = ref<string>('');
 const createModalRef = ref<HTMLIonModalElement | null>(null);
 
@@ -473,11 +466,10 @@ const handleTakePhoto = async () => {
     setCapturedPhoto(processedPhotoPath);
     tempPhotoForEdit.value = processedPhotoPath || '';
     if (!processedPhotoPath) {
-      showImageEditor.value = false;
       return;
     }
     await nextTick();
-    showImageEditor.value = true;
+    openImageEditorForTempPhoto();
   } catch (error: any) {
     console.error('Photo error in component:', error);
     isPhotoProcessing.value = false;
@@ -490,8 +482,23 @@ const handleTakePhoto = async () => {
   }
 };
 
+const openImageEditorForTempPhoto = () => {
+  const source = getImageSrc(tempPhotoForEdit.value);
+  if (!source) return;
+  setImageEditorNavigationContext({
+    imageSrc: source,
+    onSave: handleImageEditorSave,
+    onClose: handleImageEditorClose
+  });
+  router.push({
+    path: '/image-editor',
+    query: {
+      return: route.fullPath
+    }
+  });
+};
+
 const handleImageEditorSave = async (imageBlob: Blob) => {
-  showImageEditor.value = false;
   try {
     const base64Data = await convertBlobToBase64(imageBlob);
     const fileName = `wine_${Date.now()}_edited.jpg`;
@@ -519,7 +526,6 @@ const handleImageEditorSave = async (imageBlob: Blob) => {
 };
 
 const handleImageEditorClose = () => {
-  showImageEditor.value = false;
   // Wenn Editor geschlossen wird ohne zu speichern, verwende Original
   if (!photoPreview.value && tempPhotoForEdit.value) {
     setCapturedPhoto(tempPhotoForEdit.value);
@@ -644,6 +650,24 @@ onMounted(async () => {
   height: 200px;
 }
 
+.wine-thumbnail {
+  width: 88px;
+  min-width: 88px;
+  height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--ion-color-light);
+}
+
+.wine-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -666,18 +690,6 @@ onMounted(async () => {
 
 .empty-state p {
   color: var(--ion-color-medium);
-}
-
-.wine-thumbnail {
-  --size: 120px;
-  width: var(--size);
-  height: var(--size);
-}
-
-.wine-thumbnail img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .no-photo {

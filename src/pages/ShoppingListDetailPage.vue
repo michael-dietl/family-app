@@ -25,7 +25,7 @@
           <ion-input
             v-model.number="newItemQuantity"
             type="number"
-            placeholder="{{ $t('auto.anzahl') }}"
+            :placeholder="$t('auto.anzahl')"
             style="max-width: 80px"
           />
           <ion-button slot="end" @click="handleAddItem" :disabled="!newItemName.trim()">

@@ -1,14 +1,20 @@
 import { ref, computed } from 'vue';
+import type { PluginListenerHandle } from '@capacitor/core';
+import { CapacitorShareTarget } from '@capgo/capacitor-share-target';
 import router from '@/router';
 
 export interface SharedTargetItem {
   uri: string;
   mimeType?: string | null;
+  name?: string | null;
 }
 
 const sharedItems = ref<SharedTargetItem[]>([]);
 let listenerRegistered = false;
 let lastProcessedShareToken: string | null = null;
+let shareReceivedListener: PluginListenerHandle | null = null;
+let lastSharedItemsFingerprint: string | null = null;
+let focusListenerRegistered = false;
 
 const navigateToSharePage = () => {
   const go = () => {
@@ -25,27 +31,69 @@ const navigateToSharePage = () => {
   }
 };
 
-const handleNativeShare = (event: Event) => {
-  const customEvent = event as CustomEvent<{ items?: SharedTargetItem[]; token?: string }>; 
-  const items = customEvent?.detail?.items;
-  const token = customEvent?.detail?.token;
+const processSharedItems = (items: SharedTargetItem[], token?: string) => {
   if (token && token === lastProcessedShareToken) {
     return;
   }
   if (token) {
     lastProcessedShareToken = token;
   }
-  if (!items || items.length === 0) {
+
+  const filtered = items
+    .filter((item) => Boolean(item?.uri))
+    .map((item) => ({ uri: item.uri, mimeType: item.mimeType || null, name: item.name || null }));
+
+  if (filtered.length === 0) {
     return;
   }
 
-  console.debug('[share-target] received', items.length);
+  const fingerprint = buildItemsFingerprint(filtered);
+  if (fingerprint && fingerprint === lastSharedItemsFingerprint) {
+    return;
+  }
 
-  sharedItems.value = items
-    .filter((item) => Boolean(item?.uri))
-    .map((item) => ({ uri: item.uri, mimeType: item.mimeType || null }));
-
+  lastSharedItemsFingerprint = fingerprint;
+  console.debug('[share-target] received', filtered.length);
+  sharedItems.value = filtered;
   navigateToSharePage();
+};
+
+const handleNativeShare = (event: Event) => {
+  const customEvent = event as CustomEvent<{ items?: SharedTargetItem[]; token?: string }>;
+  const items = customEvent?.detail?.items;
+  const token = customEvent?.detail?.token;
+  if (!items || items.length === 0) {
+    return;
+  }
+  processSharedItems(items, token);
+};
+
+const buildItemsFingerprint = (items: SharedTargetItem[]) => {
+  return items
+    .map((item) => `${item.uri}|${item.mimeType || ''}|${item.name || ''}`)
+    .join('||');
+};
+
+const registerCapgoListener = async () => {
+  if (shareReceivedListener) {
+    return;
+  }
+  try {
+    shareReceivedListener = await CapacitorShareTarget.addListener('shareReceived', (event) => {
+      const files = event?.files || [];
+      if (files.length === 0) {
+        return;
+      }
+      const sharedItemsFromPlugin = files.map((file) => ({
+        uri: file.uri,
+        mimeType: file.mimeType || null,
+        name: file.name || null
+      }));
+      processSharedItems(sharedItemsFromPlugin);
+    });
+  } catch (error) {
+    console.warn('[share-target] could not register plugin listener', error);
+  }
 };
 
 const flushPendingNativeShare = () => {
@@ -89,6 +137,26 @@ const flushPendingNativeShare = () => {
   }
 };
 
+const scheduleShareFlush = () => {
+  flushPendingNativeShare();
+  if (typeof window === 'undefined') return;
+  [500, 1000, 1500].forEach((delay) => {
+    window.setTimeout(() => flushPendingNativeShare(), delay);
+  });
+};
+
+const registerFocusFlush = () => {
+  if (focusListenerRegistered || typeof window === 'undefined' || typeof document === 'undefined') return;
+  focusListenerRegistered = true;
+  const handler = () => flushPendingNativeShare();
+  window.addEventListener('focus', handler);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      flushPendingNativeShare();
+    }
+  });
+};
+
 const ensureListener = () => {
   if (listenerRegistered) {
     return;
@@ -97,9 +165,11 @@ const ensureListener = () => {
   if (typeof window === 'undefined') {
     return;
   }
+  void registerCapgoListener();
   window.addEventListener('share-target', handleNativeShare as EventListener);
-  flushPendingNativeShare();
-  setTimeout(flushPendingNativeShare, 200);
+  scheduleShareFlush();
+  setTimeout(scheduleShareFlush, 200);
+  registerFocusFlush();
 };
 
 export function useShareTarget() {
@@ -109,11 +179,25 @@ export function useShareTarget() {
 
   const clearSharedItems = () => {
     sharedItems.value = [];
+    lastSharedItemsFingerprint = null;
+    lastProcessedShareToken = null;
+  };
+
+  const removeSharedItem = (uri: string) => {
+    const remaining = sharedItems.value.filter((item) => item.uri !== uri);
+    sharedItems.value = remaining;
+    if (remaining.length === 0) {
+      lastSharedItemsFingerprint = null;
+      lastProcessedShareToken = null;
+      return;
+    }
+    lastSharedItemsFingerprint = buildItemsFingerprint(remaining);
   };
 
   return {
     sharedItems,
     hasPendingItems,
-    clearSharedItems
+    clearSharedItems,
+    removeSharedItem
   };
 }
