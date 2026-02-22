@@ -211,6 +211,45 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+:global(ion-page) {
+  --background: #111;
+  background: #111;
+  min-height: 100vh;
+}
+
+:global(ion-header) {
+  --background: #111;
+  background: #111;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+:global(ion-toolbar) {
+  --min-height: 54px;
+  padding: 0 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+:global(ion-title) {
+  flex: 1 1 auto;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:global(ion-buttons) {
+  flex: 0 0 auto;
+}
+
+:global(ion-button) {
+  --padding-start: 4px;
+  --padding-end: 4px;
+  min-width: 36px;
+  min-height: 36px;
+  line-height: 1;
+}
+
 .image-editor-container {
   width: 100%;
   height: 100%;
@@ -218,13 +257,15 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  background: #1e1e1e;
+  background: #0f0f0f;
   overflow: hidden;
+  min-height: calc(100vh - 54px);
 }
 
 ion-content {
-  --background: #1e1e1e;
+  --background: #111;
   --padding-bottom: 0;
+  min-height: calc(100vh - 54px);
 }
 
 :global(.FIE_main-container),

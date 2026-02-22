@@ -239,6 +239,13 @@ export interface TodoPhoto {
   updated: string;
 }
 
+export interface DeletedEntry {
+  id?: number;
+  entity: string;
+  localId: number;
+  created: string;
+}
+
 type CreationParams<T extends { updated: string }> = Omit<T, 'id' | 'created' | 'updated'> & Partial<Pick<T, 'updated'>>;
 
 // In-Memory Storage für Web-Development
@@ -251,6 +258,8 @@ class InMemoryStorage {
   private timelineEventPhotos: TimelineEventPhoto[] = [];
   private timelineEventIdCounter = 1;
   private timelineEventPhotoIdCounter = 1;
+  private deletedEntries: DeletedEntry[] = [];
+  private deletedEntryIdCounter = 1;
 
   createGallery(gallery: CreationParams<Gallery>): number {
     const id = this.galleryIdCounter++;
@@ -357,6 +366,22 @@ class InMemoryStorage {
     return this.timelineEventPhotos
       .filter(photo => photo.eventId === eventId)
       .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+  }
+
+  queueDeletion(entity: string, localId: number): void {
+    if (!entity || !localId) return;
+    const existing = this.deletedEntries.some(entry => entry.entity === entity && entry.localId === localId);
+    if (existing) return;
+    const now = new Date().toISOString();
+    this.deletedEntries.push({ id: this.deletedEntryIdCounter++, entity, localId, created: now });
+  }
+
+  getPendingDeletions(): DeletedEntry[] {
+    return [...this.deletedEntries].sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
+  }
+
+  removeDeletionEntry(id: number): void {
+    this.deletedEntries = this.deletedEntries.filter(entry => entry.id !== id);
   }
 }
 
@@ -754,6 +779,17 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_timeline_events_start ON timeline_events(startDate);
       CREATE INDEX IF NOT EXISTS idx_timeline_event_photos_event ON timeline_event_photos(eventId);
     `;
+    const deletedEntriesTable = `
+      CREATE TABLE IF NOT EXISTS deleted_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity TEXT NOT NULL,
+        localId INTEGER NOT NULL,
+        created TEXT NOT NULL
+      );
+    `;
+    const deletedEntriesIndex = `
+      CREATE INDEX IF NOT EXISTS idx_deleted_entries_entity ON deleted_entries(entity);
+    `;
     if (!this.db) throw new Error('Database not initialized');
     await this.db.execute(wineCategoriesTable);
     await this.db.execute(galleriesTable);
@@ -780,6 +816,8 @@ class DatabaseService {
     await this.db.execute(timelineEventsTable);
     await this.db.execute(timelineEventPhotosTable);
     await this.db.execute(timelineIndexes);
+    await this.db.execute(deletedEntriesTable);
+    await this.db.execute(deletedEntriesIndex);
 
     // Migration: ensure photos.isVideo exists for video handling
     try {
@@ -846,6 +884,53 @@ class DatabaseService {
     await runAlter('ALTER TABLE timeline_events ADD COLUMN location TEXT;');
     await runAlter('ALTER TABLE timeline_event_photos ADD COLUMN foreignID TEXT;');
     await runAlter('ALTER TABLE timeline_event_photos ADD COLUMN updated TEXT;');
+  }
+
+  async queueDeletion(entity: string, localId: number): Promise<void> {
+    if (!entity || localId == null || localId <= 0) return;
+    if (!this.isInitialized) await this.initialize();
+
+    if (this.useInMemory) {
+      this.inMemory.queueDeletion(entity, localId);
+      return;
+    }
+
+    if (!this.db) throw new Error('Database not initialized');
+
+    const existing = await this.db.query('SELECT id FROM deleted_entries WHERE entity = ? AND localId = ? LIMIT 1;', [entity, localId]);
+    if (existing.values && existing.values.length > 0) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const sql = 'INSERT INTO deleted_entries (entity, localId, created) VALUES (?, ?, ?);';
+    await this.db.run(sql, [entity, localId, now]);
+  }
+
+  async getPendingDeletions(): Promise<DeletedEntry[]> {
+    if (!this.isInitialized) await this.initialize();
+
+    if (this.useInMemory) {
+      return this.inMemory.getPendingDeletions();
+    }
+
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = await this.db.query('SELECT * FROM deleted_entries ORDER BY created ASC;');
+    return (result.values as DeletedEntry[]) || [];
+  }
+
+  async removeDeletionEntry(id: number): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+
+    if (this.useInMemory) {
+      this.inMemory.removeDeletionEntry(id);
+      return;
+    }
+
+    if (!this.db) throw new Error('Database not initialized');
+
+    await this.db.run('DELETE FROM deleted_entries WHERE id = ?;', [id]);
   }
 
   // Galerie CRUD Operationen
@@ -948,15 +1033,25 @@ class DatabaseService {
 
   async deleteGallery(id: number): Promise<void> {
     if (!this.isInitialized) await this.initialize();
+    const photos = await this.getPhotosByGallery(id);
     
     if (this.useInMemory) {
-      return this.inMemory.deleteGallery(id);
+      this.inMemory.deleteGallery(id);
+      for (const photo of photos) {
+        if (photo.id) await this.queueDeletion('photos', photo.id);
+      }
+      await this.queueDeletion('galleries', id);
+      return;
     }
 
     if (!this.db) throw new Error('Database not initialized');
 
+    for (const photo of photos) {
+      if (photo.id) await this.queueDeletion('photos', photo.id);
+    }
     const sql = 'DELETE FROM galleries WHERE id = ?;';
     await this.db.run(sql, [id]);
+    await this.queueDeletion('galleries', id);
   }
 
   async createTimelineEvent(event: CreationParams<TimelineEvent>): Promise<number> {
@@ -1194,13 +1289,16 @@ class DatabaseService {
     if (!this.isInitialized) await this.initialize();
     
     if (this.useInMemory) {
-      return this.inMemory.deletePhoto(id);
+      this.inMemory.deletePhoto(id);
+      await this.queueDeletion('photos', id);
+      return;
     }
 
     if (!this.db) throw new Error('Database not initialized');
 
     const sql = 'DELETE FROM photos WHERE id = ?;';
     await this.db.run(sql, [id]);
+    await this.queueDeletion('photos', id);
   }
 
   async getPhotoCount(galleryId: number): Promise<number> {
@@ -1312,6 +1410,7 @@ class DatabaseService {
 
     const sql = 'DELETE FROM book_categories WHERE id = ?;';
     await this.db.run(sql, [id]);
+    await this.queueDeletion('bookCategories', id);
   }
 
   // Book CRUD Operations
@@ -1460,6 +1559,7 @@ class DatabaseService {
 
     const sql = 'DELETE FROM books WHERE id = ?;';
     await this.db.run(sql, [id]);
+    await this.queueDeletion('books', id);
   }
 
   // Route CRUD Operationen
@@ -1558,11 +1658,26 @@ class DatabaseService {
 
   async deleteRoute(id: number): Promise<void> {
     if (!this.isInitialized) await this.initialize();
-    if (this.useInMemory) return;
+    const waypoints = await this.getWaypointsByRoute(id);
+    if (this.useInMemory) {
+      for (const waypoint of waypoints) {
+        if (waypoint.id) {
+          await this.queueDeletion('waypoints', waypoint.id);
+        }
+      }
+      return;
+    }
     if (!this.db) throw new Error('Database not initialized');
+
+    for (const waypoint of waypoints) {
+      if (waypoint.id) {
+        await this.queueDeletion('waypoints', waypoint.id);
+      }
+    }
 
     const sql = 'DELETE FROM routes WHERE id = ?;';
     await this.db.run(sql, [id]);
+    await this.queueDeletion('routes', id);
   }
 
   // Waypoint CRUD Operationen
@@ -1616,12 +1731,23 @@ class DatabaseService {
 
     const sql = 'DELETE FROM waypoints WHERE id = ?;';
     await this.db.run(sql, [id]);
+    await this.queueDeletion('waypoints', id);
   }
 
   async deletePositionWaypoints(routeId: number): Promise<void> {
     if (!this.isInitialized) await this.initialize();
-    if (this.useInMemory) return;
+    const positions = (await this.getWaypointsByRoute(routeId)).filter(wp => wp.type === 'position' && wp.id);
+    if (this.useInMemory) {
+      for (const wp of positions) {
+        await this.queueDeletion('waypoints', wp.id!);
+      }
+      return;
+    }
     if (!this.db) throw new Error('Database not initialized');
+
+    for (const wp of positions) {
+      await this.queueDeletion('waypoints', wp.id!);
+    }
 
     const sql = "DELETE FROM waypoints WHERE routeId = ? AND type = 'position';";
     await this.db.run(sql, [routeId]);
@@ -1753,8 +1879,18 @@ class DatabaseService {
 
   async deleteWinePhotosForWine(wineId: number): Promise<void> {
     if (!this.isInitialized) await this.initialize();
-    if (this.useInMemory) return;
+    const photos = await this.getWinePhotos(wineId);
+    if (this.useInMemory) {
+      for (const photo of photos) {
+        if (photo.id) await this.queueDeletion('winePhotos', photo.id);
+      }
+      return;
+    }
     if (!this.db) throw new Error('Database not initialized');
+
+    for (const photo of photos) {
+      if (photo.id) await this.queueDeletion('winePhotos', photo.id);
+    }
 
     const sql = 'DELETE FROM wine_photos WHERE wineId = ?;';
     await this.db.run(sql, [wineId]);
@@ -1828,6 +1964,7 @@ class DatabaseService {
 
     const sql = 'DELETE FROM wines WHERE id = ?;';
     await this.db.run(sql, [id]);
+    await this.queueDeletion('wine', id);
   }
 
   async getWineCount(): Promise<number> {
@@ -1970,11 +2107,22 @@ class DatabaseService {
 
   async deleteShoppingList(id: number): Promise<void> {
     if (!this.isInitialized) await this.initialize();
-    if (this.useInMemory) return;
+    const items = await this.getShoppingItems(id);
+    if (this.useInMemory) {
+      for (const item of items) {
+        if (item.id) await this.queueDeletion('shoppingItems', item.id);
+      }
+      await this.queueDeletion('shoppingLists', id);
+      return;
+    }
     if (!this.db) throw new Error('Database not initialized');
 
     const sql = 'DELETE FROM shopping_lists WHERE id = ?;';
     await this.db.run(sql, [id]);
+    for (const item of items) {
+      if (item.id) await this.queueDeletion('shoppingItems', item.id);
+    }
+    await this.queueDeletion('shoppingLists', id);
   }
 
   async createShoppingItem(item: CreationParams<ShoppingItem>): Promise<number> {
@@ -2055,6 +2203,7 @@ class DatabaseService {
 
     const sql = 'DELETE FROM shopping_items WHERE id = ?;';
     await this.db.run(sql, [id]);
+    await this.queueDeletion('shoppingItems', id);
   }
 
   // Todo List CRUD Operations
@@ -2123,11 +2272,34 @@ class DatabaseService {
 
   async deleteTodoList(id: number): Promise<void> {
     if (!this.isInitialized) await this.initialize();
-    if (this.useInMemory) return;
+    const items = await this.getTodoItems(id);
+    if (this.useInMemory) {
+      for (const item of items) {
+        if (item.id) {
+          await this.queueDeletion('todoItems', item.id);
+          const photos = await this.getTodoPhotosByItem(item.id);
+          for (const photo of photos) {
+            if (photo.id) await this.queueDeletion('todoPhotos', photo.id);
+          }
+        }
+      }
+      await this.queueDeletion('todoLists', id);
+      return;
+    }
     if (!this.db) throw new Error('Database not initialized');
 
     const sql = 'DELETE FROM todo_lists WHERE id = ?;';
     await this.db.run(sql, [id]);
+    for (const item of items) {
+      if (item.id) {
+        await this.queueDeletion('todoItems', item.id);
+        const photos = await this.getTodoPhotosByItem(item.id);
+        for (const photo of photos) {
+          if (photo.id) await this.queueDeletion('todoPhotos', photo.id);
+        }
+      }
+    }
+    await this.queueDeletion('todoLists', id);
   }
 
   async createTodoItem(item: CreationParams<TodoItem>): Promise<number> {
@@ -2218,11 +2390,15 @@ class DatabaseService {
 
   async deleteTodoPhoto(id: number): Promise<void> {
     if (!this.isInitialized) await this.initialize();
-    if (this.useInMemory) return;
+    if (this.useInMemory) {
+      await this.queueDeletion('todoPhotos', id);
+      return;
+    }
     if (!this.db) throw new Error('Database not initialized');
 
     const sql = 'DELETE FROM todo_photos WHERE id = ?;';
     await this.db.run(sql, [id]);
+    await this.queueDeletion('todoPhotos', id);
   }
 
   async updateTodoItem(id: number, updates: Partial<TodoItem>): Promise<void> {
@@ -2275,11 +2451,22 @@ class DatabaseService {
 
   async deleteTodoItem(id: number): Promise<void> {
     if (!this.isInitialized) await this.initialize();
-    if (this.useInMemory) return;
+    const photos = await this.getTodoPhotosByItem(id);
+    if (this.useInMemory) {
+      for (const photo of photos) {
+        if (photo.id) await this.queueDeletion('todoPhotos', photo.id);
+      }
+      await this.queueDeletion('todoItems', id);
+      return;
+    }
     if (!this.db) throw new Error('Database not initialized');
 
     const sql = 'DELETE FROM todo_items WHERE id = ?;';
     await this.db.run(sql, [id]);
+    for (const photo of photos) {
+      if (photo.id) await this.queueDeletion('todoPhotos', photo.id);
+    }
+    await this.queueDeletion('todoItems', id);
   }
 }
 

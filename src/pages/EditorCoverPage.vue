@@ -28,6 +28,7 @@ import { useI18n } from 'vue-i18n';
 import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonButton, IonIcon, IonSpinner, IonBackButton, toastController } from '@ionic/vue';
 import { checkmark } from 'ionicons/icons';
 import { Filesystem } from '@capacitor/filesystem';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import FilerobotImageEditor from 'filerobot-image-editor';
 import { db } from '@/services/database';
 import {
@@ -158,6 +159,12 @@ const saveImage = async () => {
     isSaving.value = false;
   }
 };
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>

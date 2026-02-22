@@ -304,6 +304,7 @@ import {
 } from '@ionic/vue';
 import { save, flash, lockClosed, checkmarkCircle, closeCircle, timeOutline, syncOutline } from 'ionicons/icons';
 import { Preferences } from '@capacitor/preferences';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import { useI18n } from 'vue-i18n';
 import i18n from '@/i18n/i18n';
@@ -652,6 +653,12 @@ const formatSyncTime = (timestamp: string): string => {
   return `vor ${days} Tag${days > 1 ? 'en' : ''}`;
 };
 
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>

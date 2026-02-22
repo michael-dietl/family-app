@@ -88,6 +88,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { useRouter } from 'vue-router';
 import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonButton,
@@ -140,6 +141,12 @@ const formatDate = (dateStr: string) => {
     year: 'numeric' 
   });
 };
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>

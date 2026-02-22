@@ -27,7 +27,7 @@
       <ion-searchbar
         v-if="galleries.length > 0"
         v-model="searchQuery"
-        placeholder="Gallerien durchsuchen..."
+        :placeholder="t('auto.gallerien_durchsuchen')"
         :debounce="200"
       />
 
@@ -46,8 +46,13 @@
       <!-- No Results -->
       <div v-else-if="filteredGalleries.length === 0" class="empty-state">
         <ion-icon :icon="imagesOutline" size="large" />
-        <h2>Keine Treffer</h2>
-        <p>Keine Gallerien für "{{ searchQuery }}" gefunden.</p>
+        <h2>{{ t('auto.keine_treffer') }}</h2>
+        <p v-if="searchQuery">
+          {{ t('auto.keine_gallerien_fuer_suchbegriff', { search: searchQuery }) }}
+        </p>
+        <p v-else>
+          {{ t('auto.keine_gallerien_vorhanden') }}
+        </p>
       </div>
 
       <!-- Gallery Grid -->
@@ -71,7 +76,7 @@
                 <br/>
                 <ion-card-subtitle>
                   <ion-icon :icon="imageOutline" />
-                  {{ photoCount(gallery.id!) }} Fotos
+                  {{ photoCount(gallery.id!) }} {{ t('auto.fotos') }}
                 </ion-card-subtitle>
               </ion-card-header>
             </ion-card>
@@ -95,18 +100,18 @@
           <ion-item>
             <ion-input 
               v-model="newGalleryName" 
-              label="Name" 
+              :label="t('auto.name')" 
               label-placement="stacked"
-              placeholder="z.B. Urlaub 2026"
+              :placeholder="t('auto.z_b_urlaub_2026')"
             />
           </ion-item>
           <ion-item>
             <ion-textarea 
               v-model="newGalleryDescription" 
-              label="{{ $t('auto.beschreibung') }} (optional)"
+              :label="t('auto.beschreibung_optional')"
               label-placement="stacked"
               :rows="4"
-              placeholder="Beschreibe deine Gallerie..."
+              :placeholder="t('auto.beschreibe_deine_gallerie')"
             />
           </ion-item>
           
@@ -192,6 +197,7 @@
             v-model="datePickerValue"
             presentation="date"
             display-format="DD.MM.YYYY"
+            :locale="datetimeLocale"
             :show-default-buttons="false"
           />
           <div class="modal-actions">
@@ -208,6 +214,7 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import {
   IonPage,
   IonHeader,
@@ -238,6 +245,7 @@ import {
 } from '@ionic/vue';
 import { add, close, imagesOutline, imageOutline, calendarOutline } from 'ionicons/icons';
 import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { useGallery } from '@/composables/useGallery';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 import { db } from '@/services/database';
@@ -245,6 +253,10 @@ import { db } from '@/services/database';
 type GalleryDateField = 'start' | 'end';
 
 const router = useRouter();
+const { t, locale } = useI18n();
+const datetimeLocale = computed(() => {
+  return locale.value === 'bar' ? 'de' : locale.value || 'de';
+});
 const { galleries, isLoading, loadGalleries, createGallery } = useGallery();
 const { autoSyncIfEnabled } = usePocketbaseSync();
 
@@ -423,6 +435,12 @@ const formatDate = (dateStr: string) => {
 const previewDateValue = (value?: string) => (value ? formatDate(value) : '-');
 const formattedStartDate = computed(() => previewDateValue(newGalleryStartDate.value));
 const formattedEndDate = computed(() => previewDateValue(newGalleryEndDate.value));
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>

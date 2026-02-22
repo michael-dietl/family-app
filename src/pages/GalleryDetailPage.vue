@@ -451,6 +451,7 @@ import {
   pencilOutline
 } from 'ionicons/icons';
 import { CameraSource } from '@capacitor/camera';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Filesystem } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
@@ -1275,6 +1276,12 @@ const deleteSelectedPhotos = async () => {
   });
   await alert.present();
 };
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>
@@ -1490,20 +1497,23 @@ const deleteSelectedPhotos = async () => {
 }
 
 .photo-actions ion-button {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   --padding-start: 0;
   --padding-end: 0;
-  --border-radius: 50%;
-  --background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+  --border-radius: 999px;
+  min-width: 34px;
+  --box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+  --background: rgba(255, 159, 10, 0.15);
+  --color: var(--ion-color-warning);
   pointer-events: auto;
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 159, 10, 0.5);
+  box-shadow: 0 2px 8px rgba(255, 159, 10, 0.35);
 }
 
 .photo-actions ion-icon {
-  font-size: 18px;
+  font-size: 16px;
+  color: var(--ion-color-warning);
 }
 
 .photo-selected {
@@ -1580,6 +1590,20 @@ const deleteSelectedPhotos = async () => {
   font-size: 48px;
   color: white;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.gallery-play-fab {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 15;
+  pointer-events: none;
+}
+
+.gallery-play-fab ion-fab-button {
+  pointer-events: auto;
+  --border-radius: 999px;
+  --box-shadow: 0 18px 32px rgba(0, 0, 0, 0.3);
 }
 
 .video-preview-content {

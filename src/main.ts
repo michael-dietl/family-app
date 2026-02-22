@@ -47,6 +47,7 @@ import i18n from '@/i18n/i18n';
 import { Preferences } from '@capacitor/preferences';
 import { applyTheme, loadTheme } from '@/services/theme';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
+import { useShareTarget } from '@/composables/useShareTarget';
 import { ensureSharedStorageFoldersExist } from '@/services/storagePaths';
 
 
@@ -55,6 +56,7 @@ const app = createApp(App)
   .use(router);
 
 const pocketbaseSync = usePocketbaseSync();
+useShareTarget();
 
 const initializeLocale = async () => {
   // install i18n into the app first, then set the locale so the saved value is not overwritten

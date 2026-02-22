@@ -46,6 +46,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import {
   IonPage,
   IonHeader,
@@ -245,6 +246,12 @@ const confirmDeleteCategory = async (category: BookCategory) => {
 
   await alert.present();
 };
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>

@@ -96,12 +96,12 @@
             
             <ion-chip :color="book.read ? 'success' : 'medium'" @click="toggleRead">
               <ion-icon :icon="book.read ? checkmarkCircle : ellipseOutline" />
-              <ion-label>{{ book.read ? 'Gelesen' : 'Ungelesen' }}</ion-label>
+              <ion-label>{{ book.read ? $t('auto.gelesen') : $t('ungelesen') }}</ion-label>
             </ion-chip>
             
             <ion-chip @click="showRatingPicker">
               <ion-icon :icon="star" />
-              <ion-label>{{ book.rating ? `${book.rating}/5` : 'Bewerten' }}</ion-label>
+              <ion-label>{{ book.rating ? `${book.rating}/5` : $t('bewerten') }}</ion-label>
             </ion-chip>
           </div>
 

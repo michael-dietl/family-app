@@ -71,13 +71,48 @@
             <div class="info-meta">
               <p class="meta-row"><strong>{{$t('auto.start')}}</strong> {{ routeData?.startTime ? formatDateTime(routeData.startTime) : '-' }}</p>
               <p v-if="routeData?.endTime" class="meta-row"><strong>{{$t('auto.ende')}}</strong> {{ formatDateTime(routeData.endTime) }}</p>
-              <div class="status-row" style="width:70%">
+              <div class="status-row">
                 <p class="status-text"><strong>{{$t('auto.status')}}</strong>
                   <span :style="{color: routeData?.isRecording ? '#3880ff' : '#eb445a'}">{{ routeData?.isRecording ? $t('auto.aufzeichnung_läuft') : $t('auto.beendet_status') }}</span>
                 </p>
-                <div class="status-mode-chip">
-                  <ion-icon :icon="routeModeIcon" :color="routeModeColor" />
-                  <span>{{ routeModeLabel }}</span>
+                <div class="status-right">
+                  <div class="status-mode-chip">
+                    <ion-icon :icon="routeModeIcon" :color="routeModeColor" />
+                    <span>{{ routeModeLabel }}</span>
+                  </div>
+                  <ion-button
+                    shape="round"
+                    fill="clear"
+                    color="medium"
+                    class="route-action status-valhalla-progress"
+                    disabled
+                  >
+                    <ion-spinner v-if="valhallaMatching" slot="start" name="crescent" />
+                    <ion-icon v-else slot="start" :icon="valhallaIcon" />
+                    <span>{{ valhallaMatching ? $t('auto.valhalla_processing') : $t('auto.valhalla_ready') }}</span>
+                  </ion-button>
+                  <ion-button
+                    shape="round"
+                    fill="outline"
+                    color="secondary"
+                    class="route-action status-valhalla-button"
+                    :disabled="valhallaMatching || !hasTrackPoints"
+                    @click="sendRouteToValhalla"
+                  >
+                    <ion-icon slot="start" :icon="valhallaIcon" />
+                    {{ $t('auto.valhalla_abgleichen') }}
+                  </ion-button>
+                  <ion-button
+                    v-if="routeData && !routeData.isRecording"
+                    shape="round"
+                    fill="outline"
+                    color="warning"
+                    class="route-action status-add-waypoint-button"
+                    :aria-label="$t('auto.wegpunkt_hinzufügen')"
+                    @click="addManualWaypoint"
+                  >
+                    <ion-icon slot="icon-only" :icon="addOutline" />
+                  </ion-button>
                 </div>
               </div>
             </div>
@@ -147,19 +182,6 @@
                   expand="block"
                 >
                   <ion-icon slot="icon-only" :icon="cameraOutline" expand="block"/>
-                </ion-button>
-                <ion-button
-                  shape="round"
-                  fill="outline"
-                  color="secondary"
-                  class="route-action"
-                  :disabled="valhallaMatching || !hasTrackPoints"
-                  @click="sendRouteToValhalla"
-                  expand="block"
-                >
-                  <ion-spinner v-if="valhallaMatching" slot="start" name="crescent" />
-                  <ion-icon v-else slot="start" :icon="mapOutline" />
-                  Valhalla abgleichen
                 </ion-button>
               </div>
             </div>
@@ -293,6 +315,7 @@
 
 import { ref, watch, watchEffect, computed, onMounted, onUnmounted, reactive } from 'vue';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { Geolocation } from '@capacitor/geolocation';
 import { useRoute, useRouter } from 'vue-router';
 import {
@@ -326,6 +349,7 @@ import {
   timeOutline,
   flagOutline,
   cameraOutline,
+  addOutline,
   locationOutline,
   trashOutline,
   createOutline,
@@ -333,7 +357,6 @@ import {
   pauseOutline,
   playOutline,
   stopCircleOutline,
-  mapOutline,
   carOutline,
   bicycleOutline,
   walkOutline
@@ -345,6 +368,7 @@ import { useRouteTracking, resolveTrackingProfile } from '@/composables/useRoute
 import { matchPositionsWithValhalla, traceRouteSummary, type ValhallaTraceSummary } from '@/services/valhalla';
 import { useI18n } from 'vue-i18n';
 import { scooterIcon } from '@/icons/scooter';
+import { valhallaIcon } from '@/icons/valhalla';
 import type { LatLonPoint } from '@/services/positionSmoothing';
 
 type RouteData = import('@/services/database').Route;
@@ -1464,6 +1488,12 @@ function formatTime(dateString: string): string {
     minute: '2-digit'
   });
 };
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>
@@ -1502,7 +1532,7 @@ function formatTime(dateString: string): string {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 .recording-status {
   display: flex;
@@ -1578,14 +1608,14 @@ function formatTime(dateString: string): string {
 
 .info-card {
   position: absolute;
-  top: 50%;
+  top: calc(50% + 8px);
   left: 0;
   right: 0;
   bottom: 0;
   background: var(--ion-background-color);
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
-  padding: 20px;
+  padding: 24px 20px 20px;
   overflow-y: auto;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
   z-index: 10;
@@ -1610,7 +1640,7 @@ function formatTime(dateString: string): string {
 
 .status-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
@@ -1633,6 +1663,53 @@ function formatTime(dateString: string): string {
   color: var(--ion-color-medium);
 }
 
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.status-valhalla-button {
+  font-size: 0.85rem;
+  padding-inline: 1rem;
+  min-width: 160px;
+  min-height: 48px;
+  --border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+.status-valhalla-button ion-icon {
+  font-size: 18px;
+}
+
+.status-valhalla-progress {
+  font-size: 0.75rem;
+  padding-inline: 0.85rem;
+  min-height: 46px;
+  --border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.status-valhalla-progress span {
+  font-size: 0.75rem;
+}
+.status-valhalla-progress ion-spinner {
+  width: 18px;
+  height: 18px;
+}
+
+.status-add-waypoint-button {
+  min-width: 44px;
+  min-height: 44px;
+  --border-radius: 14px;
+  border: 1px dashed var(--ion-color-medium);
+  color: var(--ion-color-medium);
+}
+
 .status-mode-chip ion-icon {
   font-size: 1rem;
 }
@@ -1642,13 +1719,13 @@ function formatTime(dateString: string): string {
   gap: 12px;
   margin-bottom: 20px;
 }
-          .stats-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 12px;
-            width: 100%;
-            margin-bottom: 20px;
-          }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+  margin: 12px 0;
+}
 
 .stat {
   flex: 1;
@@ -1681,7 +1758,7 @@ function formatTime(dateString: string): string {
   padding: 16px;
   background: var(--ion-color-light);
   border-radius: 12px;
-  margin-bottom: 20px;
+  margin: 4px 0 10px;
 }
 
 .info-meta p {

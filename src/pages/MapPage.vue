@@ -35,6 +35,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRouter, useRoute } from 'vue-router';
 import {
   IonPage,
@@ -70,6 +71,7 @@ L.Icon.Default.mergeOptions({
 
 const router = useRouter();
 const route = useRoute();
+const { t } = useI18n();
 const isLoading = ref(false);
 const mapContainer = ref<HTMLElement | null>(null);
 let map: L.Map | null = null;
@@ -333,10 +335,10 @@ const destroyMap = () => {
 
 const showFilterOptions = async () => {
   const actionSheet = await actionSheetController.create({
-    header: 'Anzeigen',
+    header: t('auto.anzeigen'),
     buttons: [
       {
-        text: `Fotos ${showPhotos.value ? '✓' : ''}`,
+        text: `${t('auto.fotos')} ${showPhotos.value ? '✓' : ''}`,
         handler: async () => {
           showPhotos.value = !showPhotos.value;
           destroyMap();
@@ -345,17 +347,13 @@ const showFilterOptions = async () => {
         }
       },
       {
-        text: `Weine ${showWines.value ? '✓' : ''}`,
+        text: `${t('auto.weine')} ${showWines.value ? '✓' : ''}`,
         handler: async () => {
           showWines.value = !showWines.value;
           destroyMap();
           await loadMarkers();
           await initMap();
         }
-      },
-      {
-        text: 'Abbrechen',
-        role: 'cancel'
       }
     ]
   });

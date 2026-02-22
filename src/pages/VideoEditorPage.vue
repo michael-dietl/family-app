@@ -112,6 +112,7 @@ import {
 } from '@ionic/vue';
 import { checkmark } from 'ionicons/icons';
 import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { VideoEditor } from '@whiteguru/capacitor-plugin-video-editor';
 import { db } from '@/services/database';
@@ -290,6 +291,12 @@ const saveVideo = async () => {
     isSaving.value = false;
   }
 };
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>

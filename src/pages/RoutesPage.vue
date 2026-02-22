@@ -44,6 +44,11 @@
         <ion-list class="routes-list" lines="none">
           <ion-card v-for="route in routes" :key="route.id" class="route-card" role="button" tabindex="0"
             @click="openRoute(route.id!)">
+            <div v-if="route && route.id && routePreviewPaths[route.id]" class="route-card-background">
+              <svg viewBox="0 0 200 110" preserveAspectRatio="none">
+                <path :d="routePreviewPaths[route.id]" />
+              </svg>
+            </div>
             <ion-card-header class="route-card-header">
               <ion-icon :icon="route.isRecording ? radioButtonOnOutline : mapOutline"
                 :color="route.isRecording ? 'danger' : 'primary'" class="route-status-icon" />
@@ -175,6 +180,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, reactive, computed } from 'vue';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
@@ -218,6 +224,7 @@ import {
 } from 'ionicons/icons';
 import { scooterIcon } from '@/icons/scooter';
 import { db, type Route } from '@/services/database';
+type Waypoint = import('@/services/database').Waypoint;
 
 const router = useRouter();
 const { t } = useI18n();
@@ -251,6 +258,10 @@ const travelModeOptions = computed(() =>
   }))
 );
 
+const routePreviewPaths = ref<Record<number, string>>({});
+const PREVIEW_WIDTH = 200;
+const PREVIEW_HEIGHT = 110;
+
 onMounted(async () => {
   await loadRoutes();
 });
@@ -264,11 +275,62 @@ const loadRoutes = async () => {
   try {
     isLoading.value = true;
     routes.value = await db.getRoutes();
+    await loadRoutePreviews(routes.value);
   } catch (error) {
     console.error('Error loading routes:', error);
   } finally {
     isLoading.value = false;
   }
+};
+
+const loadRoutePreviews = async (routeList: Route[]) => {
+  const previews: Record<number, string> = {};
+  await Promise.all(routeList.map(async (route) => {
+    if (!route.id) return;
+    try {
+      const waypoints = await db.getWaypointsByRoute(route.id);
+      const path = buildRoutePreviewPath(waypoints);
+      if (path) {
+        previews[route.id] = path;
+      }
+    } catch (error) {
+      console.error('Error building route preview for', route.id, error);
+    }
+  }));
+  routePreviewPaths.value = previews;
+};
+
+const buildRoutePreviewPath = (waypoints: Waypoint[]): string => {
+  const positionPoints = waypoints.filter((wp) => wp.type === 'position');
+  if (positionPoints.length === 0) return '';
+
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  let minLon = Infinity;
+  let maxLon = -Infinity;
+
+  positionPoints.forEach(({ latitude, longitude }) => {
+    if (latitude < minLat) minLat = latitude;
+    if (latitude > maxLat) maxLat = latitude;
+    if (longitude < minLon) minLon = longitude;
+    if (longitude > maxLon) maxLon = longitude;
+  });
+
+  const latSpan = Math.max(maxLat - minLat, 0.0001);
+  const lonSpan = Math.max(maxLon - minLon, 0.0001);
+
+  const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+  const formattedSegments = positionPoints.map((point, index) => {
+    const normalizedX = ((point.longitude - minLon) / lonSpan) * PREVIEW_WIDTH;
+    const normalizedY = PREVIEW_HEIGHT - ((point.latitude - minLat) / latSpan) * PREVIEW_HEIGHT;
+    const x = clamp(normalizedX, 0, PREVIEW_WIDTH);
+    const y = clamp(normalizedY, 0, PREVIEW_HEIGHT);
+    const prefix = index === 0 ? 'M' : 'L';
+    return `${prefix} ${x.toFixed(1)} ${y.toFixed(1)}`;
+  });
+
+  return formattedSegments.join(' ');
 };
 
 const prepareStartRouteForm = () => {
@@ -442,6 +504,12 @@ const formatDate = (dateString: string): string => {
     minute: '2-digit'
   });
 };
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>
@@ -493,12 +561,34 @@ const formatDate = (dateString: string): string => {
   border: 0;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .route-card:focus-visible,
 .route-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 20px 34px rgba(0, 0, 0, 0.12);
+}
+
+.route-card-background {
+  position: absolute;
+  inset: 0;
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+.route-card-background svg {
+  width: 100%;
+  height: 100%;
+}
+
+.route-card-background path {
+  stroke: rgba(60, 60, 60, 0.5);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
 }
 
 .route-card-header {

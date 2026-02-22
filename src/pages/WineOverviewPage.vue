@@ -30,6 +30,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonList, IonItem, IonLabel, IonItemDivider, IonIcon } from '@ionic/vue';
 import { wine as wineIcon } from 'ionicons/icons';
 import { db, type Wine, type WineCategory } from '@/services/database';
@@ -54,6 +55,12 @@ const loadWines = async () => {
 };
 
 onMounted(loadWines);
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>

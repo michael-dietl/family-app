@@ -65,4 +65,19 @@ class PocketBaseService {
   }
 }
 
+const POCKETBASE_AUTHOR_KEY = 'pocketbase_author_id';
+
 export const pocketbase = new PocketBaseService();
+
+export const getPocketbaseAuthorId = async (): Promise<string | null> => {
+  const { value } = await Preferences.get({ key: POCKETBASE_AUTHOR_KEY });
+  return value || null;
+};
+
+export const setPocketbaseAuthorId = async (authorId: string | null): Promise<void> => {
+  if (authorId) {
+    await Preferences.set({ key: POCKETBASE_AUTHOR_KEY, value: authorId });
+  } else {
+    await Preferences.remove({ key: POCKETBASE_AUTHOR_KEY });
+  }
+};

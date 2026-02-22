@@ -348,6 +348,7 @@ import type { Wine } from '@/services/database';
 import { db } from '@/services/database';
 import ImageEditor from '@/components/ImageEditor.vue';
 import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { Filesystem } from '@capacitor/filesystem';
 import { removeBackground } from '@imgly/background-removal';
 import { buildSharedStoragePath, ensureDirectoryExists, getSharedStorageDirectory } from '@/services/storagePaths';
@@ -627,6 +628,12 @@ const getImageSrc = (path: string | undefined) => {
   if (!path) return '';
   return Capacitor.convertFileSrc(path);
 };
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>

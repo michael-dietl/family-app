@@ -118,6 +118,7 @@
   </ion-page>
 </template>
 import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { useRoute, useRouter } from 'vue-router';
 import {
   IonPage,
@@ -482,6 +483,12 @@ const formatSpeed = (metersPerSecond: number): string => {
   const kmh = metersPerSecond * 3.6;
   return `${kmh.toFixed(1)} km/h`;
 };
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>

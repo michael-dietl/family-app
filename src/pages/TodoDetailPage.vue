@@ -203,6 +203,7 @@ import {
   calendarOutline
 } from 'ionicons/icons';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import { useTodoList } from '@/composables/useTodoList';
 import { usePhoto } from '@/composables/usePhoto';
@@ -393,6 +394,12 @@ const getImageSrc = (path: string | null | undefined) => {
 
 // ...existing code...
 
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>

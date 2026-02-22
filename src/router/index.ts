@@ -11,6 +11,7 @@ const router = createRouter({
     {path : '/library/book/:id', component: () => import('@/pages/BookDetailPage.vue')},
     {path : '/editor-cover', component: () => import('@/pages/EditorCoverPage.vue')},
     {path : '/gallery', component: () => import('@/pages/GalleryPage.vue')},
+    {path : '/share-target', component: () => import('@/pages/ShareTargetPage.vue')},
     {path : '/gallery/:id', component: () => import('@/pages/GalleryDetailPage.vue')},
     {path : '/gallery/:galleryId/editor', component: () => import('@/pages/EditorPage.vue')},
     {path : '/gallery/:galleryId/video-editor', component: () => import('@/pages/VideoEditorPage.vue')},

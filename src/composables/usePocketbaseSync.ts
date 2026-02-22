@@ -1,12 +1,13 @@
 
 import { ref, reactive } from 'vue';
 import { Capacitor } from '@capacitor/core';
-import { pocketbase } from '@/services/pocketbase';
-import { db, type Gallery, type Photo, type Book, type BookCategory, type ShoppingList, type ShoppingItem, type TodoList, type TodoItem, type Route, type Waypoint, type Wine, type WinePhoto, type WineCategory } from '@/services/database';
+import { pocketbase, getPocketbaseAuthorId, setPocketbaseAuthorId } from '@/services/pocketbase';
+import { db, type Gallery, type Photo, type Book, type BookCategory, type ShoppingList, type ShoppingItem, type TodoList, type TodoItem, type Route, type Waypoint, type Wine, type WinePhoto, type WineCategory, type DeletedEntry } from '@/services/database';
 import { Preferences } from '@capacitor/preferences';
 import { toastController } from '@ionic/vue';
 import type { UnsubscribeFunc } from 'pocketbase';
 import { uploadFileToPocketBase } from '@/utils/pbFileUploadExample';
+import { getBlobLongEdge, resizeImagePreservingExif } from '@/utils/imageCompression';
 import {
   hideSyncProgress,
   runBackgroundOperation,
@@ -55,6 +56,33 @@ const fetchCoverBlob = async (coverImage: string): Promise<Blob | null> => {
     return null;
   }
 };
+
+const MIN_UPLOAD_LONG_EDGE = 1920;
+
+const optimizeImageForSyncUpload = async (blob: Blob | null): Promise<Blob | null> => {
+  if (!blob) {
+    return null;
+  }
+  if (!blob.type || !blob.type.startsWith('image/')) {
+    return blob;
+  }
+
+  try {
+    const resized = await resizeImagePreservingExif(blob, { targetLongEdge: 2800, quality: 0.82 });
+    const longEdge = await getBlobLongEdge(resized);
+    if (longEdge < MIN_UPLOAD_LONG_EDGE) {
+      console.warn('[sync] Resized image long edge below minimum, keeping original', {
+        longEdge,
+        min: MIN_UPLOAD_LONG_EDGE
+      });
+      return blob;
+    }
+    return resized;
+  } catch (error) {
+    console.warn('[sync] Image optimization failed, uploading original', error);
+    return blob;
+  }
+};
 const uploadCoverForBook = async (recordId: string, coverImage?: string) => {
   if (!coverImage || !shouldUploadCoverImage(coverImage)) return null;
   const blob = await fetchCoverBlob(coverImage);
@@ -71,8 +99,9 @@ const uploadPhotoPicture = async (recordId: string, filepath?: string) => {
   if (!filepath) return null;
   const blob = await fetchCoverBlob(filepath);
   if (!blob) return null;
+  const optimizedBlob = (await optimizeImageForSyncUpload(blob)) || blob;
   try {
-    return await uploadFileToPocketBase('photos', recordId, blob, 'picture');
+    return await uploadFileToPocketBase('photos', recordId, optimizedBlob, 'picture');
   } catch (error) {
     logSyncWarn('Picture upload failed for photo', { recordId, error });
     return null;
@@ -173,8 +202,9 @@ const uploadWinePhotoFile = async (recordId: string, filepath?: string) => {
   if (!filepath) return null;
   const blob = await fetchCoverBlob(filepath);
   if (!blob) return null;
+  const optimizedBlob = (await optimizeImageForSyncUpload(blob)) || blob;
   try {
-    return await uploadFileToPocketBase('winePhotos', recordId, blob, WINE_PHOTO_FILE_FIELD);
+    return await uploadFileToPocketBase('winePhotos', recordId, optimizedBlob, WINE_PHOTO_FILE_FIELD);
   } catch (error) {
     logSyncWarn('Wine photo upload failed', { recordId, filepath, error });
     return null;
@@ -419,6 +449,25 @@ const buildBookCategoryPayload = (category: BookCategory) => ({
   updated: category.updated
 });
 
+const attachAuthorToPayload = <T extends Record<string, unknown>>(payload: T, authorId: string | null) => ({
+  ...payload,
+  pb_author: authorId ?? null
+});
+
+const resolveAuthorIdForSync = async (): Promise<string | null> => {
+  const storedAuthorId = await getPocketbaseAuthorId();
+  if (storedAuthorId) {
+    return storedAuthorId;
+  }
+  const pb = pocketbase.getInstance();
+  const fallbackAuthorId = pb?.authStore?.model?.id ?? null;
+  if (fallbackAuthorId) {
+    await setPocketbaseAuthorId(fallbackAuthorId);
+    return fallbackAuthorId;
+  }
+  return null;
+};
+
 export function usePocketbaseSync() {
   // Hilfsfunktion: Automatische Authentifizierung, falls nötig
   async function authenticateUserIfNeeded(): Promise<boolean> {
@@ -585,6 +634,8 @@ export function usePocketbaseSync() {
       return;
     }
 
+    const authorId = await resolveAuthorIdForSync();
+
     try {
       logSyncInfo('🔄 Syncing galleries...');
       const remoteGalleries = await pb.collection('galleries').getFullList({ sort: '-updated' });
@@ -607,7 +658,7 @@ export function usePocketbaseSync() {
         }
 
         if (!remote) {
-          const created = await pb.collection('galleries').create(buildGalleryPayload(gallery));
+          const created = await pb.collection('galleries').create(attachAuthorToPayload(buildGalleryPayload(gallery), authorId));
           handledRemoteIds.add(created.id);
           await db.updateGallery(gallery.id!, {
             foreignID: created.id
@@ -617,7 +668,7 @@ export function usePocketbaseSync() {
           const localTs = parseTimestamp(gallery.updated);
           const remoteTs = parseTimestamp(remote.updated);
           if (localTs > remoteTs) {
-            const updatedRemote = await pb.collection('galleries').update(remote.id, buildGalleryPayload(gallery));
+            const updatedRemote = await pb.collection('galleries').update(remote.id, attachAuthorToPayload(buildGalleryPayload(gallery), authorId));
             await db.updateGallery(gallery.id!, {
               foreignID: updatedRemote.id,
               updated: gallery.updated
@@ -694,6 +745,8 @@ export function usePocketbaseSync() {
       return;
     }
 
+    const authorId = await resolveAuthorIdForSync();
+
     try {
       logSyncInfo('🔄 Syncing photos...');
       const remotePhotos = await pb.collection('photos').getFullList({ sort: '-updated' });
@@ -716,7 +769,7 @@ export function usePocketbaseSync() {
         }
 
         if (!remote) {
-          const created = await pb.collection('photos').create(buildPhotoPayload(photo));
+          const created = await pb.collection('photos').create(attachAuthorToPayload(buildPhotoPayload(photo), authorId));
           processedRemoteIds.add(created.id);
           const pictureUploadRecord = await uploadPhotoPicture(created.id, photo.filepath);
           const finalRemote = pictureUploadRecord || created;
@@ -729,7 +782,7 @@ export function usePocketbaseSync() {
           const localTs = parseTimestamp(photo.updated);
           const remoteTs = parseTimestamp(remote.updated);
           if (localTs > remoteTs) {
-            const updatedRemote = await pb.collection('photos').update(remote.id, buildPhotoPayload(photo));
+            const updatedRemote = await pb.collection('photos').update(remote.id, attachAuthorToPayload(buildPhotoPayload(photo), authorId));
             const pictureUploadRecord = await uploadPhotoPicture(updatedRemote.id, photo.filepath);
             const finalRemote = pictureUploadRecord || updatedRemote;
             await db.updatePhoto(photo.id!, {
@@ -790,6 +843,8 @@ export function usePocketbaseSync() {
       return;
     }
 
+    const authorId = await resolveAuthorIdForSync();
+
     try {
       logSyncInfo('🔄 Syncing book categories...');
       const remoteCategories = await pb.collection('bookCategories').getFullList({ sort: '-updated' });
@@ -813,7 +868,7 @@ export function usePocketbaseSync() {
         }
 
         if (!remote) {
-          const created = await pb.collection('bookCategories').create(buildBookCategoryPayload(category));
+          const created = await pb.collection('bookCategories').create(attachAuthorToPayload(buildBookCategoryPayload(category), authorId));
           handledRemoteIds.add(created.id);
           await db.updateBookCategory(category.id, {
             foreignID: created.id,
@@ -824,7 +879,7 @@ export function usePocketbaseSync() {
           const localTs = parseTimestamp(category.updated);
           const remoteTs = parseTimestamp(remote.updated);
           if (localTs > remoteTs) {
-            const updatedRemote = await pb.collection('bookCategories').update(remote.id, buildBookCategoryPayload(category));
+            const updatedRemote = await pb.collection('bookCategories').update(remote.id, attachAuthorToPayload(buildBookCategoryPayload(category), authorId));
             await db.updateBookCategory(category.id, {
               foreignID: updatedRemote.id,
               updated: category.updated
@@ -887,6 +942,8 @@ export function usePocketbaseSync() {
       return;
     }
 
+    const authorId = await resolveAuthorIdForSync();
+
     try {
       logSyncInfo('🔄 Syncing books...');
       const bookCategoryLookup = await buildBookCategoryLookup();
@@ -921,7 +978,7 @@ export function usePocketbaseSync() {
         }
 
         if (!remote) {
-          const created = await pb.collection('books').create(buildBookPayload(book));
+          const created = await pb.collection('books').create(attachAuthorToPayload(buildBookPayload(book), authorId));
           handledRemoteIds.add(created.id);
           const coverUploadRecord = await uploadCoverForBook(created.id, book.coverImage);
           const finalRemoteRecord = coverUploadRecord || created;
@@ -935,7 +992,7 @@ export function usePocketbaseSync() {
           const localTs = parseTimestamp(book.updated);
           const remoteTs = parseTimestamp(remote.updated);
           if (localTs > remoteTs) {
-            const updatedRemote = await pb.collection('books').update(remote.id, buildBookPayload(book));
+            const updatedRemote = await pb.collection('books').update(remote.id, attachAuthorToPayload(buildBookPayload(book), authorId));
             const coverUploadRecord = await uploadCoverForBook(updatedRemote.id, book.coverImage);
             const finalRemoteRecord = coverUploadRecord || updatedRemote;
             const remoteCoverUrl = getRemoteCoverUrlFromRecord(finalRemoteRecord);
@@ -1031,6 +1088,8 @@ export function usePocketbaseSync() {
       return;
     }
 
+    const authorId = await resolveAuthorIdForSync();
+
     try {
       logSyncInfo('🔄 Syncing wines...');
       const remoteWines = await pb.collection('wine').getFullList({ sort: '-updated' });
@@ -1055,7 +1114,7 @@ export function usePocketbaseSync() {
         }
 
         if (!remote) {
-          const created = await pb.collection('wine').create(buildWinePayload(wine));
+          const created = await pb.collection('wine').create(attachAuthorToPayload(buildWinePayload(wine), authorId));
           handledRemoteIds.add(created.id);
           await db.updateWine(wine.id, {
             foreignID: created.id,
@@ -1066,7 +1125,7 @@ export function usePocketbaseSync() {
           const localTs = parseTimestamp(wine.updated);
           const remoteTs = parseTimestamp(remote.updated);
           if (localTs > remoteTs) {
-            const updatedRemote = await pb.collection('wine').update(remote.id, buildWinePayload(wine));
+            const updatedRemote = await pb.collection('wine').update(remote.id, attachAuthorToPayload(buildWinePayload(wine), authorId));
             await db.updateWine(wine.id, {
               foreignID: updatedRemote.id,
               updated: wine.updated
@@ -1165,6 +1224,8 @@ export function usePocketbaseSync() {
       return;
     }
 
+    const authorId = await resolveAuthorIdForSync();
+
     try {
       logSyncInfo('🔄 Syncing wine photos...');
       const remoteWines = await pb.collection('wine').getFullList({ sort: '-updated' });
@@ -1207,7 +1268,7 @@ export function usePocketbaseSync() {
         }
 
         if (!remote) {
-          const created = await pb.collection('winePhotos').create(buildWinePhotoPayload(photo, remoteWineId));
+          const created = await pb.collection('winePhotos').create(attachAuthorToPayload(buildWinePhotoPayload(photo, remoteWineId), authorId));
           const uploadRecord = await uploadWinePhotoFile(created.id, photo.filepath);
           const finalRemote = uploadRecord || created;
           handledRemoteIds.add(finalRemote.id);
@@ -1220,7 +1281,7 @@ export function usePocketbaseSync() {
           const localTs = parseTimestamp(photo.updated);
           const remoteTs = parseTimestamp(remote.updated);
           if (localTs > remoteTs) {
-            const updatedRemote = await pb.collection('winePhotos').update(remote.id, buildWinePhotoPayload(photo, remoteWineId));
+            const updatedRemote = await pb.collection('winePhotos').update(remote.id, attachAuthorToPayload(buildWinePhotoPayload(photo, remoteWineId), authorId));
             const uploadRecord = await uploadWinePhotoFile(updatedRemote.id, photo.filepath);
             const finalRemote = uploadRecord || updatedRemote;
             await db.updateWinePhoto(photo.id, {
@@ -1298,6 +1359,8 @@ export function usePocketbaseSync() {
       return;
     }
 
+    const authorId = await resolveAuthorIdForSync();
+
     try {
       logSyncInfo('🔄 Syncing wine categories...');
       const remoteCategories = await pb.collection('wineCategories').getFullList({ sort: '-updated' });
@@ -1321,7 +1384,7 @@ export function usePocketbaseSync() {
         }
 
         if (!remote) {
-          const created = await pb.collection('wineCategories').create(buildWineCategoryPayload(category));
+          const created = await pb.collection('wineCategories').create(attachAuthorToPayload(buildWineCategoryPayload(category), authorId));
           handledRemoteIds.add(created.id);
           await db.updateWineCategory(category.id, {
             foreignID: created.id,
@@ -1332,7 +1395,7 @@ export function usePocketbaseSync() {
           const localTs = parseTimestamp(category.updated);
           const remoteTs = parseTimestamp(remote.updated);
           if (localTs > remoteTs) {
-            const updatedRemote = await pb.collection('wineCategories').update(remote.id, buildWineCategoryPayload(category));
+            const updatedRemote = await pb.collection('wineCategories').update(remote.id, attachAuthorToPayload(buildWineCategoryPayload(category), authorId));
             await db.updateWineCategory(category.id, {
               foreignID: updatedRemote.id,
               updated: category.updated
@@ -1394,6 +1457,8 @@ export function usePocketbaseSync() {
       return;
     }
 
+    const authorId = await resolveAuthorIdForSync();
+
     try {
       logSyncInfo('🔄 Syncing shopping lists...');
       const remoteLists = await pb.collection('shoppingLists').getFullList({ sort: '-updated' });
@@ -1420,7 +1485,7 @@ export function usePocketbaseSync() {
         }
 
         if (!remote) {
-          const created = await pb.collection('shoppingLists').create(buildShoppingListPayload(list));
+          const created = await pb.collection('shoppingLists').create(attachAuthorToPayload(buildShoppingListPayload(list), authorId));
           handledRemoteIds.add(created.id);
           await db.updateShoppingList(list.id, {
             foreignID: created.id,
@@ -1431,7 +1496,7 @@ export function usePocketbaseSync() {
           const localTs = parseTimestamp(list.updated);
           const remoteTs = parseTimestamp(remote.updated);
           if (localTs > remoteTs) {
-            const updatedRemote = await pb.collection('shoppingLists').update(remote.id, buildShoppingListPayload(list));
+            const updatedRemote = await pb.collection('shoppingLists').update(remote.id, attachAuthorToPayload(buildShoppingListPayload(list), authorId));
             await db.updateShoppingList(list.id, {
               foreignID: updatedRemote.id,
               updated: list.updated
@@ -1504,6 +1569,8 @@ export function usePocketbaseSync() {
       return;
     }
 
+    const authorId = await resolveAuthorIdForSync();
+
     try {
       logSyncInfo('🔄 Syncing shopping items...');
       const remoteItems = await pb.collection('shoppingItems').getFullList({ sort: '-updated' });
@@ -1549,7 +1616,7 @@ export function usePocketbaseSync() {
         }
 
         if (!remote) {
-            const created = await pb.collection('shoppingItems').create(buildShoppingItemPayload(item, remoteListId));
+          const created = await pb.collection('shoppingItems').create(attachAuthorToPayload(buildShoppingItemPayload(item, remoteListId), authorId));
           handledRemoteIds.add(created.id);
           await db.updateShoppingItem(item.id, {
             foreignID: created.id,
@@ -1559,8 +1626,8 @@ export function usePocketbaseSync() {
           handledRemoteIds.add(remote.id);
           const localTs = parseTimestamp(item.updated);
           const remoteTs = parseTimestamp(remote.updated);
-          if (localTs > remoteTs) {
-              const updatedRemote = await pb.collection('shoppingItems').update(remote.id, buildShoppingItemPayload(item, remoteListId));
+            if (localTs > remoteTs) {
+              const updatedRemote = await pb.collection('shoppingItems').update(remote.id, attachAuthorToPayload(buildShoppingItemPayload(item, remoteListId), authorId));
             await db.updateShoppingItem(item.id, {
               foreignID: updatedRemote.id,
               updated: item.updated
@@ -1632,6 +1699,8 @@ export function usePocketbaseSync() {
       return;
     }
 
+    const authorId = await resolveAuthorIdForSync();
+
     try {
       logSyncInfo('🔄 Syncing todo lists...');
       const remoteLists = await pb.collection('todoLists').getFullList({ sort: '-updated' });
@@ -1656,7 +1725,7 @@ export function usePocketbaseSync() {
         }
 
         if (!remote) {
-          const created = await pb.collection('todoLists').create(buildTodoListPayload(list));
+          const created = await pb.collection('todoLists').create(attachAuthorToPayload(buildTodoListPayload(list), authorId));
           handledRemoteIds.add(created.id);
           await db.updateTodoList(list.id, {
             foreignID: created.id,
@@ -1667,7 +1736,7 @@ export function usePocketbaseSync() {
           const localTs = parseTimestamp(list.updated);
           const remoteTs = parseTimestamp(remote.updated);
           if (localTs > remoteTs) {
-            const updatedRemote = await pb.collection('todoLists').update(remote.id, buildTodoListPayload(list));
+            const updatedRemote = await pb.collection('todoLists').update(remote.id, attachAuthorToPayload(buildTodoListPayload(list), authorId));
             await db.updateTodoList(list.id, {
               foreignID: updatedRemote.id,
               updated: list.updated
@@ -1740,6 +1809,8 @@ export function usePocketbaseSync() {
       return;
     }
 
+    const authorId = await resolveAuthorIdForSync();
+
     try {
       logSyncInfo('🔄 Syncing todo items...');
       const remoteItems = await pb.collection('todoItems').getFullList({ sort: '-updated' });
@@ -1785,7 +1856,7 @@ export function usePocketbaseSync() {
         }
 
         if (!remote) {
-            const created = await pb.collection('todoItems').create(buildTodoItemPayload(item, remoteListId));
+          const created = await pb.collection('todoItems').create(attachAuthorToPayload(buildTodoItemPayload(item, remoteListId), authorId));
           handledRemoteIds.add(created.id);
           await db.updateTodoItem(item.id, {
             foreignID: created.id,
@@ -1795,8 +1866,8 @@ export function usePocketbaseSync() {
           handledRemoteIds.add(remote.id);
           const localTs = parseTimestamp(item.updated);
           const remoteTs = parseTimestamp(remote.updated);
-          if (localTs > remoteTs) {
-              const updatedRemote = await pb.collection('todoItems').update(remote.id, buildTodoItemPayload(item, remoteListId));
+            if (localTs > remoteTs) {
+              const updatedRemote = await pb.collection('todoItems').update(remote.id, attachAuthorToPayload(buildTodoItemPayload(item, remoteListId), authorId));
             await db.updateTodoItem(item.id, {
               foreignID: updatedRemote.id,
               updated: item.updated
@@ -1874,6 +1945,8 @@ export function usePocketbaseSync() {
       return;
     }
 
+    const authorId = await resolveAuthorIdForSync();
+
     try {
       logSyncInfo('🔄 Syncing routes...');
       const remoteRoutes = await pb.collection('routes').getFullList({ sort: '-updated' });
@@ -1898,7 +1971,7 @@ export function usePocketbaseSync() {
         }
 
         if (!remote) {
-          const created = await pb.collection('routes').create(buildRoutePayload(route));
+          const created = await pb.collection('routes').create(attachAuthorToPayload(buildRoutePayload(route), authorId));
           handledRemoteIds.add(created.id);
           await db.updateRoute(route.id, {
             foreignID: created.id,
@@ -1909,7 +1982,7 @@ export function usePocketbaseSync() {
           const localTs = parseTimestamp(route.updated);
           const remoteTs = parseTimestamp(remote.updated);
           if (localTs > remoteTs) {
-            const updatedRemote = await pb.collection('routes').update(remote.id, buildRoutePayload(route));
+            const updatedRemote = await pb.collection('routes').update(remote.id, attachAuthorToPayload(buildRoutePayload(route), authorId));
             await db.updateRoute(route.id, {
               foreignID: updatedRemote.id,
               updated: route.updated
@@ -1999,6 +2072,8 @@ export function usePocketbaseSync() {
       return;
     }
 
+    const authorId = await resolveAuthorIdForSync();
+
     try {
       logSyncInfo('🔄 Syncing waypoints...');
       const remoteWaypoints = await pb.collection('waypoints').getFullList({ sort: '-updated' });
@@ -2051,7 +2126,7 @@ export function usePocketbaseSync() {
         }
 
         if (!remote) {
-          const created = await pb.collection('waypoints').create(buildWaypointPayload(waypoint));
+          const created = await pb.collection('waypoints').create(attachAuthorToPayload(buildWaypointPayload(waypoint), authorId));
           handledRemoteIds.add(created.id);
           await db.updateWaypoint(waypoint.id, {
             foreignID: created.id,
@@ -2062,7 +2137,7 @@ export function usePocketbaseSync() {
           const localTs = parseTimestamp(waypoint.updated);
           const remoteTs = parseTimestamp(remote.updated);
           if (localTs > remoteTs) {
-            const updatedRemote = await pb.collection('waypoints').update(remote.id, buildWaypointPayload(waypoint));
+            const updatedRemote = await pb.collection('waypoints').update(remote.id, attachAuthorToPayload(buildWaypointPayload(waypoint), authorId));
             await db.updateWaypoint(waypoint.id, {
               foreignID: updatedRemote.id,
               updated: waypoint.updated
@@ -2153,9 +2228,59 @@ export function usePocketbaseSync() {
     }
   };
 
+  const deleteRemoteRecord = async (collectionName: string, localId: number): Promise<boolean> => {
+    const pb = pocketbase.getInstance();
+    if (!pb) return false;
+
+    try {
+      const filter = `foreignID = "${localId}"`;
+      const remoteRecords = await pb.collection(collectionName).getFullList({ sort: '-updated', filter });
+      if (!remoteRecords || remoteRecords.length === 0) {
+        return true;
+      }
+
+      for (const remote of remoteRecords) {
+        await pb.collection(collectionName).delete(remote.id);
+      }
+
+      return true;
+    } catch (error) {
+      logSyncWarn(`Failed to delete remote ${collectionName} ${localId}`, error);
+      return false;
+    }
+  };
+
+  const processPendingDeletions = async (): Promise<void> => {
+    const pending = await db.getPendingDeletions();
+    if (pending.length === 0) return;
+
+    await authenticateUserIfNeeded();
+    const pb = pocketbase.getInstance();
+    if (!pb || !pocketbase.isAuthenticated()) {
+      throw new Error('PocketBase not authenticated for pending deletions');
+    }
+
+    logSyncInfo(`Processing ${pending.length} pending deletions`);
+    let failed = false;
+    for (const entry of pending) {
+      if (!entry.id) continue;
+      const success = await deleteRemoteRecord(entry.entity, entry.localId);
+      if (success) {
+        await db.removeDeletionEntry(entry.id);
+      } else {
+        failed = true;
+      }
+    }
+
+    if (failed) {
+      throw new Error('Pending deletions could not be fully processed');
+    }
+  };
+
   const runFullSync = async () => {
     logSyncInfo('Starting full sync run');
     await loadLastSyncTime();
+    await processPendingDeletions();
     
     await syncGalleries();
     await syncPhotos();

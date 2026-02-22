@@ -73,6 +73,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { useRoute } from 'vue-router';
 import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons,
@@ -125,6 +126,12 @@ const handleToggleShoppingItem = async (item: ShoppingItem) => {
   if (!item.id) return;
   await toggleItemCompleted(item.id, !item.completed, listId);
 };
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>

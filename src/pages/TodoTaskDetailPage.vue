@@ -90,6 +90,7 @@ import {
 } from '@ionic/vue';
 import { checkboxOutline } from 'ionicons/icons';
 import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { useTodoList } from '@/composables/useTodoList';
 
 const route = useRoute();
@@ -133,6 +134,12 @@ const handleToggleStatus = async () => {
   await loadItems(listId);
   await loadPhotosForItem(itemId);
 };
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>

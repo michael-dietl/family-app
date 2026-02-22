@@ -145,6 +145,7 @@ import {
   calendarOutline
 } from 'ionicons/icons';
 import { Preferences } from '@capacitor/preferences';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 /* ⬇️ GANZ WICHTIG: global.css MUSS HIER stehen */
 import '../global.css';
@@ -226,6 +227,12 @@ const manualSync = async () => {
     await toast.present();
   }
 };
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>

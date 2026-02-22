@@ -30,7 +30,7 @@
       <!-- Search Bar -->
       <ion-searchbar 
         v-model="searchQuery" 
-        placeholder="Bücher durchsuchen..."
+        :placeholder="t('auto.buecher_durchsuchen')"
         :debounce="300"
         @ionInput="handleSearch"
       />
@@ -123,7 +123,7 @@
       <ion-modal :is-open="isGoogleSearchModalOpen" @didDismiss="closeGoogleSearchModal">
         <ion-header>
           <ion-toolbar>
-            <ion-title>Google Books Suche</ion-title>
+            <ion-title>{{ t('google_books_suche') }}</ion-title>
             <ion-buttons slot="end">
               <ion-button @click="closeGoogleSearchModal">
                 <ion-icon :icon="closeOutline" />
@@ -138,7 +138,7 @@
                 <ion-item lines="full">
                   <ion-input
                     v-model="googleTitleQuery"
-                    placeholder="Titel oder Stichwort"
+                    :placeholder="t('titel_oder_stichwort')"
                     @keyup.enter="handleGoogleSearch"
                   />
                   <ion-button
@@ -149,7 +149,7 @@
                   >
                     <ion-spinner slot="icon-only" size="small" name="crescent" v-if="isGoogleSearching" />
                     <ion-icon slot="icon-only" :icon="searchOutline" v-else />
-                    <span>{{ isGoogleSearching ? 'Suche...' : 'Suchen' }}</span>
+                    <span>{{ isGoogleSearching ? t('google_books_suche') + '...' : t('suchen') }}</span>
                   </ion-button>
                 </ion-item>
                 <p v-if="googleSearchError" class="search-error">{{ googleSearchError }}</p>
@@ -190,6 +190,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { onIonViewWillEnter } from '@ionic/vue';
 import {
   IonPage,
@@ -258,6 +259,7 @@ import {
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 
 const router = useRouter();
+const { t } = useI18n();
 
 const books = ref<Book[]>([]);
 const categories = ref<BookCategory[]>([]);
@@ -568,7 +570,7 @@ const scanBarcode = async () => {
       buttons: [
         { text: 'Abbrechen', role: 'cancel' },
         {
-          text: 'Suchen',
+          text: t('suchen'),
           handler: async (data) => {
             if (data.isbn) {
               await lookupAndSaveBook(data.isbn.replace(/-/g, ''));
@@ -982,27 +984,27 @@ const showMenu = async () => {
   const hasApiKey = getGoogleBooksApiKey() !== null;
   
   const actionSheet = await actionSheetController.create({
-    header: 'Optionen',
+    header: t('auto.optionen'),
     buttons: [
       {
-        text: 'Kategorie erstellen',
+        text: t('auto.kategorie_erstellen'),
         icon: add,
         handler: () => createCategory()
       },
       {
-        text: 'Kategorien verwalten',
+        text: t('auto.kategorien_verwalten'),
         icon: folderOutline,
         handler: () => {
           router.push('/library/categories');
         }
       },
       {
-        text: hasApiKey ? 'API-Key ändern' : 'API-Key einrichten',
+        text: t(hasApiKey ? 'auto.api_key_aendern' : 'auto.api_key_einrichten'),
         icon: keyOutline,
         handler: () => promptForApiKey()
       },
       {
-        text: 'Abbrechen',
+        text: t('buttons.cancel'),
         role: 'cancel'
       }
     ]

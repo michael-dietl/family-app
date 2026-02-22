@@ -71,10 +71,12 @@ http://ionicframework.com/docs/theming/ */
 /* GLightbox responsive media fixes for Android rotation */
 .glightbox-container,
 .glightbox-open {
-  background: rgba(0, 0, 0, 0.92);
+  background: var(--ion-background-color, #ffffff);
+  color: var(--ion-text-color, #111111);
   z-index: 10000;
 }
 
+        
 .glightbox-container,
 .glightbox-container .ginner-container,
 .glightbox-container .gslide,
@@ -103,36 +105,32 @@ http://ionicframework.com/docs/theming/ */
 }
 
 .glightbox-clean .gclose {
-  width: 34px;
-  height: 34px;
-  top: 60px;
+  width: 40px;
+  height: 40px;
+  top: 80px;
   right: 16px;
   position: absolute;
-  border-radius: 50%;
-  background: var(--ion-color-primary, #ff7a18);
-  border: 2px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 2px solid var(--ion-color-primary, #ff7a18);
+  color: var(--ion-color-primary, #ff7a18);
+  box-shadow: 0 12px 24px rgba(17, 20, 26, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.glightbox-clean .gclose::before,
-.glightbox-clean .gclose::after {
-  content: '';
-  position: absolute;
-  width: 60%;
-  height: 2px;
-  background: #fff;
-  border-radius: 999px;
+  font-size: 1.2rem;
+  font-weight: 700;
 }
 
 .glightbox-clean .gclose::before {
-  transform: rotate(45deg);
+  content: '×';
+  position: relative;
+  top: 0;
+  left: 0;
 }
 
 .glightbox-clean .gclose::after {
-  transform: rotate(-45deg);
+  display: none;
 }
 
 .glightbox-clean .gclose svg {
@@ -140,20 +138,20 @@ http://ionicframework.com/docs/theming/ */
 }
 
 .glightbox-container .glightbox-play-button {
-  position: absolute;
-  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-  right: 16px;
+  position: fixed;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  right: 24px;
   width: 56px;
   height: 56px;
   border-radius: 50%;
   background: var(--ion-color-primary, #ff7a18);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  display: none;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   z-index: 10001;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   transition: transform 150ms ease, box-shadow 150ms ease;
 }
 

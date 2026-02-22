@@ -345,6 +345,7 @@ import { useI18n } from 'vue-i18n';
 import { onIonViewDidEnter } from '@ionic/vue';
 import { db, type Route, type TimelineEventPhoto } from '@/services/database';
 import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { useGallery } from '@/composables/useGallery';
 import { useTimeline } from '@/composables/useTimeline';
 import { usePhoto } from '@/composables/usePhoto';
@@ -888,6 +889,12 @@ onIonViewDidEnter(async () => {
 });
 
 watch([timelineBounds], scrollToToday, { immediate: true });
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>

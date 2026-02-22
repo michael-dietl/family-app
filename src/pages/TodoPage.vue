@@ -70,14 +70,14 @@
         </ion-toolbar>
       </ion-header>
       <ion-content class="ion-padding">
-        <ion-item>
-          <ion-input
-            v-model="newListName"
-            label="$t('listenname')"
-            label-placement="stacked"
-            placeholder="$t('z-b-projekt-x')"
-          />
-        </ion-item>
+          <ion-item>
+            <ion-input
+              v-model="newListName"
+              :label="$t('auto.listenname')"
+              label-placement="stacked"
+              :placeholder="$t('auto.z-b-projekt-x')"
+            />
+          </ion-item>
         <ion-button expand="block" @click="handleCreate" :disabled="!newListName.trim()">
           {{ $t('auto.liste_erstellen') }}
         </ion-button>
@@ -88,6 +88,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { useRouter } from 'vue-router';
 import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonButton,
@@ -142,6 +143,12 @@ const formatDate = (dateStr: string) => {
     year: 'numeric' 
   });
 };
+
+
+onMounted(async () => {
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });
+});
 </script>
 
 <style scoped>
