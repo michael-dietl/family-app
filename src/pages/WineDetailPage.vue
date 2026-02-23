@@ -35,7 +35,16 @@
 
           <div v-show="selectedTab === 'photo'" class="tab-content photo-tab ion-padding-bottom">
             <div v-if="wineLightboxItems.length" class="wine-photo-viewer">
-              <button class="wine-photo-active" type="button" @click="triggerLightbox">
+              <button
+                ref="photoAreaRef"
+                class="wine-photo-active"
+                type="button"
+                @click="handlePhotoAreaClick"
+                @touchstart="handlePhotoTouchStart"
+                @touchmove="handlePhotoTouchMove"
+                @touchend="handlePhotoTouchEnd"
+                @touchcancel="handlePhotoTouchEnd"
+              >
                 <div v-if="isVideoMedia(currentActiveMedia)" class="wine-photo-video">
                   <video
                     :src="getImageSrc(currentActiveMedia?.filepath)"
@@ -43,6 +52,7 @@
                     muted
                     preload="metadata"
                     controlsList="nodownload"
+                    :style="photoMediaStyle"
                   ></video>
                   <div class="wine-photo-video-overlay">
                     <ion-icon :icon="playCircle"></ion-icon>
@@ -53,6 +63,7 @@
                   :src="getImageSrc(currentActiveMedia?.filepath)"
                   :alt="currentActiveMedia?.filename || $t('auto.foto')"
                   loading="lazy"
+                  :style="photoMediaStyle"
                 />
                 <span class="wine-photo-count">
                   {{ activePhotoIndex + 1 }} / {{ wineLightboxItems.length }}
@@ -430,6 +441,7 @@ import {
   create,
   createOutline,
   trash,
+  trashOutline,
   playCircle,
   sparkles,
   camera
@@ -441,13 +453,14 @@ import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Filesystem } from '@capacitor/filesystem';
 import { removeBackground } from '@imgly/background-removal';
-import { buildSharedStoragePath, getSharedStorageDirectory, ensureDirectoryExists } from '@/services/storagePaths';
+import { buildSharedStoragePath, getSharedStorageDirectory, ensureDirectoryExists, getSharedStorageRelativePath } from '@/services/storagePaths';
 
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
 const { getWine, updateWine, deleteWine, takeWinePhoto } = useWine();
 const { initLightbox, openLightbox, destroyLightbox } = useLightbox();
+const wineLightboxBodyClass = 'wine-detail-lightbox-short';
 
 const wine = ref<Wine | null>(null);
 const isLoading = ref(true);
@@ -460,6 +473,9 @@ const winePhotos = ref<WinePhoto[]>([]);
 const videoExtensions = ['mp4', 'mov', 'webm', 'mkv', 'avi', '3gp', 'm4v'];
 
 onMounted(async () => {
+  if (typeof document !== 'undefined') {
+    document.body.classList.add(wineLightboxBodyClass);
+  }
   const id = parseInt(route.params.id as string);
   if (isNaN(id)) {
     router.replace('/wine');
@@ -601,6 +617,230 @@ const triggerLightbox = () => {
   openLightbox(activePhotoIndex.value);
 };
 
+const photoAreaRef = ref<HTMLElement | null>(null);
+const initialScale = 0.85;
+const minZoom = initialScale;
+const maxZoom = 3;
+const photoScale = ref(initialScale);
+const photoTranslateX = ref(0);
+const photoTranslateY = ref(0);
+const pinchActive = ref(false);
+const pinchStartDistance = ref(0);
+const pinchStartScale = ref(initialScale);
+const panActive = ref(false);
+const lastPanX = ref(0);
+const lastPanY = ref(0);
+const skipNextSwipe = ref(false);
+const photoBounds = ref({ width: 0, height: 0 });
+
+const clampScale = (value: number) => Math.min(Math.max(value, minZoom), maxZoom);
+const getTouchDistance = (a: Touch, b: Touch) => {
+  const dx = a.clientX - b.clientX;
+  const dy = a.clientY - b.clientY;
+  return Math.hypot(dx, dy);
+};
+
+const updatePhotoBounds = () => {
+  const rect = photoAreaRef.value?.getBoundingClientRect();
+  if (!rect) return;
+  photoBounds.value.width = rect.width;
+  photoBounds.value.height = rect.height;
+};
+
+const getMaxOffset = (axis: 'x' | 'y') => {
+  const dimension = axis === 'x' ? photoBounds.value.width : photoBounds.value.height;
+  if (!dimension) return 0;
+  return Math.max((dimension * (photoScale.value - 1)) / 2, 0);
+};
+
+const clampTranslation = (value: number, axis: 'x' | 'y') => {
+  const max = getMaxOffset(axis);
+  if (max === 0) return 0;
+  return Math.min(Math.max(value, -max), max);
+};
+
+const resetPhotoScale = () => {
+  photoScale.value = initialScale;
+  photoTranslateX.value = 0;
+  photoTranslateY.value = 0;
+  pinchActive.value = false;
+  pinchStartDistance.value = 0;
+  pinchStartScale.value = initialScale;
+  panActive.value = false;
+  skipNextSwipe.value = false;
+};
+
+const photoMediaStyle = computed(() => ({
+  transform: `translate(${photoTranslateX.value}px, ${photoTranslateY.value}px) scale(${photoScale.value})`,
+  transformOrigin: 'center center',
+  transition: pinchActive.value || panActive.value ? 'none' : 'transform 0.2s ease'
+}));
+
+const handlePinchStart = (event: TouchEvent) => {
+  if (event.touches.length !== 2) return;
+  updatePhotoBounds();
+  pinchActive.value = true;
+  pinchStartDistance.value = getTouchDistance(event.touches[0], event.touches[1]);
+  pinchStartScale.value = photoScale.value;
+  skipNextSwipe.value = true;
+  swipeStartX = null;
+  swipeStartY = null;
+};
+
+const handlePinchMove = (event: TouchEvent) => {
+  if (!pinchActive.value || event.touches.length < 2) return;
+  event.preventDefault();
+  if (!pinchStartDistance.value) return;
+  const distance = getTouchDistance(event.touches[0], event.touches[1]);
+  const scaleRatio = distance / pinchStartDistance.value;
+  photoScale.value = clampScale(pinchStartScale.value * scaleRatio);
+  photoTranslateX.value = clampTranslation(photoTranslateX.value, 'x');
+  photoTranslateY.value = clampTranslation(photoTranslateY.value, 'y');
+};
+
+const handlePinchEnd = () => {
+  if (!pinchActive.value) return;
+  pinchActive.value = false;
+  pinchStartDistance.value = 0;
+  pinchStartScale.value = clampScale(photoScale.value);
+  if (photoScale.value <= 1) {
+    photoTranslateX.value = 0;
+    photoTranslateY.value = 0;
+  }
+};
+
+const startPan = (event: TouchEvent) => {
+  if (photoScale.value <= 1 || event.touches.length !== 1) return;
+  updatePhotoBounds();
+  panActive.value = true;
+  const touch = event.touches[0];
+  lastPanX.value = touch.clientX;
+  lastPanY.value = touch.clientY;
+  skipNextSwipe.value = true;
+  swipeStartX = null;
+  swipeStartY = null;
+};
+
+const handlePanMove = (event: TouchEvent) => {
+  if (!panActive.value || event.touches.length !== 1) return;
+  event.preventDefault();
+  const touch = event.touches[0];
+  const deltaX = touch.clientX - lastPanX.value;
+  const deltaY = touch.clientY - lastPanY.value;
+  lastPanX.value = touch.clientX;
+  lastPanY.value = touch.clientY;
+  photoTranslateX.value = clampTranslation(photoTranslateX.value + deltaX, 'x');
+  photoTranslateY.value = clampTranslation(photoTranslateY.value + deltaY, 'y');
+};
+
+const endPan = () => {
+  if (!panActive.value) return;
+  panActive.value = false;
+  if (photoScale.value <= 1) {
+    photoTranslateX.value = 0;
+    photoTranslateY.value = 0;
+  }
+};
+
+const handlePhotoTouchStart = (event: TouchEvent) => {
+  if (event.touches.length === 2) {
+    handlePinchStart(event);
+    return;
+  }
+  if (photoScale.value > 1) {
+    startPan(event);
+    return;
+  }
+  handlePhotoSwipeStart(event);
+};
+
+const handlePhotoTouchMove = (event: TouchEvent) => {
+  if (pinchActive.value) {
+    handlePinchMove(event);
+    return;
+  }
+  if (panActive.value) {
+    handlePanMove(event);
+  }
+};
+
+const handlePhotoTouchEnd = (event: TouchEvent) => {
+  handlePinchEnd();
+  endPan();
+  if (event.touches.length === 0 && skipNextSwipe.value) {
+    skipNextSwipe.value = false;
+    return;
+  }
+  if (skipNextSwipe.value) {
+    return;
+  }
+  handlePhotoSwipeEnd(event);
+};
+
+watch(selectedTab, (value) => {
+  if (value !== 'photo') {
+    resetPhotoScale();
+  }
+});
+
+watch(currentActiveMedia, () => {
+  resetPhotoScale();
+});
+
+watch(photoScale, (scale) => {
+  if (scale <= 1) {
+    photoTranslateX.value = 0;
+    photoTranslateY.value = 0;
+    return;
+  }
+  photoTranslateX.value = clampTranslation(photoTranslateX.value, 'x');
+  photoTranslateY.value = clampTranslation(photoTranslateY.value, 'y');
+});
+
+const swipeDetected = ref(false);
+let swipeStartX: number | null = null;
+let swipeStartY: number | null = null;
+const swipeThreshold = 40;
+
+const goToAdjacentPhoto = (offset: number) => {
+  const items = wineLightboxItems.value;
+  if (!items.length) return;
+  const nextIndex = (activePhotoIndex.value + offset + items.length) % items.length;
+  activePhotoIndex.value = nextIndex;
+};
+
+const handlePhotoAreaClick = () => {
+  if (swipeDetected.value) {
+    swipeDetected.value = false;
+    return;
+  }
+  triggerLightbox();
+};
+
+const handlePhotoSwipeStart = (event: TouchEvent) => {
+  if (event.touches.length !== 1) return;
+  const touch = event.touches[0];
+  swipeStartX = touch.clientX;
+  swipeStartY = touch.clientY;
+  swipeDetected.value = false;
+};
+
+const handlePhotoSwipeEnd = (event: TouchEvent) => {
+  if (swipeStartX === null || swipeStartY === null) return;
+  const touch = event.changedTouches[0];
+  const dx = touch.clientX - swipeStartX;
+  const dy = touch.clientY - swipeStartY;
+  if (Math.abs(dx) > swipeThreshold && Math.abs(dx) > Math.abs(dy)) {
+    swipeDetected.value = true;
+    goToAdjacentPhoto(dx < 0 ? 1 : -1);
+    setTimeout(() => {
+      swipeDetected.value = false;
+    }, 200);
+  }
+  swipeStartX = null;
+  swipeStartY = null;
+};
+
 const loadWinePhotos = async (id?: number) => {
   if (!id) return;
   try {
@@ -614,6 +854,71 @@ const handlePhotoClick = (index: number) => {
   if (!wineLightboxItems.value.length) return;
   activePhotoIndex.value = Math.min(Math.max(index, 0), wineLightboxItems.value.length - 1);
   triggerLightbox();
+};
+
+const deleteFileFromStorage = async (filepath?: string) => {
+  if (!filepath) return;
+  const relativePath = getSharedStorageRelativePath(filepath);
+  if (!relativePath) return;
+  try {
+    await Filesystem.deleteFile({
+      path: relativePath,
+      directory: getSharedStorageDirectory()
+    });
+  } catch (error) {
+    console.warn('Could not remove file from storage:', error);
+  }
+};
+
+const performDeleteCurrentLightboxPhoto = async (media: MediaItem) => {
+  if (!wine.value?.id) return;
+  const wineId = wine.value.id;
+  const filepath = media.filepath;
+  try {
+    if (media.id) {
+      await db.deleteWinePhoto(media.id);
+    } else if (wine.value.photoPath === filepath) {
+      await updateWine(wineId, { photoPath: undefined });
+    }
+    await deleteFileFromStorage(filepath);
+    await loadWinePhotos(wineId);
+    wine.value = await getWine(wineId);
+    const successToast = await toastController.create({
+      message: 'Foto gelöscht',
+      duration: 2000,
+      color: 'success'
+    });
+    await successToast.present();
+  } catch (error) {
+    console.error('Failed to delete wine photo:', error);
+    const failureToast = await toastController.create({
+      message: 'Foto konnte nicht gelöscht werden.',
+      duration: 2500,
+      color: 'danger'
+    });
+    await failureToast.present();
+  }
+};
+
+const confirmDeleteCurrentLightboxPhoto = async () => {
+  const media = currentActiveMedia.value;
+  if (!media?.filepath) return;
+  const alert = await alertController.create({
+    header: 'Foto löschen?',
+    message: 'Dieses Foto wird dauerhaft entfernt.',
+    buttons: [
+      { text: 'Abbrechen', role: 'cancel' },
+      {
+        text: 'Löschen',
+        role: 'destructive',
+        handler: async () => {
+          destroyLightbox();
+          await performDeleteCurrentLightboxPhoto(media);
+        }
+      }
+    ]
+  });
+  await alert.present();
 };
 
 watch(wineLightboxItems, (items) => {
@@ -632,6 +937,9 @@ watch(wineLightboxItems, (items) => {
 
 onBeforeUnmount(() => {
   destroyLightbox();
+  if (typeof document !== 'undefined') {
+    document.body.classList.remove(wineLightboxBodyClass);
+  }
 });
 
 const showOnMap = () => {
@@ -743,7 +1051,17 @@ const handleBackgroundRemoval = async () => {
     });
 
     const currentWineId = wine.value.id;
-    await updateWine(currentWineId, { photoPath: savedFile.uri });
+    const updatedMimeType = 'image/png';
+    if (media.id) {
+      await db.updateWinePhoto(media.id, {
+        filepath: savedFile.uri,
+        mimeType: updatedMimeType,
+        filesize: processedBlob.size
+      });
+    } else {
+      await updateWine(currentWineId, { photoPath: savedFile.uri });
+    }
+    await loadWinePhotos(currentWineId);
     wine.value = await getWine(currentWineId);
 
     const successToast = await toastController.create({
@@ -835,17 +1153,26 @@ const showOptions = async () => {
           openEditModal();
         }
       },
-      {
-        text: 'Freistellen',
-        icon: sparkles,
-        disabled:
-          !currentActiveMedia.value?.filepath ||
-          isRemovingBackground.value ||
-          isVideoMedia(currentActiveMedia.value),
-        handler: () => {
-          handleBackgroundRemoval();
-        }
-      },
+        {
+          text: 'Freistellen',
+          icon: sparkles,
+          disabled:
+            !currentActiveMedia.value?.filepath ||
+            isRemovingBackground.value ||
+            isVideoMedia(currentActiveMedia.value),
+          handler: () => {
+            handleBackgroundRemoval();
+          }
+        },
+        {
+          text: 'Aktuelles Foto löschen',
+          icon: trashOutline,
+          role: 'destructive',
+          disabled: !currentActiveMedia.value?.filepath,
+          handler: () => {
+            confirmDeleteCurrentLightboxPhoto();
+          }
+        },
       {
         text: 'Löschen',
         role: 'destructive',
@@ -954,15 +1281,18 @@ onMounted(async () => {
   border: none;
   background: var(--ion-color-step-50);
   width: 100%;
-  min-height: 280px;
+  min-height: calc(280px * 0.85);
+  max-height: calc(80vh * 0.97);
+  touch-action: none;
   cursor: pointer;
 }
 
 .wine-photo-active img,
 .wine-photo-active video {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  max-height: 80%;
+  object-fit: contain;
   display: block;
 }
 
@@ -1057,6 +1387,17 @@ ion-content.content-safe::part(scroll) {
 
 /* gilt nur im Photo-Tab */
 .tab-content.photo-tab {
-  padding-top: calc(var(--ion-safe-area-top) + var(--offset-top, 56px));
+  padding-top: 0;
+}
+
+:global(body.wine-detail-lightbox-short .glightbox-container),
+:global(body.wine-detail-lightbox-short .glightbox-container .ginner-container),
+:global(body.wine-detail-lightbox-short .glightbox-container .gslide),
+:global(body.wine-detail-lightbox-short .glightbox-container .gslide-inner-content) {
+  height: 80vh;
+}
+
+:global(body.wine-detail-lightbox-short .glightbox-container .gslide-media) {
+  max-height: 650vh;
 }
 </style>

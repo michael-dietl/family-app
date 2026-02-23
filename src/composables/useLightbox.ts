@@ -73,6 +73,36 @@ export function useLightbox() {
     container.appendChild(playButton);
   }
 
+  const applyVideoPreviewFrame = (slideNode?: Element | null) => {
+    const video = slideNode?.querySelector('video') as HTMLVideoElement | null;
+    if (!video) return;
+    const seekToPreview = () => {
+      try {
+        if (video.currentTime < 0.5) {
+          video.currentTime = 0.5;
+        }
+      } catch (error) {
+        console.warn('Could not seek video preview', error);
+      }
+    };
+    if (video.readyState >= 1) {
+      seekToPreview();
+      return;
+    }
+    const onMetadata = () => {
+      seekToPreview();
+      video.removeEventListener('loadedmetadata', onMetadata);
+    };
+    video.addEventListener('loadedmetadata', onMetadata);
+  };
+
+  const alignVideoPreview = () => {
+    requestAnimationFrame(() => {
+      const slide = document.querySelector('.glightbox-container .gslide.current');
+      applyVideoPreviewFrame(slide);
+    });
+  };
+
   function removePlayButton() {
     if (!playButton) return;
     playButton.remove();
@@ -134,6 +164,8 @@ export function useLightbox() {
       if (autoplayRequested.value) {
         startAutoplay();
       }
+      alignVideoPreview();
+      setTimeout(alignVideoPreview, 250);
     });
 
     lightbox.value.on('close', () => {
@@ -159,6 +191,8 @@ export function useLightbox() {
       if (onPhotoChange && nextIndex !== undefined) {
         onPhotoChange(nextIndex);
       }
+      const slideNode = payload?.current?.slideNode ?? payload?.detail?.current?.slideNode;
+      applyVideoPreviewFrame(slideNode);
     });
   };
 

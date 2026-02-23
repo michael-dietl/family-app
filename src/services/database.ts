@@ -1902,6 +1902,20 @@ class DatabaseService {
     await this.db.run(sql, [wineId]);
   }
 
+  async deleteWinePhoto(photoId: number): Promise<void> {
+    if (!photoId) return;
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) {
+      await this.queueDeletion('winePhotos', photoId);
+      return;
+    }
+    if (!this.db) throw new Error('Database not initialized');
+
+    await this.queueDeletion('winePhotos', photoId);
+    const sql = 'DELETE FROM wine_photos WHERE id = ?;';
+    await this.db.run(sql, [photoId]);
+  }
+
   async getWines(searchTerm?: string): Promise<Wine[]> {
     if (!this.isInitialized) await this.initialize();
     if (this.useInMemory) return [];

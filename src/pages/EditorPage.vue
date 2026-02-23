@@ -211,6 +211,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+
 :global(ion-page) {
   --background: #111;
   background: #111;
@@ -252,20 +253,23 @@ onBeforeUnmount(() => {
 
 .image-editor-container {
   width: 100%;
-  height: 100%;
-  padding-bottom: env(safe-area-inset-bottom, 16px);
+  min-height: calc(100vh - 54px - env(safe-area-inset-bottom, 0px));
+  padding: env(safe-area-inset-top, 12px) 0 max(32px, env(safe-area-inset-bottom, 20px));
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   background: #0f0f0f;
   overflow: hidden;
-  min-height: calc(100vh - 54px);
 }
 
-ion-content {
+:global(ion-content) {
   --background: #111;
+  --padding-top: 0;
   --padding-bottom: 0;
-  min-height: calc(100vh - 54px);
+  --ion-safe-area-bottom: 0;
+  --ion-safe-area-top: 0;
+  min-height: 100vh;
+  height: 100vh;
 }
 
 :global(.FIE_main-container),

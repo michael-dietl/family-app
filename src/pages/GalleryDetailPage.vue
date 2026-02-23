@@ -1476,7 +1476,7 @@ onMounted(async () => {
   --background: rgba(255, 159, 10, 0.15);
   --color: var(--ion-color-warning);
   pointer-events: auto;
-  border: 1px solid rgba(255, 159, 10, 0.5);
+  border: none;
   box-shadow: 0 2px 8px rgba(255, 159, 10, 0.35);
 }
 
@@ -1549,16 +1549,18 @@ onMounted(async () => {
   transform: translate(-50%, -50%);
   pointer-events: auto;
   cursor: pointer;
-  background: rgba(0, 0, 0, 0.45);
+  background: #ffffff;
   border-radius: 50%;
-  padding: 8px;
+  padding: 10px;
   z-index: 10;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.25);
+  opacity: 0.5;
 }
 
 .video-overlay ion-icon {
   font-size: 48px;
-  color: white;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  color: var(--ion-color-primary);
+  filter: none;
 }
 
 .gallery-play-fab {

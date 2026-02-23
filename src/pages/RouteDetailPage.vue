@@ -43,7 +43,7 @@
               <h2>{{ routeData?.name || 'Route' }}</h2>
             </div>
             <div v-if="manualPlacementActive" class="manual-placement-banner">
-              <p>{{ $t('auto.wegpunkt_karte_tippen') }}</p>
+              <p>{{ manualPlacementInstruction }}</p>
               <ion-button size="small" fill="clear" color="medium" @click="cancelManualPlacement">
                 {{ $t('buttons.cancel') }}
               </ion-button>
@@ -83,28 +83,30 @@
                     <ion-icon :icon="routeModeIcon" :color="routeModeColor" />
                     <span>{{ routeModeLabel }}</span>
                   </div>
-                  <ion-button
-                    shape="round"
-                    fill="clear"
-                    color="medium"
-                    class="route-action status-valhalla-progress"
-                    disabled
-                  >
-                    <ion-spinner v-if="valhallaMatching" slot="start" name="crescent" />
-                    <ion-icon v-else slot="start" :icon="valhallaIcon" />
-                    <span>{{ valhallaMatching ? $t('auto.valhalla_processing') : $t('auto.valhalla_ready') }}</span>
-                  </ion-button>
-                  <ion-button
-                    shape="round"
-                    fill="outline"
-                    color="secondary"
-                    class="route-action status-valhalla-button"
-                    :disabled="valhallaMatching || !hasTrackPoints"
-                    @click="sendRouteToValhalla"
-                  >
-                    <ion-icon slot="start" :icon="valhallaIcon" />
-                    {{ $t('auto.valhalla_abgleichen') }}
-                  </ion-button>
+                  <div class="status-valhalla-group">
+                    <ion-button
+                      shape="round"
+                      fill="clear"
+                      color="medium"
+                      class="route-action status-valhalla-progress"
+                      disabled
+                    >
+                      <ion-spinner v-if="valhallaMatching" slot="start" name="crescent" />
+                      <ion-icon v-else slot="start" :icon="valhallaIcon" />
+                      <span>{{ valhallaMatching ? $t('auto.valhalla_processing') : $t('auto.valhalla_ready') }}</span>
+                    </ion-button>
+                    <ion-button
+                      shape="round"
+                      fill="outline"
+                      color="secondary"
+                      class="route-action status-valhalla-button"
+                      :disabled="valhallaMatching || !hasTrackPoints"
+                      @click="sendRouteToValhalla"
+                    >
+                      <ion-icon slot="start" :icon="valhallaIcon" />
+                      {{ $t('auto.valhalla_abgleichen') }}
+                    </ion-button>
+                  </div>
                   <ion-button
                     v-if="routeData && !routeData.isRecording"
                     shape="round"
@@ -230,7 +232,7 @@
                   </ion-label>
                   <ion-buttons slot="end" class="waypoint-action-group">
                     <ion-button
-                      v-if="wp.type === 'manual'"
+                      v-if="wp.type === 'manual' || wp.type === 'photo'"
                       fill="clear"
                       color="medium"
                       size="small"
@@ -516,6 +518,12 @@ const waypointEntries = computed(() => {
 const hasWaypointTab = computed(() => waypointEntries.value.length > 0);
 
 const manualPlacementActive = ref(false);
+const waypointPlacementMode = ref<'manual' | 'photo' | null>(null);
+const manualPlacementInstruction = computed(() =>
+  waypointPlacementMode.value === 'photo'
+    ? t('auto.foto_wegpunkt_karte_tippen')
+    : t('auto.wegpunkt_karte_tippen')
+);
 
 const valhallaTrace = ref<LatLonPoint[]>([]);
 const valhallaMatching = ref(false);
@@ -882,6 +890,73 @@ const preloadWaypointPhotos = async (list: Waypoint[]) => {
     }
   };
 
+  const promptWaypointInfo = async (
+    defaultName: string,
+    defaultDescription = ''
+  ): Promise<{ name: string; description: string } | null> => {
+    return new Promise(async (resolve) => {
+      const alert = await alertController.create({
+        header: t('auto.wegpunkt_details'),
+        inputs: [
+          {
+            name: 'name',
+            type: 'text',
+            placeholder: t('auto.wegpunkt_titel'),
+            value: defaultName
+          },
+          {
+            name: 'description',
+            type: 'textarea',
+            placeholder: t('auto.beschreibung_optional'),
+            value: defaultDescription
+          }
+        ],
+        buttons: [
+          {
+            text: t('auto.abbrechen'),
+            role: 'cancel',
+            handler: () => {
+              resolve(null);
+            }
+          },
+          {
+            text: t('auto.speichern'),
+            handler: (data) => {
+              resolve({
+                name: (data?.name?.trim() || defaultName).trim(),
+                description: data?.description?.trim() || ''
+              });
+              return true;
+            }
+          }
+        ]
+      });
+      await alert.present();
+    });
+  };
+
+  const persistManualWaypoint = async (location: LatLonPoint, details: { name: string; description: string }) => {
+    await db.createWaypoint({
+      routeId,
+      type: 'manual',
+      latitude: location.latitude,
+      longitude: location.longitude,
+      name: details.name || t('auto.wegpunkt'),
+      description: details.description || '',
+      timestamp: new Date().toISOString(),
+      updated: new Date().toISOString()
+    });
+    await loadData();
+    setTimeout(() => drawRoute(), 100);
+  };
+
+  const tryCreateManualWaypoint = async (location: LatLonPoint) => {
+    const details = await promptWaypointInfo(t('auto.wegpunkt'), '');
+    if (!details) return null;
+    await persistManualWaypoint(location, details);
+    return true;
+  };
+
   // --- Manuellen Wegpunkt hinzufügen ---
   function addManualWaypoint() {
     return addManualWaypointImpl();
@@ -896,29 +971,82 @@ const preloadWaypointPhotos = async (list: Waypoint[]) => {
     await toast.present();
   };
 
-  const createManualWaypoint = async (location: LatLonPoint) => {
-    await db.createWaypoint({
-      routeId,
-      type: 'manual',
-      latitude: location.latitude,
-      longitude: location.longitude,
-      name: t('auto.wegpunkt'),
-      description: '',
-      timestamp: new Date().toISOString(),
-      updated: new Date().toISOString()
-    });
-    await loadData();
-    setTimeout(() => drawRoute(), 100);
-  };
-
   const finalizeManualWaypointPlacement = async (location: LatLonPoint) => {
     manualPlacementActive.value = false;
+    waypointPlacementMode.value = null;
     try {
-      await createManualWaypoint(location);
+      const result = await tryCreateManualWaypoint(location);
+      if (!result) return;
       await presentManualWaypointOutcome(true);
     } catch (error) {
       console.error('Manual waypoint placement failed', error);
       await presentManualWaypointOutcome(false);
+    }
+  };
+
+  const persistPhotoWaypoint = async (
+    location: LatLonPoint,
+    details: { name: string; description: string },
+    payload: { base64: string; mimeType: string }
+  ) => {
+    const photoId = await db.createPhoto({
+      galleryId: 1,
+      filename: `route-photo-${Date.now()}.jpg`,
+      filepath: `data:${payload.mimeType};base64,${payload.base64}`,
+      thumbnail: payload.base64,
+      mimeType: payload.mimeType,
+      latitude: location.latitude,
+      longitude: location.longitude
+    });
+    await db.createWaypoint({
+      routeId,
+      type: 'photo',
+      latitude: location.latitude,
+      longitude: location.longitude,
+      name: details.name || t('auto.foto'),
+      description: details.description || '',
+      photoId,
+      timestamp: new Date().toISOString(),
+      updated: new Date().toISOString()
+    });
+    await loadData();
+    drawRoute();
+  };
+
+  const finalizePhotoWaypointPlacement = async (location: LatLonPoint) => {
+    manualPlacementActive.value = false;
+    waypointPlacementMode.value = null;
+    try {
+      const details = await promptWaypointInfo(t('auto.foto'), '');
+      if (!details) return;
+      const photo = await Camera.getPhoto({
+        resultType: CameraResultType.Base64,
+        source: CameraSource.Camera,
+        quality: 70
+      });
+      if (!photo.base64String) {
+        throw new Error('Photo capture was cancelled');
+      }
+      const mimeType = photo.format ? `image/${photo.format}` : 'image/jpeg';
+      await persistPhotoWaypoint(location, details, {
+        base64: photo.base64String,
+        mimeType
+      });
+      const toast = await toastController.create({
+        message: t('auto.foto_wegpunkt_hinzugefuegt'),
+        duration: 1500,
+        color: 'success'
+      });
+      await toast.present();
+    } catch (error) {
+      console.error('Photo waypoint placement failed', error);
+      if (error instanceof Error && error.message === 'Photo capture was cancelled') return;
+      const toast = await toastController.create({
+        message: t('auto.foto_wegpunkt_fehlgeschlagen'),
+        duration: 1500,
+        color: 'danger'
+      });
+      await toast.present();
     }
   };
 
@@ -928,23 +1056,37 @@ const preloadWaypointPhotos = async (list: Waypoint[]) => {
       await presentManualWaypointOutcome(false);
       return;
     }
-    await finalizeManualWaypointPlacement(location);
+    try {
+      const result = await tryCreateManualWaypoint(location);
+      if (!result) return;
+      await presentManualWaypointOutcome(true);
+    } catch (error) {
+      console.error('Manual waypoint creation failed', error);
+      await presentManualWaypointOutcome(false);
+    }
   };
 
-  const startManualWaypointPlacement = () => {
+  const startWaypointPlacement = (mode: 'manual' | 'photo') => {
     manualPlacementActive.value = true;
+    waypointPlacementMode.value = mode;
   };
 
   const cancelManualPlacement = () => {
     manualPlacementActive.value = false;
+    waypointPlacementMode.value = null;
   };
 
   const handleManualWaypointMapClick = async (event: L.LeafletMouseEvent) => {
-    if (!manualPlacementActive.value) return;
-    await finalizeManualWaypointPlacement({
+    if (!manualPlacementActive.value || !waypointPlacementMode.value) return;
+    const location = {
       latitude: event.latlng.lat,
       longitude: event.latlng.lng
     });
+    if (waypointPlacementMode.value === 'manual') {
+      await finalizeManualWaypointPlacement(location);
+    } else {
+      await finalizePhotoWaypointPlacement(location);
+    }
   };
 
 // --- Aufzeichnung pausieren ---
@@ -1040,12 +1182,17 @@ const stopRecordingImpl = async () => {
     return addPhotoWaypointImpl();
   }
   const addPhotoWaypointImpl = async () => {
+    const details = await promptWaypointInfo(t('auto.foto'), '');
+    if (!details) return;
     try {
       const photo = await Camera.getPhoto({
         resultType: CameraResultType.Base64,
         source: CameraSource.Camera,
         quality: 70
       });
+      if (!photo.base64String) {
+        throw new Error('Photo capture was cancelled');
+      }
       let location: LatLonPoint | null = null;
       if (photo.exif) {
         const coords = extractGPSFromCameraExif(photo.exif);
@@ -1062,28 +1209,11 @@ const stopRecordingImpl = async () => {
       if (!location) {
         throw new Error('Unable to resolve photo waypoint location');
       }
-      const photoId = await db.createPhoto({
-        galleryId: 1,
-        filename: `route-photo-${Date.now()}.jpg`,
-        filepath: `data:image/jpeg;base64,${photo.base64String}`,
-        thumbnail: photo.base64String,
-        mimeType: photo.format ? `image/${photo.format}` : 'image/jpeg',
-        latitude: location.latitude,
-        longitude: location.longitude
+      const mimeType = photo.format ? `image/${photo.format}` : 'image/jpeg';
+      await persistPhotoWaypoint(location, details, {
+        base64: photo.base64String,
+        mimeType
       });
-      await db.createWaypoint({
-        routeId,
-        type: 'photo',
-        latitude: location.latitude,
-        longitude: location.longitude,
-        name: 'Foto-Wegpunkt',
-        description: '',
-        photoId,
-        timestamp: new Date().toISOString(),
-        updated: new Date().toISOString()
-      });
-      await loadData();
-      drawRoute();
       const toast = await toastController.create({
         message: t('auto.foto_wegpunkt_hinzugefuegt'),
         duration: 1500,
@@ -1091,6 +1221,8 @@ const stopRecordingImpl = async () => {
       });
       await toast.present();
     } catch (err) {
+      console.error('Photo waypoint creation failed', err);
+      if (err instanceof Error && err.message === 'Photo capture was cancelled') return;
       const toast = await toastController.create({
         message: t('auto.foto_wegpunkt_fehlgeschlagen'),
         duration: 1500,
@@ -1392,10 +1524,17 @@ const showOptionsMenu = async () => {
     header: t('auto.route_optionen'),
     buttons: [
       {
-        text: t('auto.wegpunkt_hinzufügen'),
+        text: t('auto.foto_wegpunkt_eintragen'),
+        icon: cameraOutline,
+        handler: () => {
+          startWaypointPlacement('photo');
+        }
+      },
+      {
+        text: t('auto.manueller_wegpunkt_eintragen'),
         icon: flagOutline,
         handler: () => {
-          startManualWaypointPlacement();
+          startWaypointPlacement('manual');
         }
       },
       {
@@ -1742,6 +1881,12 @@ onMounted(async () => {
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.status-valhalla-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .status-valhalla-button {
