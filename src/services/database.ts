@@ -2,6 +2,7 @@ import { CapacitorSQLite, SQLiteConnection, SQLiteDBConnection } from '@capacito
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { buildSharedStoragePath, ensureDirectoryExists, getSharedStorageDirectory } from '@/services/storagePaths';
+import type { MapStyle } from '@/utils/mapStyles';
 
 
 
@@ -115,6 +116,7 @@ export interface Route {
   distance?: number; // in meters
   duration?: number; // in seconds
   travelMode?: 'car' | 'pedestrian' | 'bicycle' | 'motor_scooter';
+  mapStyle?: MapStyle;
   isRecording: boolean;
   created: string;
   updated: string;
@@ -594,6 +596,7 @@ class DatabaseService {
         distance REAL,
         duration INTEGER,
         travelMode TEXT NOT NULL DEFAULT 'car',
+        mapStyle TEXT NOT NULL DEFAULT 'street',
         isRecording INTEGER DEFAULT 1,
         created TEXT NOT NULL,
         updated TEXT NOT NULL
@@ -833,60 +836,66 @@ class DatabaseService {
       console.warn('Photo isVideo migration skipped:', error);
     }
 
-    const runAlter = async (statement: string) => {
+    const ensureColumn = async (table: string, column: string, alterStatement: string) => {
       try {
-        await this.db!.execute(statement);
+        const info = await this.db!.query(`PRAGMA table_info(${table});`);
+        const columnExists = info.values?.some((col: any) => col.name === column);
+        if (columnExists) return;
+        await this.db!.execute(alterStatement);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         if (!/duplicate column name/i.test(message)) {
-          console.warn('Todo column migration skipped:', message);
-          return;
+          console.warn('Column migration skipped:', message);
         }
       }
     };
 
-    await runAlter('ALTER TABLE galleries ADD COLUMN startDate TEXT;');
-    await runAlter('ALTER TABLE galleries ADD COLUMN endDate TEXT;');
-    await runAlter('ALTER TABLE galleries ADD COLUMN showOnMapAndTimeline INTEGER NOT NULL DEFAULT 1;');
-    await runAlter('ALTER TABLE todo_items ADD COLUMN dueDate TEXT;');
-    await runAlter('ALTER TABLE todo_items ADD COLUMN completionDate TEXT;');
-    await runAlter('ALTER TABLE galleries ADD COLUMN foreignID TEXT;');
-    await runAlter('ALTER TABLE galleries ADD COLUMN updated TEXT;');
-    await runAlter('ALTER TABLE photos ADD COLUMN foreignID TEXT;');
-    await runAlter('ALTER TABLE photos ADD COLUMN updated TEXT;');
-    await runAlter('ALTER TABLE photos ADD COLUMN storagePath TEXT;');
+    await ensureColumn('galleries', 'startDate', 'ALTER TABLE galleries ADD COLUMN startDate TEXT;');
+    await ensureColumn('galleries', 'endDate', 'ALTER TABLE galleries ADD COLUMN endDate TEXT;');
+    await ensureColumn('galleries', 'showOnMapAndTimeline', 'ALTER TABLE galleries ADD COLUMN showOnMapAndTimeline INTEGER NOT NULL DEFAULT 1;');
+    await ensureColumn('todo_items', 'dueDate', 'ALTER TABLE todo_items ADD COLUMN dueDate TEXT;');
+    await ensureColumn('todo_items', 'completionDate', 'ALTER TABLE todo_items ADD COLUMN completionDate TEXT;');
+    await ensureColumn('galleries', 'foreignID', 'ALTER TABLE galleries ADD COLUMN foreignID TEXT;');
+    await ensureColumn('galleries', 'updated', 'ALTER TABLE galleries ADD COLUMN updated TEXT;');
+    await ensureColumn('photos', 'foreignID', 'ALTER TABLE photos ADD COLUMN foreignID TEXT;');
+    await ensureColumn('photos', 'updated', 'ALTER TABLE photos ADD COLUMN updated TEXT;');
+    await ensureColumn('photos', 'storagePath', 'ALTER TABLE photos ADD COLUMN storagePath TEXT;');
     try {
       await this.db.execute('UPDATE photos SET storagePath = filepath WHERE storagePath IS NULL;');
     } catch (error) {
       console.warn('Photos storagePath initialization skipped:', error);
     }
-    await runAlter('ALTER TABLE book_categories ADD COLUMN foreignID TEXT;');
-    await runAlter('ALTER TABLE book_categories ADD COLUMN updated TEXT;');
-    await runAlter('ALTER TABLE books ADD COLUMN foreignID TEXT;');
-    await runAlter('ALTER TABLE books ADD COLUMN updated TEXT;');
-    await runAlter('ALTER TABLE routes ADD COLUMN foreignID TEXT;');
-    await runAlter('ALTER TABLE routes ADD COLUMN updated TEXT;');
-    await runAlter("ALTER TABLE routes ADD COLUMN travelMode TEXT NOT NULL DEFAULT 'car';");
-    await runAlter('ALTER TABLE waypoints ADD COLUMN foreignID TEXT;');
-    await runAlter('ALTER TABLE waypoints ADD COLUMN updated TEXT;');
-    await runAlter('ALTER TABLE waypoints ADD COLUMN valLatitude REAL;');
-    await runAlter('ALTER TABLE waypoints ADD COLUMN valLongitude REAL;');
-    await runAlter('ALTER TABLE wines ADD COLUMN foreignID TEXT;');
-    await runAlter('ALTER TABLE wines ADD COLUMN updated TEXT;');
-    await runAlter('ALTER TABLE wines ADD COLUMN showOnMap INTEGER NOT NULL DEFAULT 0;');
-    await runAlter('ALTER TABLE shopping_lists ADD COLUMN foreignID TEXT;');
-    await runAlter('ALTER TABLE shopping_items ADD COLUMN foreignID TEXT;');
-    await runAlter('ALTER TABLE shopping_items ADD COLUMN updated TEXT;');
-    await runAlter('ALTER TABLE todo_lists ADD COLUMN foreignID TEXT;');
-    await runAlter('ALTER TABLE todo_items ADD COLUMN foreignID TEXT;');
-    await runAlter('ALTER TABLE todo_items ADD COLUMN updated TEXT;');
-    await runAlter('ALTER TABLE todo_photos ADD COLUMN foreignID TEXT;');
-    await runAlter('ALTER TABLE todo_photos ADD COLUMN updated TEXT;');
-    await runAlter('ALTER TABLE timeline_events ADD COLUMN foreignID TEXT;');
-    await runAlter('ALTER TABLE timeline_events ADD COLUMN updated TEXT;');
-    await runAlter('ALTER TABLE timeline_events ADD COLUMN location TEXT;');
-    await runAlter('ALTER TABLE timeline_event_photos ADD COLUMN foreignID TEXT;');
-    await runAlter('ALTER TABLE timeline_event_photos ADD COLUMN updated TEXT;');
+    await ensureColumn('book_categories', 'foreignID', 'ALTER TABLE book_categories ADD COLUMN foreignID TEXT;');
+    await ensureColumn('book_categories', 'updated', 'ALTER TABLE book_categories ADD COLUMN updated TEXT;');
+    await ensureColumn('books', 'foreignID', 'ALTER TABLE books ADD COLUMN foreignID TEXT;');
+    await ensureColumn('books', 'updated', 'ALTER TABLE books ADD COLUMN updated TEXT;');
+    await ensureColumn('routes', 'foreignID', 'ALTER TABLE routes ADD COLUMN foreignID TEXT;');
+    await ensureColumn('routes', 'updated', 'ALTER TABLE routes ADD COLUMN updated TEXT;');
+    await ensureColumn('routes', 'travelMode', `ALTER TABLE routes ADD COLUMN travelMode TEXT NOT NULL DEFAULT 'car';`);
+    await ensureColumn('routes', 'mapStyle', `ALTER TABLE routes ADD COLUMN mapStyle TEXT NOT NULL DEFAULT 'street';`);
+    await ensureColumn('waypoints', 'foreignID', 'ALTER TABLE waypoints ADD COLUMN foreignID TEXT;');
+    await ensureColumn('waypoints', 'updated', 'ALTER TABLE waypoints ADD COLUMN updated TEXT;');
+    await ensureColumn('waypoints', 'valLatitude', 'ALTER TABLE waypoints ADD COLUMN valLatitude REAL;');
+    await ensureColumn('waypoints', 'valLongitude', 'ALTER TABLE waypoints ADD COLUMN valLongitude REAL;');
+    await ensureColumn('wines', 'foreignID', 'ALTER TABLE wines ADD COLUMN foreignID TEXT;');
+    await ensureColumn('wines', 'updated', 'ALTER TABLE wines ADD COLUMN updated TEXT;');
+    await ensureColumn('wines', 'showOnMap', 'ALTER TABLE wines ADD COLUMN showOnMap INTEGER NOT NULL DEFAULT 0;');
+    await ensureColumn('wines', 'categoryId', 'ALTER TABLE wines ADD COLUMN categoryId INTEGER;');
+    await ensureColumn('wines', 'purchaseDate', 'ALTER TABLE wines ADD COLUMN purchaseDate TEXT;');
+    await ensureColumn('wines', 'storageLocation', 'ALTER TABLE wines ADD COLUMN storageLocation TEXT;');
+    await ensureColumn('shopping_lists', 'foreignID', 'ALTER TABLE shopping_lists ADD COLUMN foreignID TEXT;');
+    await ensureColumn('shopping_items', 'foreignID', 'ALTER TABLE shopping_items ADD COLUMN foreignID TEXT;');
+    await ensureColumn('shopping_items', 'updated', 'ALTER TABLE shopping_items ADD COLUMN updated TEXT;');
+    await ensureColumn('todo_lists', 'foreignID', 'ALTER TABLE todo_lists ADD COLUMN foreignID TEXT;');
+    await ensureColumn('todo_items', 'foreignID', 'ALTER TABLE todo_items ADD COLUMN foreignID TEXT;');
+    await ensureColumn('todo_items', 'updated', 'ALTER TABLE todo_items ADD COLUMN updated TEXT;');
+    await ensureColumn('todo_photos', 'foreignID', 'ALTER TABLE todo_photos ADD COLUMN foreignID TEXT;');
+    await ensureColumn('todo_photos', 'updated', 'ALTER TABLE todo_photos ADD COLUMN updated TEXT;');
+    await ensureColumn('timeline_events', 'foreignID', 'ALTER TABLE timeline_events ADD COLUMN foreignID TEXT;');
+    await ensureColumn('timeline_events', 'updated', 'ALTER TABLE timeline_events ADD COLUMN updated TEXT;');
+    await ensureColumn('timeline_events', 'location', 'ALTER TABLE timeline_events ADD COLUMN location TEXT;');
+    await ensureColumn('timeline_event_photos', 'foreignID', 'ALTER TABLE timeline_event_photos ADD COLUMN foreignID TEXT;');
+    await ensureColumn('timeline_event_photos', 'updated', 'ALTER TABLE timeline_event_photos ADD COLUMN updated TEXT;');
   }
 
   async queueDeletion(entity: string, localId: number): Promise<void> {
@@ -1577,8 +1586,8 @@ class DatabaseService {
     const now = new Date().toISOString();
     const updated = route.updated ?? now;
     const sql = `
-      INSERT INTO routes (foreignID, name, description, startTime, endTime, distance, duration, travelMode, isRecording, created, updated)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      INSERT INTO routes (foreignID, name, description, startTime, endTime, distance, duration, travelMode, mapStyle, isRecording, created, updated)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
     
     const result = await this.db.run(sql, [
@@ -1590,6 +1599,7 @@ class DatabaseService {
       route.distance || null,
       route.duration || null,
       route.travelMode || 'car',
+      route.mapStyle || 'street',
       route.isRecording ? 1 : 0,
       now,
       updated
@@ -1609,7 +1619,8 @@ class DatabaseService {
     return (result.values || []).map((row: any) => ({
       ...row,
       isRecording: row.isRecording === 1,
-      travelMode: row.travelMode || 'car'
+      travelMode: row.travelMode || 'car',
+      mapStyle: row.mapStyle || 'street'
     }));
   }
 
@@ -1627,7 +1638,8 @@ class DatabaseService {
     return {
       ...row,
       isRecording: row.isRecording === 1,
-      travelMode: row.travelMode || 'car'
+      travelMode: row.travelMode || 'car',
+      mapStyle: row.mapStyle || 'street'
     };
   }
 

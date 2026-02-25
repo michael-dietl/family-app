@@ -6,122 +6,60 @@
             <ion-back-button default-href="/routes"  router-direction="back"/>
           </ion-buttons>
         <ion-title>{{ routeData?.name || $t('auto.route') }}</ion-title>
-        <template #end>
-          <ion-buttons>
-            <ion-button @click="showOptionsMenu">
-              <ion-icon :icon="ellipsisVerticalOutline" />
-            </ion-button>
-          </ion-buttons>
-        </template>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" color="medium" @click="showOptionsMenu" aria-label="{{ t('auto.route_optionen') }}">
+            <ion-icon :icon="ellipsisVerticalOutline" />
+          </ion-button>
+        </ion-buttons>
       </ion-toolbar>
     </ion-header>
     <ion-content>
       <div v-if="isLoading" class="loading-container">
         <ion-spinner name="crescent" />
       </div>
-      <div v-else style="position:relative; height:100%; min-height:400px;">
+        <div v-else style="position:relative; height:100%; min-height:400px;">
         <!-- Karte bleibt immer sichtbar -->
         <div id="detail-map" class="map-container" style="height: 50vh; min-height: 250px;"></div>
-
-        <!-- Tabs immer sichtbar -->
-        <div class="tabs-bar">
-          <button
-            :class="['tab-btn', {active: activeTab==='info'}]"
-            @click="activeTab='info'"
-          >{{$t('auto.info')}}</button>
-          <button
-            v-if="hasWaypointTab"
-            :class="['tab-btn', {active: activeTab==='waypoints'}]"
-            @click="activeTab='waypoints'"
-          >{{$t('auto.wegpunkte')}}</button>
-        </div>
-
-        <!-- Info-Tab -->
-        <div v-show="activeTab==='info'">
-          <div class="info-card">
-            <div class="info-header">
-              <h2>{{ routeData?.name || 'Route' }}</h2>
-            </div>
-            <div v-if="manualPlacementActive" class="manual-placement-banner">
-              <p>{{ manualPlacementInstruction }}</p>
-              <ion-button size="small" fill="clear" color="medium" @click="cancelManualPlacement">
-                {{ $t('buttons.cancel') }}
-              </ion-button>
-            </div>
-            <div class="stats-grid">
-              <div class="stat">
-                <ion-icon :icon="timeOutline" />
-                <div>
-                  <div class="stat-value">{{ displayDuration }}</div>
-                  <div class="stat-label">{{$t('auto.dauer')}}</div>
-                </div>
-              </div>
-              <div class="stat">
-                <ion-icon :icon="navigateOutline" />
-                <div>
-                  <div class="stat-value">{{ liveDistance != null ? formatDistance(liveDistance) : '-' }}</div>
-                  <div class="stat-label">{{$t('auto.distanz')}}</div>
-                </div>
-              </div>
-              <div class="stat">
-                <ion-icon :icon="flagOutline" />
-                <div>
-                  <div class="stat-value">{{ waypoints.length }}</div>
-                  <div class="stat-label">{{$t('auto.wegpunkte')}}</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Meta-Infos -->
+          <div v-show="activeTab==='info'">
+            <div class="info-card">
             <div class="info-meta">
               <div class="status-row">
-                <p class="status-text"><strong>{{$t('auto.status')}}</strong>
-                  <span :style="{color: routeData?.isRecording ? '#3880ff' : '#eb445a'}">{{ routeData?.isRecording ? $t('auto.aufzeichnung_läuft') : $t('auto.beendet_status') }}</span>
-                </p>
-                <div class="status-right">
-                  <div class="status-mode-chip">
-                    <ion-icon :icon="routeModeIcon" :color="routeModeColor" />
-                    <span>{{ routeModeLabel }}</span>
-                  </div>
-                  <div class="status-valhalla-group">
-                    <ion-button
-                      shape="round"
-                      fill="clear"
-                      color="medium"
-                      class="route-action status-valhalla-progress"
-                      disabled
-                    >
-                      <ion-spinner v-if="valhallaMatching" slot="start" name="crescent" />
-                      <ion-icon v-else slot="start" :icon="valhallaIcon" />
-                      <span>{{ valhallaMatching ? $t('auto.valhalla_processing') : $t('auto.valhalla_ready') }}</span>
-                    </ion-button>
-                    <ion-button
-                      shape="round"
-                      fill="outline"
-                      color="secondary"
-                      class="route-action status-valhalla-button"
-                      :disabled="valhallaMatching || !hasTrackPoints"
-                      @click="sendRouteToValhalla"
-                    >
-                      <ion-icon slot="start" :icon="valhallaIcon" />
-                      {{ $t('auto.valhalla_abgleichen') }}
-                    </ion-button>
-                  </div>
-                  <ion-button
-                    v-if="routeData && !routeData.isRecording"
-                    shape="round"
-                    fill="outline"
-                    color="warning"
-                    class="route-action status-add-waypoint-button"
-                    :aria-label="$t('auto.wegpunkt_hinzufügen')"
-                    @click="addManualWaypoint"
-                  >
-                    <ion-icon slot="icon-only" :icon="addOutline" />
-                  </ion-button>
+                <div class="status-summary">
+                  <p class="status-line">
+                    <span class="status-line-label">{{ $t('auto.status') }}</span>
+                    <span class="status-value">{{ recordingStatusLabel }}</span>
+                    <span class="status-separator" aria-hidden="true">•</span>
+                    <span class="status-type-chip">
+                      <ion-icon :icon="routeModeIcon" :color="routeModeColor" />
+                      <span>{{ routeModeLabel }}</span>
+                    </span>
+                  </p>
+                </div>
+                <div class="status-actions" aria-hidden="true"></div>
+              </div>
+              <div class="meta-row">
+                <div class="meta-row-text">
+                  <strong>{{ $t('auto.start') }}</strong>
+                  {{ routeData?.startTime ? formatDateTime(routeData.startTime) : '-' }}
                 </div>
               </div>
-              <p class="meta-row"><strong>{{$t('auto.start')}}</strong> {{ routeData?.startTime ? formatDateTime(routeData.startTime) : '-' }}</p>
-              <p v-if="routeData?.endTime" class="meta-row"><strong>{{$t('auto.ende')}}</strong> {{ formatDateTime(routeData.endTime) }}</p>
+              <div v-if="routeData?.endTime" class="meta-row meta-row-end">
+                <div class="meta-row-text">
+                  <strong>{{ $t('auto.ende') }}</strong>
+                  {{ formatDateTime(routeData.endTime) }}
+                </div>
+                <ion-button
+                  v-if="routeData && !routeData.isRecording"
+                  shape="round"
+                  fill="outline"
+                  color="primary"
+                  class="route-action meta-continue-button"
+                  @click="resumeRecording"
+                >
+                  <ion-icon slot="start" :icon="playOutline" />
+                  {{ $t('auto.fortsetzen') }}
+                </ion-button>
+              </div>
             </div>
 
             <!-- Aufzeichnungs-Controls -->
@@ -191,6 +129,33 @@
                   <ion-icon slot="icon-only" :icon="cameraOutline" expand="block"/>
                 </ion-button>
               </div>
+            </div>
+            <div
+              v-if="routeData && !routeData.isRecording"
+              class="valhalla-footer"
+            >
+              <ion-button
+                shape="round"
+                fill="outline"
+                color="secondary"
+                class="route-action valhalla-button"
+                :disabled="valhallaMatching || !hasTrackPoints"
+                @click="sendRouteToValhalla"
+              >
+                <ion-spinner
+                  v-if="valhallaMatching"
+                  slot="start"
+                  name="crescent"
+                />
+                <ion-icon
+                  v-else
+                  slot="start"
+                  :icon="valhallaIcon"
+                />
+                <span>
+                  {{ valhallaMatching ? $t('auto.valhalla_processing') : $t('auto.valhalla_abgleichen') }}
+                </span>
+              </ion-button>
             </div>
           </div>
         </div>
@@ -1081,7 +1046,7 @@ const preloadWaypointPhotos = async (list: Waypoint[]) => {
     const location = {
       latitude: event.latlng.lat,
       longitude: event.latlng.lng
-    });
+    };
     if (waypointPlacementMode.value === 'manual') {
       await finalizeManualWaypointPlacement(location);
     } else {
@@ -1860,15 +1825,34 @@ onMounted(async () => {
   margin-top: 4px;
 }
 
-.status-text {
+.status-summary {
+  flex: 1 1 240px;
+}
+
+.status-line {
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  flex-wrap: wrap;
   margin: 0;
   font-size: 14px;
+  color: var(--ion-text-color);
 }
 
-.status-mode-chip {
+.status-line-label {
+  font-weight: 600;
+}
+
+.status-value {
+  font-weight: 600;
+  color: var(--ion-color-dark);
+}
+
+.status-separator {
+  opacity: 0.4;
+}
+
+.status-type-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -1876,11 +1860,15 @@ onMounted(async () => {
   color: var(--ion-color-medium);
 }
 
-.status-right {
+.status-type-chip ion-icon {
+  font-size: 1rem;
+}
+
+.status-actions {
   display: flex;
+  justify-content: flex-end;
   align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  min-width: 220px;
 }
 
 .status-valhalla-group {
@@ -1919,18 +1907,6 @@ onMounted(async () => {
 .status-valhalla-progress ion-spinner {
   width: 18px;
   height: 18px;
-}
-
-.status-add-waypoint-button {
-  min-width: 44px;
-  min-height: 44px;
-  --border-radius: 14px;
-  border: 1px dashed var(--ion-color-medium);
-  color: var(--ion-color-medium);
-}
-
-.status-mode-chip ion-icon {
-  font-size: 1rem;
 }
 
 .info-stats {
@@ -1980,11 +1956,31 @@ onMounted(async () => {
   margin: 4px 0 10px;
 }
 
-.info-meta p {
-  margin: 4px 0;
+.info-meta .meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 6px 0;
+}
+
+.info-meta .meta-row-text {
+  flex: 1;
   font-size: 14px;
   color: var(--ion-text-color);
 }
+
+.info-meta .meta-row-end {
+  margin-top: 2px;
+}
+
+.meta-continue-button {
+  white-space: nowrap;
+  font-size: 13px;
+  --border-radius: 16px;
+  padding-inline: 0.65rem;
+}
+
 
 .waypoints-section {
   margin-top: 20px;
@@ -2075,6 +2071,25 @@ onMounted(async () => {
 .route-edit-modal ion-input::part(native),
 .route-edit-modal ion-textarea::part(native) {
   background: transparent;
+}
+.valhalla-footer {
+  position: sticky;
+  bottom: 0;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0),
+    var(--ion-background-color)
+  );
+  display: flex;
+  justify-content: center;
+  z-index: 1;
+}
+.valhalla-button {
+  width: 100%;
+  max-width: 420px;
+  --border-radius: 18px;
 }
 </style>
 

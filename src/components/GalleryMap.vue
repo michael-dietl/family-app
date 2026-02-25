@@ -97,20 +97,13 @@ const createPopupContent = (photo: Photo): string => {
   
   return `
     <div class="photo-popup">
-      <img src="${getImageSrc(photo.filepath)}" alt="${photo.filename}" style="max-width: 200px; max-height: 150px; object-fit: cover; border-radius: 4px;">
+      <img class="gallery-popup-image" src="${getImageSrc(photo.filepath)}" alt="${photo.filename}" style="max-width: 200px; max-height: 150px; object-fit: cover; border-radius: 4px;">
       <p style="margin: 8px 0 0; font-size: 12px; font-weight: 500;">${photo.filename}</p>
       ${dateLine}
     </div>
   `;
 };
 
-const createTooltipContent = (photo: Photo): string => {
-  return `
-    <div class="photo-tooltip">
-      <img src="${getImageSrc(photo.filepath)}" alt="${photo.filename}" style="max-width: 150px; max-height: 120px; object-fit: cover; border-radius: 4px;">
-    </div>
-  `;
-};
 
 const initMap = async () => {
   if (!mapContainer.value || photosWithLocation.value.length === 0) {
@@ -151,7 +144,6 @@ const initMap = async () => {
         console.log('📍 Adding marker:', photo.latitude, photo.longitude);
         
         const popupContent = createPopupContent(photo);
-        const tooltipContent = createTooltipContent(photo);
         
         // Erstelle farbigen Marker basierend auf Galerie-Farbe
         const galleryColor = galleryColors.value.get(photo.galleryId) || '#3880ff';
@@ -173,19 +165,20 @@ const initMap = async () => {
         
         const marker = L.marker([photo.latitude, photo.longitude], { icon: customIcon })
           .addTo(map!)
-          .bindPopup(popupContent)
-          .bindTooltip(tooltipContent, {
-            direction: 'top',
-            offset: [0, -25],
-            opacity: 0.95
-          });
+          .bindPopup(popupContent);
 
-        // Klick auf Marker → Photo öffnen
-        marker.on('click', () => {
-          const originalIndex = props.photos.findIndex(p => p.id === photo.id);
-          if (originalIndex !== -1) {
-            emit('photoClick', originalIndex);
-          }
+        const originalIndex = props.photos.findIndex(p => p.id === photo.id);
+        marker.on('popupopen', () => {
+          const popupElement = marker.getPopup()?.getElement();
+          const image = popupElement?.querySelector<HTMLImageElement>('.gallery-popup-image');
+          if (!image) return;
+          image.onclick = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (originalIndex !== -1) {
+              emit('photoClick', originalIndex);
+            }
+          };
         });
 
         markers.push(marker);
@@ -326,15 +319,4 @@ watch(() => props.photos, async () => {
 }
 
 /* Tooltip Styles */
-.leaflet-tooltip {
-  padding: 4px;
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  border: 2px solid white;
-}
-
-.photo-tooltip img {
-  display: block;
-  border-radius: 4px;
-}
 </style>

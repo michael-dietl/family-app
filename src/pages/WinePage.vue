@@ -282,6 +282,9 @@
                 <ion-icon :icon="locationOutline"></ion-icon>
                 <ion-label>{{ $t('auto.gps_daten_vorhanden') }}</ion-label>
               </ion-chip>
+              <ion-button expand="block" fill="outline" class="edit-photo-button" @click="openImageEditorForTempPhoto">
+                {{ $t('auto.bild_bearbeiten') }}
+              </ion-button>
             </div>
           </ion-list>
 
@@ -303,7 +306,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   IonPage,
@@ -465,11 +468,6 @@ const handleTakePhoto = async () => {
     }
     setCapturedPhoto(processedPhotoPath);
     tempPhotoForEdit.value = processedPhotoPath || '';
-    if (!processedPhotoPath) {
-      return;
-    }
-    await nextTick();
-    openImageEditorForTempPhoto();
   } catch (error: any) {
     console.error('Photo error in component:', error);
     isPhotoProcessing.value = false;
@@ -726,6 +724,10 @@ onMounted(async () => {
 
 .photo-preview ion-chip {
   margin-top: 8px;
+}
+
+.edit-photo-button {
+  margin-top: 16px;
 }
 
 .wine-fab {

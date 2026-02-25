@@ -132,6 +132,14 @@
                           <ion-radio slot="end" :value="option.value" />
                         </ion-item>
                       </ion-radio-group>
+                      <ion-item>
+                        <ion-label position="stacked">{{ t('auto.kartenstil') }}</ion-label>
+                        <ion-segment scrollable v-model="routeEditForm.mapStyle">
+                          <ion-segment-button v-for="option in mapStyleOptions" :key="option.value" :value="option.value">
+                            {{ option.label }}
+                          </ion-segment-button>
+                        </ion-segment>
+                      </ion-item>
                     </ion-list>
                   </ion-content>
                 </ion-modal>
@@ -221,6 +229,8 @@ import {
   IonLabel,
   IonRadioGroup,
   IonRadio,
+  IonSegment,
+  IonSegmentButton,
   alertController,
   toastController,
   onIonViewWillEnter
@@ -239,6 +249,7 @@ import {
 } from 'ionicons/icons';
 import { scooterIcon } from '@/icons/scooter';
 import { db, type Route } from '@/services/database';
+import { DEFAULT_MAP_STYLE, MAP_STYLE_CONFIGS, type MapStyle } from '@/utils/mapStyles';
 type Waypoint = import('@/services/database').Waypoint;
 
 const router = useRouter();
@@ -254,7 +265,8 @@ const routeToEdit = ref<Route | null>(null);
 const routeEditForm = reactive({
   name: '',
   description: '',
-  travelMode: 'car' as Route['travelMode']
+  travelMode: 'car' as Route['travelMode'],
+  mapStyle: DEFAULT_MAP_STYLE as MapStyle
 });
 const isRouteEditValid = computed(() => routeEditForm.name.trim().length > 0);
 const TRAVEL_MODE_CONFIGS: Array<{
@@ -271,6 +283,12 @@ const travelModeOptions = computed(() =>
   TRAVEL_MODE_CONFIGS.map((config) => ({
     ...config,
     label: getRouteModeLabel(config.value)
+  }))
+);
+const mapStyleOptions = computed(() =>
+  MAP_STYLE_CONFIGS.map((config) => ({
+    value: config.value,
+    label: t(config.labelKey)
   }))
 );
 
@@ -371,7 +389,8 @@ const confirmStartRoute = async () => {
       name,
       startTime: new Date().toISOString(),
       isRecording: true,
-      travelMode: newRouteMode.value
+      travelMode: newRouteMode.value,
+      mapStyle: DEFAULT_MAP_STYLE
     });
     startRouteModalOpen.value = false;
     router.push(`/routes/${routeId}/record`);
@@ -395,6 +414,7 @@ const openEditRouteModal = (route: Route) => {
   routeEditForm.name = route.name;
   routeEditForm.description = route.description ?? '';
   routeEditForm.travelMode = route.travelMode ?? 'car';
+  routeEditForm.mapStyle = route.mapStyle ?? DEFAULT_MAP_STYLE;
   editRouteModalOpen.value = true;
 };
 
@@ -410,7 +430,8 @@ const saveRouteEdits = async () => {
   const updates: Partial<Route> = {
     name,
     description: routeEditForm.description.trim() || undefined,
-    travelMode: routeEditForm.travelMode
+    travelMode: routeEditForm.travelMode,
+    mapStyle: routeEditForm.mapStyle
   };
 
   await db.updateRoute(routeToEdit.value.id!, updates);

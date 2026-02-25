@@ -3,6 +3,9 @@
 ## Project Overview
 **dietl.mobi** ist eine Ionic + Vue 3 + Capacitor Mobile App für **Bildergalerie-Management** (ähnlich Piwigo) und **Weinkeller-Verwaltung**. Die App läuft auf Android und Web mit nativen Capabilities.
 
+## Chat-Sprache
+deutsch
+
 ## Architecture
 
 ### Stack
@@ -30,8 +33,8 @@
 
 ### Development Server
 ```bash
-npm run dev           # Vite dev server
-npm run preview       # Production build preview
+nvm use 22 && npm run dev           # Vite dev server
+nvm use 22 && npm run preview       # Production build preview
 ```
 
 ### Mobile Development
@@ -43,10 +46,15 @@ npx cap run android   # Build + Run auf Device/Emulator
 
 ### Testing & Building
 ```bash
-npm run build         # TypeScript check + Vite build → dist/
-npm run test:unit     # Vitest tests
-npm run test:e2e      # Cypress tests
-npm run lint          # ESLint check
+nvm use 22 && npm run build         # TypeScript check + Vite build → dist/
+nvm use 22 && npm run test:unit     # Vitest tests
+nvm use 22 && npm run test:e2e      # Cypress tests
+nvm use 22 && npm run lint          # ESLint check
+```
+
+### Deploy
+```bash
+nvm use 22 &&  npm run build && npx cap sync android && npx cap run android --target R3CX80E3XCK
 ```
 
 ### Fehleranalyse

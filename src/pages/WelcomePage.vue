@@ -251,8 +251,8 @@ onMounted(async () => {
 }
 
 .welcome-header .logo {
-  width: 80px;
-  height: 80px;
+  width: 60px;
+  height: 60px;
   margin-bottom: 0.5rem;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }

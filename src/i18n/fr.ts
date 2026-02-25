@@ -82,6 +82,13 @@ export default {
 
     "keine_fotos_mit_gps_daten_vorhanden": "Aucune photo avec données GPS disponible",
     "videos_werden_nicht_auf_der_karte_angezeigt": "Les vidéos ne sont pas affichées sur la carte",
+    kartenstil: "Style de carte",
+    map_style_street: "Street",
+    map_style_outdoor: "Outdoor",
+    map_style_dark: "Sombre",
+    kartenstil_aendern: "Changer de style de carte",
+    kartenstil_aktualisiert: "Style de carte mis à jour",
+    wegpunkt_popup_verschieben: "Déplacer le point",
 
     "bild_bearbeiten": "Modifier l’image",
 
@@ -148,6 +155,9 @@ export default {
     "das_foto_konnte_nicht_hinzugefügt_werden_n_ndetails_errormes": "La photo n’a pas pu être ajoutée.\n\nDétails : ${errorMessage}",
     "die_fotos_konnten_nicht_hinzugefügt_werden": "Les photos n’ont pas pu être ajoutées.",
     "gallerie_optionen": "Options de galerie",
+    "gallerie": "Galerie",
+    "gallerie_auswaehlen": "Sélectionner une galerie",
+    "gallerie_auswahl_bestätigen": "Choisir",
     "gallerie_bearbeiten": "Modifier la galerie",
     "gallerie_bearbeiten_fehler": "La galerie n’a pas pu être mise à jour.",
     "gallerie_löschen": "Supprimer la galerie",
@@ -242,6 +252,8 @@ export default {
     "manueller_wegpunkt_hinzugefuegt": "Point de passage manuel ajouté",
     "manueller_wegpunkt_fehlgeschlagen": "Échec de l’ajout du point de passage manuel",
     "wegpunkt_karte_tippen": "Touchez la carte pour placer le point de passage",
+    "wegpunkt_karte_verschieben": "Faites glisser l'épingle pour ajuster la position",
+    "wegpunkt_langgedrueckt_verschieben": "Appuyez longuement sur un point pour le déplacer",
     "foto_wegpunkt_hinzugefuegt": "Point de passage photo ajouté",
     "foto_wegpunkt_fehlgeschlagen": "Échec de l’ajout du point de passage photo",
     "foto_wegpunkt_eintragen": "Ajouter un point de passage photo",
