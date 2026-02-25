@@ -35,6 +35,7 @@
     "@ionic/vue": "^8.0.0",
     "@ionic/vue-router": "^8.0.0",
     "@whiteguru/capacitor-plugin-video-editor": "^7.1.0",
+    "cordova-plugin-speechrecognition": "^1.2.0",
     "exifr": "^7.1.3",
     "exifreader": "^4.36.0",
     "filerobot-image-editor": "^5.0.0",

@@ -1979,6 +1979,7 @@ onMounted(async () => {
   font-size: 13px;
   --border-radius: 16px;
   padding-inline: 0.65rem;
+  margin-left: 10px;
 }
 
 

@@ -199,21 +199,32 @@ onBeforeUnmount(() => {
 <style scoped>
 .image-editor-content {
   min-height: 100vh;
+  height: 100vh;
+  width: 100vw;
   display: flex;
+  background: #fff;
 }
 
 .image-editor-container {
   width: 100%;
   flex: 1;
   min-height: 0;
-  background: #1e1e1e;
+  background: #fff;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-sizing: border-box;
-  margin-top: calc(env(safe-area-inset-top, 0px) + 8px);
+  margin-top: 0;
+  padding-top: 0;
   margin-bottom: env(safe-area-inset-bottom, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  height: calc(100% - 60px);
+  border-radius: 0;
+}
+
+:global(.FIE_main-container),
+:global(.FIE_editor-content) {
+  border-radius: 0;
 }
 
 .empty-state {
