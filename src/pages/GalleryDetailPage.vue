@@ -195,7 +195,7 @@
         <GalleryMap :photos="photos" @photo-click="openPhoto" />
       </div>
 
-      <ion-fab vertical="bottom" horizontal="end" class="gallery-play-fab app-fab">
+      <ion-fab v-if="!selectionMode" vertical="bottom" horizontal="end" class="gallery-play-fab app-fab">
         <ion-fab-button
           color="primary"
           class="fab-outline-shadow"
@@ -441,11 +441,18 @@ import { db, type Photo } from '@/services/database';
 import { buildSharedStoragePath, getSharedStorageDirectory } from '@/services/storagePaths';
 import { setImageEditorNavigationContext } from '@/composables/useImageEditorNavigation';
 
-// Default Back-Link für ion-back-button
-const backHref = '/gallery';
-
 const route = useRoute();
 const router = useRouter();
+
+const isTimelineSource = computed(() => {
+  const from = route.query.from;
+  if (Array.isArray(from)) {
+    return from.includes('timeline');
+  }
+  return from === 'timeline';
+});
+
+const backHref = computed(() => (isTimelineSource.value ? '/timeline' : '/gallery'));
 const { t } = useI18n();
 const { currentGallery, photos, isLoading, loadGallery, deleteGallery, updateGallery } = useGallery();
 const { takePhoto, pickSinglePhoto, pickMultiplePhotos, savePhoto, saveMultiplePhotos, deletePhoto: removePhoto, isProcessing, extractExifData } = usePhoto();
@@ -1509,14 +1516,26 @@ onMounted(async () => {
   position: absolute;
   top: 8px;
   right: 8px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 50%;
-  padding: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .selection-checkbox ion-checkbox {
   margin: 0;
+  width: 28px;
+  height: 28px;
+  --border-width: 1px;
+  --border-style: solid;
+  --border-color: var(--ion-color-warning);
+  --border-color-focused: var(--ion-color-warning);
+  --border-color-hover: var(--ion-color-warning);
+  --border-color-checked: var(--ion-color-warning);
+  --border-radius: 6px;
+  --background: transparent;
+  --checked-background: transparent;
+  --checkmark-color: var(--ion-color-warning);
 }
 
 .photo-item ion-img {

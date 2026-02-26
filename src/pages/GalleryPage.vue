@@ -30,6 +30,14 @@
         :placeholder="t('auto.gallerien_durchsuchen')"
         :debounce="200"
       />
+      <ion-segment class="gallery-filter" v-model="galleryFilterMode">
+        <ion-segment-button value="all">
+          {{ t('auto.alle') }}
+        </ion-segment-button>
+        <ion-segment-button value="mine">
+          {{ t('auto.meine_gallerien') }}
+        </ion-segment-button>
+      </ion-segment>
 
       <!-- Loading State -->
       <div v-if="isLoading" class="loading-container">
@@ -221,7 +229,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, computed } from 'vue';
+import { ref, onMounted, nextTick, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
@@ -251,14 +259,19 @@ import {
   IonLabel,
   IonDatetime,
   IonToggle,
-  alertController
+  IonSegment,
+  IonSegmentButton,
+  alertController,
+  onIonViewWillEnter
 } from '@ionic/vue';
 import { add, close, imagesOutline, imageOutline, calendarOutline } from 'ionicons/icons';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { Preferences } from '@capacitor/preferences';
 import { useGallery } from '@/composables/useGallery';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 import { db } from '@/services/database';
+import { getPocketbaseAuthorId } from '@/services/pocketbase';
 
 type GalleryDateField = 'start' | 'end';
 
@@ -280,6 +293,13 @@ const newGalleryShowOnMap = ref(true);
 const photoCounts = ref<Record<number, number>>({});
 const galleryCoverPhotos = ref<Record<number, string>>({});
 const searchQuery = ref('');
+const GALLERY_FILTER_KEY = 'gallery_filter_mode';
+type GalleryFilterMode = 'all' | 'mine';
+const galleryFilterMode = ref<GalleryFilterMode>('all');
+const currentAuthorId = ref<string | null>(null);
+watch(galleryFilterMode, (mode) => {
+  void Preferences.set({ key: GALLERY_FILTER_KEY, value: mode });
+});
 const showDatePickerModal = ref(false);
 const datePickerValue = ref('');
 const datePickerTarget = ref<GalleryDateField>('start');
@@ -304,9 +324,15 @@ const presetColors = [
 ];
 
 const filteredGalleries = computed(() => {
+  const baseList = galleryFilterMode.value === 'mine' && currentAuthorId.value
+    ? galleries.value.filter(gallery => gallery.pb_author === currentAuthorId.value)
+    : galleryFilterMode.value === 'mine'
+      ? []
+      : galleries.value;
+
   const query = searchQuery.value.trim().toLowerCase();
-  if (!query) return galleries.value;
-  return galleries.value.filter(gallery => {
+  if (!query) return baseList;
+  return baseList.filter(gallery => {
     const name = gallery.name?.toLowerCase() || '';
     const description = gallery.description?.toLowerCase() || '';
     return name.includes(query) || description.includes(query);
@@ -317,6 +343,11 @@ onMounted(async () => {
   await loadGalleries();
   await loadPhotoCounts();
   await autoSyncIfEnabled();
+  await refreshGalleryFilterState();
+});
+
+onIonViewWillEnter(() => {
+  void refreshGalleryFilterState();
 });
 
 const loadPhotoCounts = async () => {
@@ -348,6 +379,20 @@ const loadPhotoCounts = async () => {
   } catch (error) {
     console.error('Error loading photo counts:', error);
   }
+};
+
+const refreshGalleryFilterState = async () => {
+  const stored = await Preferences.get({ key: GALLERY_FILTER_KEY });
+  if (stored.value === 'mine' || stored.value === 'all') {
+    galleryFilterMode.value = stored.value;
+  }
+  currentAuthorId.value = await getPocketbaseAuthorId();
+};
+
+const ensureAuthorId = async () => {
+  if (currentAuthorId.value) return currentAuthorId.value;
+  currentAuthorId.value = await getPocketbaseAuthorId();
+  return currentAuthorId.value;
 };
 
 const photoCount = (galleryId: number) => {
@@ -418,6 +463,7 @@ const handleCreateGallery = async () => {
   if (!newGalleryName.value) return;
 
   try {
+    const authorId = await ensureAuthorId();
     // Galerie erstellen (lädt automatisch die Galerie-Liste neu in useGallery)
     await createGallery(
       newGalleryName.value,
@@ -425,7 +471,8 @@ const handleCreateGallery = async () => {
       newGalleryColor.value,
       newGalleryStartDate.value || undefined,
       newGalleryEndDate.value || undefined,
-      newGalleryShowOnMap.value
+      newGalleryShowOnMap.value,
+      authorId
     );
     
     // Photo counts laden (verwendet die aktualisierte galleries-Liste aus useGallery)
@@ -567,6 +614,19 @@ onMounted(async () => {
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.gallery-filter {
+  margin: 0 0 1rem;
+  border-radius: 12px;
+  padding: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+}
+
+.gallery-filter ion-segment-button {
+  font-size: 0.85rem;
+  text-transform: none;
 }
 
 ion-card {

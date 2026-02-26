@@ -16,7 +16,7 @@
         </ion-text>
 
         <ion-item lines="none" class="share-target-progress" v-if="isUploading">
-          <ion-progress-bar :value="progressRatio" buffer="1"></ion-progress-bar>
+          <ion-progress-bar :value="progressRatio" :buffer="1"></ion-progress-bar>
         </ion-item>
 
         <ion-card v-if="items.length > 0" class="share-target-card">
@@ -126,16 +126,40 @@ import { useI18n } from 'vue-i18n';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { useRouter } from 'vue-router';
+import {
+  IonPage,
+  IonHeader,
+  IonToolbar,
+  IonButtons,
+  IonBackButton,
+  IonTitle,
+  IonContent,
+  IonText,
+  IonCard,
+  IonCardHeader,
+  IonCardTitle,
+  IonCardSubtitle,
+  IonProgressBar,
+  IonItem,
+  IonLabel,
+  IonSelect,
+  IonSelectOption,
+  IonNote,
+  IonButton,
+  IonBadge,
+  IonToast
+} from '@ionic/vue';
 import { useGallery } from '@/composables/useGallery';
 import { usePhoto } from '@/composables/usePhoto';
 import { useShareTarget } from '@/composables/useShareTarget';
 import { readContentUri } from '@/services/contentReader';
+import { getPocketbaseAuthorId } from '@/services/pocketbase';
 
 import type { SharedTargetItem } from '@/composables/useShareTarget';
 
 const router = useRouter();
 const { t } = useI18n();
-const { galleries, initialize, createGallery } = useGallery();
+const { galleries, initialize, createGallery, currentGallery } = useGallery();
 const { sharedItems, clearSharedItems, removeSharedItem } = useShareTarget();
 const { saveMultiplePhotos, isProcessing } = usePhoto();
 
@@ -200,13 +224,23 @@ const ensureGallerySelection = (list: typeof galleries.value) => {
   if (!list || list.length === 0) {
     return;
   }
-  const matchingSelection = list.some((gallery) => gallery.id === normalizeGalleryId(selectedGalleryId.value));
-  if (matchingSelection) {
+  const current = normalizeGalleryId(currentGallery.value?.id);
+  const normalizedSelection = normalizeGalleryId(selectedGalleryId.value);
+
+  if (
+    normalizedSelection != null &&
+    list.some((gallery) => normalizeGalleryId(gallery.id) === normalizedSelection)
+  ) {
+    return;
+  }
+
+  if (current != null && list.some((gallery) => normalizeGalleryId(gallery.id) === current)) {
+    selectedGalleryId.value = current;
     return;
   }
 
   const stored = getStoredGalleryId();
-  if (stored != null && list.some((gallery) => gallery.id === stored)) {
+  if (stored != null && list.some((gallery) => normalizeGalleryId(gallery.id) === stored)) {
     selectedGalleryId.value = stored;
     return;
   }
@@ -215,6 +249,14 @@ const ensureGallerySelection = (list: typeof galleries.value) => {
   if (first?.id) {
     selectedGalleryId.value = first.id;
   }
+};
+
+const shareAuthorId = ref<string | null>(null);
+
+const resolveShareAuthorId = async () => {
+  if (shareAuthorId.value) return shareAuthorId.value;
+  shareAuthorId.value = await getPocketbaseAuthorId();
+  return shareAuthorId.value;
 };
 
 watch(
@@ -403,7 +445,16 @@ const createShareGallery = async () => {
   }
 
   try {
-    const newId = await createGallery(name.trim());
+    const authorId = await resolveShareAuthorId();
+    const newId = await createGallery(
+      name.trim(),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      authorId
+    );
     selectedGalleryId.value = newId;
     await importSharedMedia();
   } catch (error) {

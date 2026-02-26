@@ -6,6 +6,22 @@ const currentGallery = ref<Gallery | null>(null);
 const photos = ref<Photo[]>([]);
 const isLoading = ref(false);
 
+const normalizeGalleryIdValue = (value: number | string | null | undefined): number | null => {
+  if (value == null) {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const ensureNumericGallery = (gallery: Gallery): Gallery => {
+  const normalizedId = normalizeGalleryIdValue(gallery.id);
+  return {
+    ...gallery,
+    id: normalizedId ?? undefined
+  };
+};
+
 export function useGallery() {
   const initialize = async () => {
     try {
@@ -20,7 +36,8 @@ export function useGallery() {
   const loadGalleries = async () => {
     isLoading.value = true;
     try {
-      galleries.value = await db.getGalleries();
+      const rawGalleries = await db.getGalleries();
+      galleries.value = rawGalleries.map(ensureNumericGallery);
     } catch (error) {
       console.error('Failed to load galleries:', error);
       throw error;
@@ -32,7 +49,12 @@ export function useGallery() {
   const loadGallery = async (id: number) => {
     isLoading.value = true;
     try {
-      currentGallery.value = await db.getGallery(id);
+      const gallery = await db.getGallery(id);
+      if (gallery) {
+        currentGallery.value = ensureNumericGallery(gallery);
+      } else {
+        currentGallery.value = null;
+      }
       if (currentGallery.value) {
         photos.value = await db.getPhotosByGallery(id);
       }
@@ -50,7 +72,8 @@ export function useGallery() {
     color?: string,
     startDate?: string,
     endDate?: string,
-    showOnMapAndTimeline = true
+    showOnMapAndTimeline = true,
+    pbAuthor?: string | null
   ) => {
     try {
       const id = await db.createGallery({
@@ -59,7 +82,8 @@ export function useGallery() {
         color,
         startDate,
         endDate,
-        showOnMapAndTimeline
+        showOnMapAndTimeline,
+        pb_author: pbAuthor ?? null
       });
       await loadGalleries();
       return id;

@@ -92,14 +92,6 @@ const safeStatusBarCall = async (action: () => Promise<void>) => {
 onMounted(async () => {
   await safeStatusBarCall(() => StatusBar.setOverlaysWebView({ overlay: false }));
   await safeStatusBarCall(() => StatusBar.setStyle({ style: Style.Dark }));
-
-  try {
-    await db.initialize();
-    console.log('✅ Database initialized successfully');
-  } catch (error) {
-    console.error('❌ Failed to initialize database:', error);
-  }
-
   document.addEventListener('ionBackButton', handleHardwareBack as EventListener);
 
   try {

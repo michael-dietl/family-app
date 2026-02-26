@@ -113,10 +113,6 @@
             <div class="todo-item-content">
               <h3 class="todo-title">{{ item.title }}</h3>
               <p v-if="item.description" class="todo-description">{{ item.description }}</p>
-               <ion-datetime-button datetime="duedate"></ion-datetime-button>
-              <ion-datetime id="duedate" v-model="item.dueDate" presentation="date-time" hidden>
-
-              </ion-datetime>
               <div class="todo-meta">
                 <span v-if="!item.completed && item.dueDate">
                   {{ $t('auto.faelligkeitsdatum') }}: {{ formatSimpleDate(item.dueDate) }}
@@ -482,20 +478,6 @@ onMounted(async () => {
   color: var(--ion-color-dark);
 }
 
-.calendar-icon-only {
-  --padding-start: 0;
-  --padding-end: 0;
-  --padding-top: 0;
-  --padding-bottom: 0;
-  min-width: 44px;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-}
-
-.calendar-icon-only::part(text) {
-  display: none;
-}
 .date-picker-icon {
   --padding-start: 0;
   --padding-end: 0;
@@ -519,10 +501,6 @@ onMounted(async () => {
 
 .date-picker-wrapper ion-datetime {
   width: min(360px, 100%);
-}
-
-.calendar-icon-only::part(icon) {
-  font-size: 1.25rem;
 }
 
 .due-date-item ion-datetime {

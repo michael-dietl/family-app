@@ -147,6 +147,8 @@ import {
 import { Preferences } from '@capacitor/preferences';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
+import { useShareTarget } from '@/composables/useShareTarget';
+
 /* ⬇️ GANZ WICHTIG: global.css MUSS HIER stehen */
 import '../global.css';
 
@@ -160,6 +162,11 @@ const { isSyncing, syncAll, syncProgress } = usePocketbaseSync();
 onMounted(async () => {
   await loadSettings();
   await checkConnection();
+
+  await StatusBar.setOverlaysWebView({ overlay: false });
+  await StatusBar.setStyle({ style: Style.Dark });  
+
+  useShareTarget();
 });
 
 const loadSettings = async () => {
@@ -228,11 +235,6 @@ const manualSync = async () => {
   }
 };
 
-
-onMounted(async () => {
-  await StatusBar.setOverlaysWebView({ overlay: false });
-  await StatusBar.setStyle({ style: Style.Dark });
-});
 </script>
 
 <style scoped>

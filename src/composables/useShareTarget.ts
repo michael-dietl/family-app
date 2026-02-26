@@ -9,6 +9,19 @@ export interface SharedTargetItem {
   name?: string | null;
 }
 
+const normalizeSharedUri = (uri?: string | null): string | null => {
+  if (!uri) {
+    return null;
+  }
+  if (uri.includes('://')) {
+    return uri;
+  }
+  if (uri.startsWith('/')) {
+    return `file://${uri}`;
+  }
+  return uri;
+};
+
 const sharedItems = ref<SharedTargetItem[]>([]);
 let listenerRegistered = false;
 let lastProcessedShareToken: string | null = null;
@@ -40,8 +53,18 @@ const processSharedItems = (items: SharedTargetItem[], token?: string) => {
   }
 
   const filtered = items
-    .filter((item) => Boolean(item?.uri))
-    .map((item) => ({ uri: item.uri, mimeType: item.mimeType || null, name: item.name || null }));
+    .map<SharedTargetItem | null>((item) => {
+      const normalizedUri = normalizeSharedUri(item?.uri);
+      if (!normalizedUri) {
+        return null;
+      }
+      return {
+        uri: normalizedUri,
+        mimeType: item?.mimeType ?? null,
+        name: item?.name ?? null
+      };
+    })
+    .filter((item): item is SharedTargetItem => item !== null);
 
   if (filtered.length === 0) {
     return;

@@ -76,24 +76,31 @@ http://ionicframework.com/docs/theming/ */
   z-index: 10000;
 }
 
-        
+
 .glightbox-container,
 .glightbox-container .ginner-container,
 .glightbox-container .gslide,
 .glightbox-container .gslide-inner-content {
   width: 100vw;
   height: 100vh;
+  margin: 0;
+  padding: 0;
 }
 
 .glightbox-container .gslide {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--ion-background-color, #ffffff);
+  padding: 0;
+  min-width: 100vw;
 }
 
 .glightbox-container .gslide-media {
   max-width: 100vw;
   max-height: 100vh;
+  width: 100vw;
+  margin: 0;
 }
 
 .glightbox-container .gslide-media img,
@@ -101,7 +108,7 @@ http://ionicframework.com/docs/theming/ */
 .glightbox-container .gslide-media iframe {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .glightbox-clean .gclose {

@@ -61,6 +61,25 @@
                 </ion-button>
               </div>
             </div>
+            <div v-if="manualPlacementActive" class="manual-placement-banner">
+              <div>
+                <strong>{{ t('auto.wegpunkt') }}</strong>
+                <p class="manual-placement-text">{{ manualPlacementInstruction }}</p>
+              </div>
+              <ion-button fill="clear" color="medium" size="small" @click="cancelManualPlacement">
+                {{ t('buttons.cancel') }}
+              </ion-button>
+            </div>
+            <div v-if="waypointMoveTarget" class="manual-placement-banner move-mode">
+              <div>
+                <strong>{{ t('auto.wegpunkt_verschieben') }}</strong>
+                <p class="manual-placement-text">{{ t('auto.wegpunkt_move_instruction') }}</p>
+                <p class="waypoint-move-label">{{ waypointMoveTarget.name || t('auto.wegpunkt') }}</p>
+              </div>
+              <ion-button fill="clear" color="medium" size="small" @click="cancelWaypointMove">
+                {{ t('buttons.cancel') }}
+              </ion-button>
+            </div>
 
             <!-- Aufzeichnungs-Controls -->
             <div class="route-controls">
@@ -206,6 +225,15 @@
                       <ion-icon slot="icon-only" :icon="createOutline" />
                     </ion-button>
                     <ion-button
+                      v-if="wp.type !== 'position'"
+                      fill="clear"
+                      color="medium"
+                      size="small"
+                      @click.stop="startMovingWaypoint(wp)"
+                    >
+                      <ion-icon slot="icon-only" :icon="moveOutline" />
+                    </ion-button>
+                    <ion-button
                       fill="clear"
                       color="danger"
                       size="small"
@@ -326,6 +354,7 @@ import {
   trashOutline,
   createOutline,
   closeOutline,
+  moveOutline,
   pauseOutline,
   playOutline,
   stopCircleOutline,
@@ -489,6 +518,8 @@ const manualPlacementInstruction = computed(() =>
     ? t('auto.foto_wegpunkt_karte_tippen')
     : t('auto.wegpunkt_karte_tippen')
 );
+const waypointMoveTarget = ref<Waypoint | null>(null);
+const waypointMoveInstruction = computed(() => t('auto.wegpunkt_move_instruction'));
 
 const valhallaTrace = ref<LatLonPoint[]>([]);
 const valhallaMatching = ref(false);
@@ -936,6 +967,44 @@ const preloadWaypointPhotos = async (list: Waypoint[]) => {
     await toast.present();
   };
 
+  const startMovingWaypoint = (waypoint: Waypoint) => {
+    waypointMoveTarget.value = waypoint;
+    manualPlacementActive.value = false;
+    waypointPlacementMode.value = null;
+  };
+
+  const cancelWaypointMove = () => {
+    waypointMoveTarget.value = null;
+  };
+
+  const finalizeWaypointMove = async (location: LatLonPoint) => {
+    if (!waypointMoveTarget.value || !waypointMoveTarget.value.id) return;
+    try {
+      await db.updateWaypoint(waypointMoveTarget.value.id, {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        updated: new Date().toISOString()
+      });
+      const toast = await toastController.create({
+        message: t('auto.wegpunkt_verschoben'),
+        duration: 1500,
+        color: 'success'
+      });
+      await toast.present();
+    } catch (error) {
+      console.error('Waypoint move failed', error);
+      const toast = await toastController.create({
+        message: t('auto.wegpunkt_verschieben_fehlgeschlagen'),
+        duration: 2000,
+        color: 'danger'
+      });
+      await toast.present();
+    } finally {
+      waypointMoveTarget.value = null;
+      await loadData();
+    }
+  };
+
   const finalizeManualWaypointPlacement = async (location: LatLonPoint) => {
     manualPlacementActive.value = false;
     waypointPlacementMode.value = null;
@@ -1032,6 +1101,7 @@ const preloadWaypointPhotos = async (list: Waypoint[]) => {
   };
 
   const startWaypointPlacement = (mode: 'manual' | 'photo') => {
+    cancelWaypointMove();
     manualPlacementActive.value = true;
     waypointPlacementMode.value = mode;
   };
@@ -1042,11 +1112,15 @@ const preloadWaypointPhotos = async (list: Waypoint[]) => {
   };
 
   const handleManualWaypointMapClick = async (event: L.LeafletMouseEvent) => {
-    if (!manualPlacementActive.value || !waypointPlacementMode.value) return;
     const location = {
       latitude: event.latlng.lat,
       longitude: event.latlng.lng
     };
+    if (waypointMoveTarget.value) {
+      await finalizeWaypointMove(location);
+      return;
+    }
+    if (!manualPlacementActive.value || !waypointPlacementMode.value) return;
     if (waypointPlacementMode.value === 'manual') {
       await finalizeManualWaypointPlacement(location);
     } else {
@@ -1303,6 +1377,7 @@ const loadData = async () => {
     route.isRecording = !!route.isRecording;
     routeData.value = route;
     manualPlacementActive.value = false;
+    waypointMoveTarget.value = null;
     valhallaTrace.value = [];
     waypoints.value = await db.getWaypointsByRoute(routeId);
     waypointPhotoCache.value = {};
@@ -1814,6 +1889,20 @@ onMounted(async () => {
   margin: 0;
   font-size: 13px;
   color: var(--ion-color-medium);
+}
+.manual-placement-banner.move-mode {
+  border-color: var(--ion-color-primary);
+}
+.manual-placement-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ion-color-medium);
+}
+.waypoint-move-label {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--ion-color-medium);
+  text-transform: uppercase;
 }
 
 .status-row {

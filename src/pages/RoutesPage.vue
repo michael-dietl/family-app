@@ -8,6 +8,9 @@
           </ion-button>
         </ion-buttons>
         <ion-buttons slot="end">
+          <ion-button fill="clear" @click="openSpeechPlanModal" :aria-label="t('auto.route_speech_title')">
+            <ion-icon :icon="micOutline" />
+          </ion-button>
           <ion-button @click="startNewRoute()">
             <ion-icon :icon="addOutline" />
           </ion-button>
@@ -30,6 +33,14 @@
         :debounce="300"
         show-cancel-button="never"
       />
+      <ion-segment class="routes-filter" v-model="routeFilterMode">
+        <ion-segment-button value="all">
+          {{ t('auto.alle') }}
+        </ion-segment-button>
+        <ion-segment-button value="mine">
+          {{ t('auto.meine_routen') }}
+        </ion-segment-button>
+      </ion-segment>
 
       <!-- Loading -->
       <div v-if="isLoading" class="ion-text-center ion-padding">
@@ -197,14 +208,77 @@
         </div>
       </ion-content>
     </ion-modal>
+    <ion-modal class="speech-plan-modal" :is-open="speechModalOpen" @didDismiss="closeSpeechPlanModal" :backdropDismiss="true">
+      <ion-header translucent>
+        <ion-toolbar>
+          <ion-title>{{ t('auto.route_speech_title') }}</ion-title>
+          <ion-buttons slot="end">
+            <ion-button fill="clear" @click="closeSpeechPlanModal">
+              <ion-icon :icon="closeOutline" />
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <p class="speech-plan-instruction">{{ t('auto.route_speech_instruction') }}</p>
+        <p v-if="recognizedText" class="speech-plan-recognized">
+          {{ recognizedText }}
+        </p>
+        <p v-if="geocodedDestinationLabel" class="speech-plan-destination">
+          {{ t('auto.route_speech_destination') }}: {{ geocodedDestinationLabel }}
+        </p>
+        <div v-if="planInProgress" class="speech-plan-status">
+          <ion-spinner name="crescent" />
+          <span>{{ t('auto.route_speech_plan_pending') }}</span>
+        </div>
+        <div v-if="speechPlanPreviewPath" class="speech-plan-preview">
+          <svg viewBox="0 0 280 140" preserveAspectRatio="none">
+            <path :d="speechPlanPreviewPath" />
+          </svg>
+        </div>
+        <div v-if="plannedRoute" class="speech-plan-summary">
+          <h3>{{ t('auto.route_speech_plan_ready') }}</h3>
+          <p v-if="planSummaryDistance">{{ t('auto.route_speech_plan_distance') }}: {{ planSummaryDistance }}</p>
+          <p v-if="planSummaryDuration">{{ t('auto.route_speech_plan_duration') }}: {{ planSummaryDuration }}</p>
+        </div>
+        <ion-button
+          expand="block"
+          color="primary"
+          :disabled="speechListening || planInProgress"
+          @click="startSpeechRecognition"
+        >
+          <ion-icon slot="start" :icon="micOutline" />
+          <span v-if="speechListening">
+            {{ t('auto.route_speech_listening') }}
+          </span>
+          <span v-else>
+            {{ t('auto.route_speech_listen') }}
+          </span>
+          <ion-spinner v-if="speechListening" slot="end" name="crescent" />
+        </ion-button>
+        <ion-button
+          v-if="plannedRoute"
+          expand="block"
+          color="success"
+          :disabled="planInProgress"
+          @click="useSpeechPlanTemplate"
+        >
+          <ion-icon slot="start" :icon="navigateOutline" />
+          {{ t('auto.route_speech_use_template') }}
+        </ion-button>
+        <p v-if="speechError" class="speech-plan-error">{{ speechError }}</p>
+      </ion-content>
+    </ion-modal>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed } from 'vue';
+import { ref, onMounted, reactive, computed, watch, nextTick } from 'vue';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { useRouter } from 'vue-router';
+import { Preferences } from '@capacitor/preferences';
 import { useI18n } from 'vue-i18n';
+import { Geolocation } from '@capacitor/geolocation';
 import {
   IonPage,
   IonHeader,
@@ -245,18 +319,48 @@ import {
   walkOutline,
   pencilOutline,
   trashOutline,
-  closeOutline
+  closeOutline,
+  micOutline,
+  navigateOutline
 } from 'ionicons/icons';
 import { scooterIcon } from '@/icons/scooter';
 import { db, type Route } from '@/services/database';
+import { getPocketbaseAuthorId } from '@/services/pocketbase';
 import { DEFAULT_MAP_STYLE, MAP_STYLE_CONFIGS, type MapStyle } from '@/utils/mapStyles';
+import { planRouteWithValhalla, traceRouteSummary, type ValhallaTraceSummary } from '@/services/valhalla';
+
+type LatLonPoint = import('@/services/positionSmoothing').LatLonPoint;
+
+declare global {
+  interface Window {
+    plugins?: {
+      speechRecognition?: {
+        isRecognitionAvailable: (success: (value: boolean) => void, error: () => void) => void;
+        startListening: (
+          success: (matches: string[]) => void,
+          error: (reason: unknown) => void,
+          options: { language?: string; matches?: number; prompt?: string; showPartial?: boolean; showPopup?: boolean }
+        ) => void;
+        hasPermission: (success: (value: boolean) => void, error: () => void) => void;
+        requestPermission: (success: () => void, error: (reason: unknown) => void) => void;
+      };
+    };
+  }
+}
 type Waypoint = import('@/services/database').Waypoint;
 
 const router = useRouter();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const routes = ref<Route[]>([]);
 const routeSearchQuery = ref('');
 const isLoading = ref(true);
+const ROUTE_FILTER_KEY = 'route_filter_mode';
+type RouteFilterMode = 'all' | 'mine';
+const routeFilterMode = ref<RouteFilterMode>('all');
+const currentRouteAuthorId = ref<string | null>(null);
+watch(routeFilterMode, (mode) => {
+  void Preferences.set({ key: ROUTE_FILTER_KEY, value: mode });
+});
 const startRouteModalOpen = ref(false);
 const newRouteName = ref('');
 const newRouteMode = ref<Route['travelMode']>('car');
@@ -269,6 +373,17 @@ const routeEditForm = reactive({
   mapStyle: DEFAULT_MAP_STYLE as MapStyle
 });
 const isRouteEditValid = computed(() => routeEditForm.name.trim().length > 0);
+const speechModalOpen = ref(false);
+const speechListening = ref(false);
+const planInProgress = ref(false);
+const speechError = ref('');
+const recognizedText = ref('');
+const geocodedDestinationLabel = ref('');
+const plannedRoute = ref<LatLonPoint[] | null>(null);
+const plannedDestination = ref<LatLonPoint | null>(null);
+const plannedSummary = ref<ValhallaTraceSummary | null>(null);
+const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
+type NominatimResult = { lat: string; lon: string; display_name?: string };
 const TRAVEL_MODE_CONFIGS: Array<{
   value: Route['travelMode'];
   icon: string;
@@ -295,14 +410,18 @@ const mapStyleOptions = computed(() =>
 const routePreviewPaths = ref<Record<number, string>>({});
 const PREVIEW_WIDTH = 200;
 const PREVIEW_HEIGHT = 110;
+const SPEECH_PLAN_PREVIEW_WIDTH = 280;
+const SPEECH_PLAN_PREVIEW_HEIGHT = 140;
 
 onMounted(async () => {
   await loadRoutes();
+  await refreshRouteFilterState();
 });
 
 // Reload routes when returning to this page
 onIonViewWillEnter(async () => {
   await loadRoutes();
+  await refreshRouteFilterState();
 });
 
 const loadRoutes = async () => {
@@ -334,16 +453,40 @@ const loadRoutePreviews = async (routeList: Route[]) => {
   routePreviewPaths.value = previews;
 };
 
+const refreshRouteFilterState = async () => {
+  const stored = await Preferences.get({ key: ROUTE_FILTER_KEY });
+  if (stored.value === 'mine' || stored.value === 'all') {
+    routeFilterMode.value = stored.value;
+  }
+  currentRouteAuthorId.value = await getPocketbaseAuthorId();
+};
+
+const resolveRouteAuthorId = async () => {
+  if (currentRouteAuthorId.value) {
+    return currentRouteAuthorId.value;
+  }
+  currentRouteAuthorId.value = await getPocketbaseAuthorId();
+  return currentRouteAuthorId.value;
+};
+
 const buildRoutePreviewPath = (waypoints: Waypoint[]): string => {
-  const positionPoints = waypoints.filter((wp) => wp.type === 'position');
+  const positionPoints = waypoints
+    .filter((wp) => wp.type === 'position')
+    .map(({ latitude, longitude }) => ({ latitude, longitude }));
   if (positionPoints.length === 0) return '';
+
+  return buildSvgPathFromPoints(positionPoints, PREVIEW_WIDTH, PREVIEW_HEIGHT);
+};
+
+const buildSvgPathFromPoints = (points: LatLonPoint[], width: number, height: number): string => {
+  if (!points.length) return '';
 
   let minLat = Infinity;
   let maxLat = -Infinity;
   let minLon = Infinity;
   let maxLon = -Infinity;
 
-  positionPoints.forEach(({ latitude, longitude }) => {
+  points.forEach(({ latitude, longitude }) => {
     if (latitude < minLat) minLat = latitude;
     if (latitude > maxLat) maxLat = latitude;
     if (longitude < minLon) minLon = longitude;
@@ -355,11 +498,11 @@ const buildRoutePreviewPath = (waypoints: Waypoint[]): string => {
 
   const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-  const formattedSegments = positionPoints.map((point, index) => {
-    const normalizedX = ((point.longitude - minLon) / lonSpan) * PREVIEW_WIDTH;
-    const normalizedY = PREVIEW_HEIGHT - ((point.latitude - minLat) / latSpan) * PREVIEW_HEIGHT;
-    const x = clamp(normalizedX, 0, PREVIEW_WIDTH);
-    const y = clamp(normalizedY, 0, PREVIEW_HEIGHT);
+  const formattedSegments = points.map((point, index) => {
+    const normalizedX = ((point.longitude - minLon) / lonSpan) * width;
+    const normalizedY = height - ((point.latitude - minLat) / latSpan) * height;
+    const x = clamp(normalizedX, 0, width);
+    const y = clamp(normalizedY, 0, height);
     const prefix = index === 0 ? 'M' : 'L';
     return `${prefix} ${x.toFixed(1)} ${y.toFixed(1)}`;
   });
@@ -385,12 +528,14 @@ const confirmStartRoute = async () => {
   const name = newRouteName.value?.trim();
   if (!name) return;
   try {
+    const authorId = await resolveRouteAuthorId();
     const routeId = await db.createRoute({
       name,
       startTime: new Date().toISOString(),
       isRecording: true,
       travelMode: newRouteMode.value,
-      mapStyle: DEFAULT_MAP_STYLE
+      mapStyle: DEFAULT_MAP_STYLE,
+      pb_author: authorId ?? null
     });
     startRouteModalOpen.value = false;
     router.push(`/routes/${routeId}/record`);
@@ -403,6 +548,155 @@ const confirmStartRoute = async () => {
     });
     await toast.present();
   }
+};
+
+const openSpeechPlanModal = async () => {
+  resetSpeechPlanState();
+  speechModalOpen.value = true;
+  await nextTick();
+  void startSpeechRecognition();
+};
+
+const closeSpeechPlanModal = () => {
+  speechModalOpen.value = false;
+  resetSpeechPlanState();
+};
+
+const resetSpeechPlanState = () => {
+  speechListening.value = false;
+  planInProgress.value = false;
+  speechError.value = '';
+  recognizedText.value = '';
+  geocodedDestinationLabel.value = '';
+  plannedRoute.value = null;
+  plannedDestination.value = null;
+  plannedSummary.value = null;
+};
+
+const startSpeechRecognition = async () => {
+  if (speechListening.value || planInProgress.value) {
+    return;
+  }
+  speechError.value = '';
+  speechListening.value = true;
+  try {
+    const transcript = await transcribeSpeech();
+    if (!transcript?.trim()) {
+      throw new Error(t('auto.route_speech_plan_failed'));
+    }
+    recognizedText.value = transcript.trim();
+    await planRouteFromText(transcript);
+  } catch (error) {
+    speechError.value = (error as Error)?.message ?? t('auto.route_speech_plan_failed');
+  } finally {
+    speechListening.value = false;
+  }
+};
+
+const planRouteFromText = async (text: string) => {
+  planInProgress.value = true;
+  try {
+    const geocode = await geocodeDestination(text);
+    geocodedDestinationLabel.value = geocode.display_name ?? text;
+    const startPoint = await requestCurrentPosition();
+    const destinationPoint: LatLonPoint = {
+      latitude: Number(geocode.lat),
+      longitude: Number(geocode.lon)
+    };
+    plannedDestination.value = destinationPoint;
+    const route = await planRouteWithValhalla(startPoint, destinationPoint);
+    if (route && route.length > 0) {
+      plannedRoute.value = route;
+      plannedSummary.value = await traceRouteSummary(route);
+    } else {
+      plannedRoute.value = [startPoint, destinationPoint];
+      plannedSummary.value = null;
+    }
+  } finally {
+    planInProgress.value = false;
+  }
+};
+
+const geocodeDestination = async (query: string): Promise<NominatimResult> => {
+  const url = new URL(NOMINATIM_URL);
+  url.searchParams.set('format', 'json');
+  url.searchParams.set('limit', '1');
+  url.searchParams.set('q', query);
+  const headers: Record<string, string> = {
+    'Accept-Language': (locale.value ?? 'de-DE').replace('_', '-'),
+    Referer: 'https://dietl.mobi'
+  };
+  const response = await fetch(url.toString(), { headers });
+  if (!response.ok) {
+    throw new Error(t('auto.route_speech_plan_failed'));
+  }
+  const data = (await response.json()) as NominatimResult[];
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error(t('auto.route_speech_plan_failed'));
+  }
+  return data[0];
+};
+
+const requestCurrentPosition = async (): Promise<LatLonPoint> => {
+  const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
+  return {
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude
+  };
+};
+
+const useSpeechPlanTemplate = () => {
+  newRouteName.value = recognizedText.value?.trim() || t('auto.route');
+  startRouteModalOpen.value = true;
+  closeSpeechPlanModal();
+};
+
+const transcribeSpeech = async (): Promise<string> => {
+  const plugin = window.plugins?.speechRecognition;
+  if (plugin && typeof plugin.startListening === 'function') {
+    const hasPermission = await new Promise<boolean>((resolve) =>
+      plugin.hasPermission((result: boolean) => resolve(result), () => resolve(false))
+    );
+    if (!hasPermission) {
+      await new Promise<void>((resolve, reject) => plugin.requestPermission(resolve, reject));
+    }
+    const matches: string[] = await new Promise((resolve, reject) => {
+      plugin.startListening(
+        (results: string[]) => resolve(results),
+        (error: unknown) => reject(error),
+        {
+          language: (locale.value ?? 'de-DE').replace('_', '-'),
+          matches: 1,
+          showPopup: true,
+          showPartial: false
+        }
+      );
+    });
+    return (matches[0] ?? '').trim();
+  }
+
+  const WebSpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+  if (!WebSpeechRecognition) {
+    throw new Error(t('auto.route_speech_not_supported'));
+  }
+
+  return new Promise<string>((resolve, reject) => {
+    const recognition = new WebSpeechRecognition();
+    recognition.lang = (locale.value ?? 'de-DE').replace('_', '-');
+    recognition.maxAlternatives = 1;
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.onresult = (event: any) => {
+      recognition.stop();
+      const transcript = event.results?.[0]?.[0]?.transcript?.trim() ?? '';
+      resolve(transcript);
+    };
+    recognition.onerror = (event: any) => {
+      recognition.stop();
+      reject(new Error(event.error || t('auto.route_speech_plan_failed')));
+    };
+    recognition.start();
+  });
 };
 
 const openRoute = (routeId: number) => {
@@ -523,11 +817,16 @@ const getRouteModeColor = (mode: Route['travelMode'] | undefined) => {
 };
 
 const filteredRoutes = computed(() => {
+  const baseList = routeFilterMode.value === 'mine' && currentRouteAuthorId.value
+    ? routes.value.filter(route => route.pb_author === currentRouteAuthorId.value)
+    : routeFilterMode.value === 'mine'
+      ? []
+      : routes.value;
   const query = routeSearchQuery.value.trim().toLowerCase();
   if (!query) {
-    return routes.value;
+    return baseList;
   }
-  return routes.value.filter((route) => {
+  return baseList.filter((route) => {
     const haystack = [
       route.name ?? '',
       route.description ?? '',
@@ -548,6 +847,23 @@ const formatDuration = (seconds: number): string => {
   }
   return `${minutes} min`;
 };
+
+const planSummaryDistance = computed(() => {
+  if (!plannedSummary.value?.length) return '';
+  return formatDistance(plannedSummary.value.length);
+});
+
+const planSummaryDuration = computed(() => {
+  if (!plannedSummary.value?.time) return '';
+  return formatDuration(plannedSummary.value.time);
+});
+
+const speechPlanPreviewPath = computed(() => {
+  if (!plannedRoute.value || plannedRoute.value.length < 2) {
+    return '';
+  }
+  return buildSvgPathFromPoints(plannedRoute.value, SPEECH_PLAN_PREVIEW_WIDTH, SPEECH_PLAN_PREVIEW_HEIGHT);
+});
 
 const formatDate = (dateString: string): string => {
   const date = new Date(dateString);
@@ -579,7 +895,7 @@ onMounted(async () => {
 }
 
 .routes-search {
-  margin: 0 16px 12px;
+  margin: 0 0 12px;
 }
 
 .empty-icon {
@@ -603,7 +919,7 @@ onMounted(async () => {
 }
 
 .routes-list-wrapper {
-  padding: 0 1rem 1.25rem;
+  padding: 0 1rem 1.25rem 0;
 }
 
 .routes-list {
@@ -611,6 +927,19 @@ onMounted(async () => {
   flex-direction: column;
   gap: 1rem;
   padding: 0;
+}
+
+.routes-filter {
+  margin: 0 0 16px;
+  border-radius: 12px;
+  padding: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+}
+
+.routes-filter ion-segment-button {
+  font-size: 0.85rem;
+  text-transform: none;
 }
 
 .route-card {
@@ -764,5 +1093,71 @@ onMounted(async () => {
 .route-edit-modal ion-input::part(native),
 .route-edit-modal ion-textarea::part(native) {
   background: transparent;
+}
+.speech-plan-modal .speech-plan-instruction {
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+  color: var(--ion-color-medium);
+}
+
+.speech-plan-modal .speech-plan-recognized {
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.speech-plan-modal .speech-plan-destination {
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: var(--ion-color-medium);
+}
+
+.speech-plan-modal .speech-plan-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  color: var(--ion-color-medium);
+}
+
+.speech-plan-modal .speech-plan-preview {
+  height: 140px;
+  margin-bottom: 1rem;
+  border-radius: 18px;
+  background: var(--ion-color-step-80);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ion-color-step-90);
+}
+
+.speech-plan-modal .speech-plan-preview svg {
+  width: 100%;
+  height: 100%;
+}
+
+.speech-plan-modal .speech-plan-preview path {
+  stroke: #ff7a18;
+  stroke-width: 4;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.speech-plan-modal .speech-plan-summary {
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: var(--ion-color-step-50);
+}
+
+.speech-plan-modal .speech-plan-summary h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.speech-plan-modal .speech-plan-error {
+  margin-top: 1rem;
+  color: var(--ion-color-danger);
 }
 </style>

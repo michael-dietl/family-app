@@ -19,6 +19,7 @@ export interface Gallery {
   showOnMapAndTimeline?: boolean;
   created: string;
   updated: string;
+  pb_author?: string | null;
 }
 
 export interface Photo {
@@ -118,6 +119,16 @@ export interface Route {
   travelMode?: 'car' | 'pedestrian' | 'bicycle' | 'motor_scooter';
   mapStyle?: MapStyle;
   isRecording: boolean;
+  created: string;
+  updated: string;
+  pb_author?: string | null;
+}
+
+export interface User {
+  id?: number;
+  foreignID: string;
+  email?: string;
+  name?: string;
   created: string;
   updated: string;
 }
@@ -437,7 +448,6 @@ class DatabaseService {
     if (!this.isInitialized) await this.initialize();
     if (this.useInMemory) throw new Error('Waypoints not supported in web mode');
     if (!this.db) throw new Error('Database not initialized');
-
     const fields: string[] = [];
     const values: any[] = [];
     Object.entries(updates).forEach(([key, value]) => {
@@ -504,6 +514,7 @@ class DatabaseService {
         startDate TEXT,
         endDate TEXT,
         showOnMapAndTimeline INTEGER NOT NULL DEFAULT 1,
+        pb_author TEXT,
         created TEXT NOT NULL,
         updated TEXT NOT NULL
       );
@@ -541,6 +552,10 @@ class DatabaseService {
     const indexes = `
       CREATE INDEX IF NOT EXISTS idx_photos_gallery ON photos(galleryId);
       CREATE INDEX IF NOT EXISTS idx_photos_date ON photos(dateTaken);
+    `;
+    const galleryIndexes = `
+      CREATE INDEX IF NOT EXISTS idx_galleries_updated ON galleries(updated);
+      CREATE INDEX IF NOT EXISTS idx_galleries_pb_author ON galleries(pb_author);
     `;
     // Buch-Kategorien Tabelle
     const bookCategoriesTable = `
@@ -589,6 +604,7 @@ class DatabaseService {
       CREATE TABLE IF NOT EXISTS routes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         foreignID TEXT,
+        pb_author TEXT,
         name TEXT NOT NULL,
         description TEXT,
         startTime TEXT NOT NULL,
@@ -629,6 +645,9 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_waypoints_route ON waypoints(routeId);
       CREATE INDEX IF NOT EXISTS idx_waypoints_type ON waypoints(type);
       CREATE INDEX IF NOT EXISTS idx_waypoints_timestamp ON waypoints(timestamp);
+    `;
+    const routeAuthorIndex = `
+      CREATE INDEX IF NOT EXISTS idx_routes_pb_author ON routes(pb_author);
     `;
     // Weine Tabelle
     const winesTable = `
@@ -784,6 +803,19 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_timeline_events_start ON timeline_events(startDate);
       CREATE INDEX IF NOT EXISTS idx_timeline_event_photos_event ON timeline_event_photos(eventId);
     `;
+    const usersTable = `
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT UNIQUE,
+        email TEXT,
+        name TEXT,
+        created TEXT NOT NULL,
+        updated TEXT NOT NULL
+      );
+    `;
+    const usersIndexes = `
+      CREATE INDEX IF NOT EXISTS idx_users_foreignID ON users(foreignID);
+    `;
     const deletedEntriesTable = `
       CREATE TABLE IF NOT EXISTS deleted_entries (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -796,16 +828,33 @@ class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_deleted_entries_entity ON deleted_entries(entity);
     `;
     if (!this.db) throw new Error('Database not initialized');
+    const ensureColumn = async (table: string, column: string, alterStatement: string) => {
+      try {
+        const info = await this.db!.query(`PRAGMA table_info(${table});`);
+        const columnExists = info.values?.some((col: any) => col.name === column);
+        if (columnExists) return;
+        await this.db!.execute(alterStatement);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (!/duplicate column name/i.test(message)) {
+          console.warn('Column migration skipped:', message);
+        }
+      }
+    };
     await this.db.execute(wineCategoriesTable);
     await this.db.execute(galleriesTable);
+    await ensureColumn('galleries', 'pb_author', 'ALTER TABLE galleries ADD COLUMN pb_author TEXT;');
+    await this.db.execute(galleryIndexes);
     await this.db.execute(photosTable);
     await this.db.execute(indexes);
     await this.db.execute(bookCategoriesTable);
     await this.db.execute(booksTable);
     await this.db.execute(bookIndexes);
     await this.db.execute(routesTable);
+    await ensureColumn('routes', 'pb_author', 'ALTER TABLE routes ADD COLUMN pb_author TEXT;');
     await this.db.execute(waypointsTable);
     await this.db.execute(routeIndexes);
+    await this.db.execute(routeAuthorIndex);
     await this.db.execute(winesTable);
     await this.db.execute(wineIndexes);
     await this.db.execute(winePhotosTable);
@@ -821,6 +870,8 @@ class DatabaseService {
     await this.db.execute(timelineEventsTable);
     await this.db.execute(timelineEventPhotosTable);
     await this.db.execute(timelineIndexes);
+    await this.db.execute(usersTable);
+    await this.db.execute(usersIndexes);
     await this.db.execute(deletedEntriesTable);
     await this.db.execute(deletedEntriesIndex);
 
@@ -835,20 +886,6 @@ class DatabaseService {
     } catch (error) {
       console.warn('Photo isVideo migration skipped:', error);
     }
-
-    const ensureColumn = async (table: string, column: string, alterStatement: string) => {
-      try {
-        const info = await this.db!.query(`PRAGMA table_info(${table});`);
-        const columnExists = info.values?.some((col: any) => col.name === column);
-        if (columnExists) return;
-        await this.db!.execute(alterStatement);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (!/duplicate column name/i.test(message)) {
-          console.warn('Column migration skipped:', message);
-        }
-      }
-    };
 
     await ensureColumn('galleries', 'startDate', 'ALTER TABLE galleries ADD COLUMN startDate TEXT;');
     await ensureColumn('galleries', 'endDate', 'ALTER TABLE galleries ADD COLUMN endDate TEXT;');
@@ -957,8 +994,8 @@ class DatabaseService {
 
     const now = new Date().toISOString();
     const sql = `
-      INSERT INTO galleries (foreignID, name, description, coverPhotoId, color, startDate, endDate, showOnMapAndTimeline, created, updated)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      INSERT INTO galleries (foreignID, name, description, coverPhotoId, color, startDate, endDate, showOnMapAndTimeline, pb_author, created, updated)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
 
     const updated = gallery.updated ?? now;
@@ -971,6 +1008,7 @@ class DatabaseService {
       gallery.startDate || null,
       gallery.endDate || null,
       gallery.showOnMapAndTimeline === false ? 0 : 1,
+      gallery.pb_author || null,
       now,
       updated
     ]);
@@ -1027,6 +1065,7 @@ class DatabaseService {
           startDate = COALESCE(?, startDate),
           endDate = COALESCE(?, endDate),
           showOnMapAndTimeline = COALESCE(?, showOnMapAndTimeline),
+          pb_author = COALESCE(?, pb_author),
           foreignID = COALESCE(?, foreignID),
           updated = ?
       WHERE id = ?;
@@ -1040,6 +1079,7 @@ class DatabaseService {
       updates.startDate || null,
       updates.endDate || null,
       typeof updates.showOnMapAndTimeline === 'boolean' ? (updates.showOnMapAndTimeline ? 1 : 0) : null,
+      updates.pb_author ?? null,
       updates.foreignID || null,
       updated,
       id
@@ -1586,12 +1626,13 @@ class DatabaseService {
     const now = new Date().toISOString();
     const updated = route.updated ?? now;
     const sql = `
-      INSERT INTO routes (foreignID, name, description, startTime, endTime, distance, duration, travelMode, mapStyle, isRecording, created, updated)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      INSERT INTO routes (foreignID, pb_author, name, description, startTime, endTime, distance, duration, travelMode, mapStyle, isRecording, created, updated)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
     
     const result = await this.db.run(sql, [
       route.foreignID || null,
+      route.pb_author || null,
       route.name,
       route.description || null,
       route.startTime,
@@ -1696,6 +1737,51 @@ class DatabaseService {
     const sql = 'DELETE FROM routes WHERE id = ?;';
     await this.db.run(sql, [id]);
     await this.queueDeletion('routes', id);
+  }
+
+  async upsertUser(user: CreationParams<User> & { foreignID: string }): Promise<number> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return 0;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const updated = user.updated ?? now;
+    const email = user.email || null;
+    const name = user.name || null;
+
+    const existing = await this.db.query('SELECT id FROM users WHERE foreignID = ? LIMIT 1;', [user.foreignID]);
+    if (existing.values && existing.values.length > 0) {
+      const id = existing.values[0].id;
+      await this.db.run(
+        'UPDATE users SET email = ?, name = ?, updated = ? WHERE foreignID = ?;',
+        [email, name, updated, user.foreignID]
+      );
+      return id;
+    }
+
+    const result = await this.db.run(
+      'INSERT INTO users (foreignID, email, name, created, updated) VALUES (?, ?, ?, ?, ?);',
+      [user.foreignID, email, name, now, updated]
+    );
+    return result.changes?.lastId || 0;
+  }
+
+  async getUsers(): Promise<User[]> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return [];
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = await this.db.query('SELECT * FROM users ORDER BY updated DESC;');
+    return result.values as User[] || [];
+  }
+
+  async getUserByForeignId(foreignID: string): Promise<User | null> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return null;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const result = await this.db.query('SELECT * FROM users WHERE foreignID = ? LIMIT 1;', [foreignID]);
+    return (result.values?.[0] as User) || null;
   }
 
   // Waypoint CRUD Operationen

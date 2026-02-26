@@ -312,7 +312,8 @@ const normalizeDecodedShape = (points: LatLonPoint[]): LatLonPoint[] => {
     }
   }
 
-  console.warn('VALHALLA_SHAPE_OUT_OF_RANGE',
+  console.warn(
+    'VALHALLA_SHAPE_OUT_OF_RANGE',
     points
       .slice(0, 3)
       .map((point) => `${point.latitude.toFixed(2)},${point.longitude.toFixed(2)}`)
@@ -320,6 +321,73 @@ const normalizeDecodedShape = (points: LatLonPoint[]): LatLonPoint[] => {
   );
   return points;
 };
+
+const decodeValhallaShape = (shapeValue: string | number[][], reference: LatLonPoint[]): LatLonPoint[] => {
+  let decoded: LatLonPoint[] = [];
+  if (typeof shapeValue === 'string') {
+    decoded = decodePolyline(shapeValue);
+  } else if (Array.isArray(shapeValue)) {
+    const validShape = shapeValue.filter(
+      (coord): coord is number[] => Array.isArray(coord) && coord.length >= 2 && typeof coord[0] === 'number' && typeof coord[1] === 'number'
+    );
+    if (validShape.length > 0) {
+      const order = guessCoordinateOrder(validShape, reference);
+      decoded = validShape.map((coord) => mapShapeEntry(coord, order));
+    }
+  }
+
+  decoded = normalizeDecodedShape(decoded);
+  return deduplicateSequentialPoints(decoded);
+};
+
+export async function planRouteWithValhalla(
+  start: LatLonPoint,
+  destination: LatLonPoint,
+  options: {
+    costing?: string;
+    shapeMatch?: string;
+    gpsAccuracy?: number;
+    searchRadius?: number;
+  } = {}
+): Promise<LatLonPoint[] | null> {
+  const baseUrl = await loadConfiguredBaseUrl();
+  if (!baseUrl) {
+    return null;
+  }
+
+  const payload = {
+    costing: options.costing ?? 'auto',
+    shape: [
+      [start.latitude, start.longitude],
+      [destination.latitude, destination.longitude]
+    ],
+    shape_match: options.shapeMatch ?? DEFAULT_SHAPE_MATCH,
+    trace_options: {
+      gps_accuracy: options.gpsAccuracy ?? DEFAULT_GPS_ACCURACY,
+      search_radius: options.searchRadius ?? DEFAULT_SEARCH_RADIUS
+    }
+  };
+
+  try {
+    const data = await performValhallaRequest(baseUrl, 'trace_route', payload);
+    if (!data) {
+      return null;
+    }
+    const result = data as { trip?: { legs?: Array<{ shape?: number[][] | string }> }; shape?: number[][] | string };
+    const legShape = result.trip?.legs?.[0]?.shape ?? result.shape;
+    if (!legShape) {
+      return null;
+    }
+    const decoded = decodeValhallaShape(legShape, [start, destination]);
+    if (decoded.length === 0) {
+      return null;
+    }
+    return decoded;
+  } catch (error) {
+    console.warn('Valhalla planning failed', error);
+    return null;
+  }
+}
 
 const extractMatchedPoints = (value: unknown): LatLonPoint[] => {
   if (!value || typeof value !== 'object') {

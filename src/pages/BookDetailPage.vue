@@ -3,7 +3,7 @@
     <ion-header :translucent="true">
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-back-button default-href="/library" />
+          <ion-back-button default-href="/library" router-direction="back" auto-hide="false" />
         </ion-buttons>
         <ion-title>{{ $t('auto.buchdetails') }}</ion-title>
         <ion-buttons slot="end">
@@ -190,12 +190,14 @@ import { downloadRemoteCoverImage, findLocalCoverImage, isRemoteImageUrl } from 
 import { buildSharedStoragePath, ensureDirectoryExists, getSharedStorageDirectory } from '@/services/storagePaths';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { lookupBookByISBN } from '@/services/books';
+import { setImageEditorNavigationContext } from '@/composables/useImageEditorNavigation';
 
 const route = useRoute();
 const router = useRouter();
 const book = ref<Book | null>(null);
 const isLoading = ref(false);
 const categories = ref<BookCategory[]>([]);
+const bookCoverDirectory = buildSharedStoragePath('books');
 
 onMounted(async () => {
   await loadBook();
@@ -587,7 +589,55 @@ const confirmDelete = async () => {
       }
     ]
   });
+
   await alert.present();
+};
+
+const openCoverImageEditor = (imageSrc: string) => {
+  if (!imageSrc) return;
+  setImageEditorNavigationContext({
+    imageSrc,
+    onSave: handleCoverEditorSave
+  });
+  router.push({
+    path: '/image-editor',
+    query: {
+      return: route.fullPath
+    }
+  });
+};
+
+const handleCoverEditorSave = async (blob: Blob) => {
+  if (!book.value || !book.value.id) return;
+
+  try {
+    const base64Data = await convertBlobToBase64(blob);
+    const fileName = `book_cover_${book.value.id}_${Date.now()}.jpg`;
+    const targetPath = buildSharedStoragePath('books', fileName);
+    await ensureDirectoryExists(getSharedStorageDirectory(), bookCoverDirectory);
+    const result = await Filesystem.writeFile({
+      path: targetPath,
+      data: base64Data,
+      directory: getSharedStorageDirectory(),
+      recursive: true
+    });
+    await db.updateBook(book.value.id, { coverImage: result.uri });
+    await loadBook();
+    const toast = await toastController.create({
+      message: 'Cover gespeichert',
+      duration: 2000,
+      color: 'success'
+    });
+    await toast.present();
+  } catch (error) {
+    console.error('Error saving cover from editor:', error);
+    const toast = await toastController.create({
+      message: 'Cover konnte nicht gespeichert werden',
+      duration: 2000,
+      color: 'danger'
+    });
+    await toast.present();
+  }
 };
 
 const editCoverPhoto = async () => {
@@ -605,15 +655,9 @@ const editCoverPhoto = async () => {
       return;
     }
   }
-
-  router.push({
-    path: '/editor-cover',
-    query: {
-      imageSrc: getImageSrc(book.value.coverImage),
-      bookId: book.value.id!.toString(),
-      coverPath: book.value.coverImage
-    }
-  });
+  const imageSrc = getImageSrc(book.value.coverImage);
+  if (!imageSrc) return;
+  openCoverImageEditor(imageSrc);
 };
 
 const takeCoverPhoto = async () => {
@@ -651,8 +695,8 @@ const takeCoverPhoto = async () => {
     // Speichere in Filesystem
     const fileName = `book_cover_${book.value.id}_${Date.now()}.jpg`;
     const relativePath = buildSharedStoragePath('books', fileName);
-    await ensureDirectoryExists(getSharedStorageDirectory(), buildSharedStoragePath('books'));
-      const savedFile = await Filesystem.writeFile({
+    await ensureDirectoryExists(getSharedStorageDirectory(), bookCoverDirectory);
+    const savedFile = await Filesystem.writeFile({
         path: relativePath,
         data: base64Data,
         directory: getSharedStorageDirectory(),
@@ -685,14 +729,7 @@ const takeCoverPhoto = async () => {
         {
           text: 'Bearbeiten',
           handler: () => {
-            router.push({
-              path: '/editor-cover',
-              query: {
-                imageSrc: Capacitor.convertFileSrc(coverPath),
-                bookId: book.value!.id!.toString(),
-                coverPath: coverPath
-              }
-            });
+            openCoverImageEditor(Capacitor.convertFileSrc(coverPath));
           }
         }
       ]

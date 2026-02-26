@@ -711,7 +711,8 @@ const toggleFilterEvents = () => {
 };
 
 const openGallery = (galleryId?: number) => {
-  if (galleryId) router.push(`/gallery/${galleryId}`);
+  if (!galleryId) return;
+  router.push({ path: `/gallery/${galleryId}`, query: { from: 'timeline' } });
 };
 
 const openRoute = (routeId?: number) => {

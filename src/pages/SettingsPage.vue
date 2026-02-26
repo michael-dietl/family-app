@@ -309,7 +309,8 @@ import { Capacitor } from '@capacitor/core';
 import { useI18n } from 'vue-i18n';
 import i18n from '@/i18n/i18n';
 import PocketBase from 'pocketbase';
-import { pocketbase } from '@/services/pocketbase';
+import { pocketbase, setPocketbaseAuthorId } from '@/services/pocketbase';
+import { db } from '@/services/database';
 import { setValhallaBaseUrl } from '@/services/valhalla';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 import type { AppTheme } from '@/services/theme';
@@ -531,6 +532,20 @@ const authenticateUser = async () => {
       key: 'pocketbase_token',
       value: pb.authStore.token
     });
+
+      const authorId = pb.authStore.model?.id ?? null;
+      await setPocketbaseAuthorId(authorId);
+      if (authorId) {
+        try {
+          await db.upsertUser({
+            foreignID: authorId,
+            email: pb.authStore.model?.email ?? undefined,
+            name: pb.authStore.model?.name ?? undefined
+          });
+        } catch (error) {
+          console.warn('Failed to persist PocketBase user locally:', error);
+        }
+      }
 
     // Nach Login: Service initialisieren, damit Token übernommen wird
     await pocketbase.initialize();

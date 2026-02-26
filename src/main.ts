@@ -49,6 +49,7 @@ import { applyTheme, loadTheme } from '@/services/theme';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 import { useShareTarget } from '@/composables/useShareTarget';
 import { ensureSharedStorageFoldersExist } from '@/services/storagePaths';
+import { db } from '@/services/database';
 
 
 const app = createApp(App)
@@ -89,6 +90,12 @@ import './global.css';
 
 router.isReady().then(async () => {
   await ensureSharedStorageFoldersExist();
+  try {
+    await db.initialize();
+    console.log('✅ Database initialized successfully');
+  } catch (error) {
+    console.error('❌ Failed to initialize database:', error);
+  }
   await initializeLocale();
   await initializeTheme();
   // Set app status bar color to a lighter orange (Android/iOS where supported)
