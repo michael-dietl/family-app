@@ -438,7 +438,8 @@ import { default as GalleryMap } from '@/components/GalleryMap.vue';
 import { default as LocationPickerModal } from '@/components/LocationPickerModal.vue';
 // import { extractExifFromUri, extractExifFromImage } from '@/services/exif'; // ungenutzt
 import { db, type Photo } from '@/services/database';
-import { buildSharedStoragePath, getSharedStorageDirectory } from '@/services/storagePaths';
+import { buildSharedStoragePath, getSharedStorageDirectory, ensureDirectoryExists } from '@/services/storagePaths';
+import { readSharedStorageFileAsDataUrl } from '@/services/imageStorage';
 import { setImageEditorNavigationContext } from '@/composables/useImageEditorNavigation';
 
 const route = useRoute();
@@ -557,6 +558,13 @@ const getImageSrc = (path: string | undefined) => {
   return Capacitor.convertFileSrc(path);
 };
 
+const preparePhotoForEditor = async (path: string | undefined): Promise<string | null> => {
+  const dataUrl = await readSharedStorageFileAsDataUrl(path);
+  if (dataUrl) return dataUrl;
+  if (!path) return null;
+  return getImageSrc(path);
+};
+
 const getPhotoPreviewSrc = (photo: Photo) => {
   return photo.thumbnail || getImageSrc(photo.filepath);
 };
@@ -640,21 +648,27 @@ const handleViewChange = (event: CustomEvent) => {
     currentView.value = value;
   }
 };
-const openImageEditor = (photo: Photo) => {
-  const source = getImageSrc(photo.filepath);
+const openImageEditor = async (photo: Photo) => {
+  const source = await preparePhotoForEditor(photo.filepath);
   if (!source) return;
+
   photoBeingEdited.value = photo;
-  setImageEditorNavigationContext({
-    imageSrc: source,
-    onSave: handleImageEditorSave,
-    onClose: handleImageEditorClose
-  });
-  router.push({
-    path: '/image-editor',
-    query: {
-      return: route.fullPath
-    }
-  });
+  try {
+    setImageEditorNavigationContext({
+      imageSrc: source,
+      onSave: handleImageEditorSave,
+      onClose: handleImageEditorClose
+    });
+    router.push({
+      path: '/image-editor',
+      query: {
+        return: route.fullPath
+      }
+    });
+  } catch (error) {
+    console.error('Failed to open image editor', error);
+    photoBeingEdited.value = null;
+  }
 };
 
 const handleImageEditorClose = () => {
@@ -684,11 +698,7 @@ const handleImageEditorSave = async (blob: Blob) => {
     const fileName = photoBeingEdited.value.filename || `photo_${photoBeingEdited.value.id}_${Date.now()}.jpg`;
     const folderPath = buildSharedStoragePath('galleries', galleryId.toString());
     const targetPath = buildSharedStoragePath('galleries', galleryId.toString(), fileName);
-    await Filesystem.mkdir({
-      directory: getSharedStorageDirectory(),
-      path: folderPath,
-      recursive: true
-    });
+    await ensureDirectoryExists(getSharedStorageDirectory(), folderPath);
     const result = await Filesystem.writeFile({
       path: targetPath,
       data: base64,

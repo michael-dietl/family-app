@@ -59,6 +59,17 @@ const app = createApp(App)
 const pocketbaseSync = usePocketbaseSync();
 useShareTarget();
 
+
+//import { CapacitorShareTarget } from '@capgo/capacitor-share-target'
+
+/*CapacitorShareTarget.addListener('shareReceived', (event) => {
+  console.log('Share received:', event)
+
+  // Daten speichern 
+  window.sharedPayload = event
+})
+*/
+
 const initializeLocale = async () => {
   // install i18n into the app first, then set the locale so the saved value is not overwritten
   app.use(i18n);
@@ -89,7 +100,7 @@ const initializeTheme = async () => {
 import './global.css';
 
 router.isReady().then(async () => {
-  await ensureSharedStorageFoldersExist();
+  //await ensureSharedStorageFoldersExist();
   try {
     await db.initialize();
     console.log('✅ Database initialized successfully');
@@ -101,7 +112,10 @@ router.isReady().then(async () => {
   // Set app status bar color to a lighter orange (Android/iOS where supported)
   app.mount('#app');
 
-  await pocketbaseSync.subscribeToAllEntities();
+  const ready = await pocketbaseSync.ensurePocketbaseConfiguredAndAuthenticated();
+  if (ready) {
+    await pocketbaseSync.subscribeToAllEntities();
+  }
   
 
   try {

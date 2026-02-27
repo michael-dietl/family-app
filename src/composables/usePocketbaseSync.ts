@@ -15,6 +15,7 @@ import {
   syncProgressState,
   updateSyncProgress
 } from '@/services/backgroundSyncService';
+import { ensurePocketbaseNotificationSubscription } from '@/services/pushNotificationService';
 
 const REMOTE_HTTP_RE = /^https?:\/\//i;
 const isRemoteHttpUrl = (value?: string) => Boolean(value && REMOTE_HTTP_RE.test(value));
@@ -583,6 +584,8 @@ export function usePocketbaseSync() {
     } else {
       realtimeActive = false;
     }
+
+    void ensurePocketbaseNotificationSubscription();
   };
 
   const unsubscribeFromRealtimeCollections = async (collections?: string[]) => {

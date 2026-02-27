@@ -114,6 +114,7 @@ export const buildFilerobotConfig = (
     savingPixelRatio: getDevicePixelRatio(),
     previewPixelRatio: getDevicePixelRatio(),
     backgroundColor: '#1e1e1e',
+    noCrossOrigin: true,
     ...restOverrides,
   };
 
@@ -158,11 +159,30 @@ export const getImagePayload = (imageData: SavedImageData, fallbackMime = DEFAUL
   return getBase64Payload(imageData, fallbackMime);
 };
 
+const decodeBase64ToArrayBuffer = (base64: string): ArrayBuffer => {
+  if (typeof globalThis.atob === 'function') {
+    const binary = globalThis.atob(base64);
+    const buffer = new ArrayBuffer(binary.length);
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return buffer;
+  }
+
+  if (typeof globalThis.Buffer !== 'undefined') {
+    const buffer = globalThis.Buffer.from(base64, 'base64');
+    return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
+  }
+
+  throw new Error('No base64 decoder available');
+};
+
 export const convertSavedImageDataToBlob = async (
   imageData: SavedImageData,
   fallbackMime = DEFAULT_MIME
 ): Promise<Blob> => {
-  const { dataUrl } = getBase64Payload(imageData, fallbackMime);
-  const response = await fetch(dataUrl);
-  return response.blob();
+  const { base64, mimeType } = getBase64Payload(imageData, fallbackMime);
+  const arrayBuffer = decodeBase64ToArrayBuffer(base64);
+  return new Blob([arrayBuffer], { type: mimeType });
 };

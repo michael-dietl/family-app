@@ -31,7 +31,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { IonPage, IonHeader, IonToolbar, IonTitle, IonButtons, IonButton, IonIcon, IonContent, IonSpinner } from '@ionic/vue';
+import { IonPage, IonHeader, IonToolbar, IonTitle, IonButtons, IonButton, IonIcon, IonContent, IonSpinner, toastController } from '@ionic/vue';
 import { arrowBackOutline, checkmark } from 'ionicons/icons';
 import FilerobotImageEditor from 'filerobot-image-editor';
 import {
@@ -42,6 +42,7 @@ import {
   loadFilerobotStyles,
   unloadFilerobotStyles,
 } from '@/utils/filerobotEditor';
+import { storeEditedBookCover } from '@/services/bookCoverStorage';
 import {
   useImageEditorNavigationContext,
   clearImageEditorNavigationContext
@@ -166,7 +167,6 @@ watch(imageSrc, (newSrc) => {
 const handleSave = async () => {
   if (isSaving.value || !editorInstance) return;
   const currentContext = editorContext.value;
-  if (!currentContext) return;
 
   isSaving.value = true;
   try {
@@ -175,8 +175,28 @@ const handleSave = async () => {
       getDevicePixelRatio()
     );
     const blob = await convertSavedImageDataToBlob(imageData);
-    await currentContext.onSave(blob);
-    goBack();
+    let saved = false;
+    if (currentContext) {
+      await currentContext.onSave(blob);
+      saved = true;
+    }
+    const bookCoverIdParam = route.query.bookCoverId as string | undefined;
+    const bookCoverId = bookCoverIdParam ? parseInt(bookCoverIdParam, 10) : NaN;
+    if (!saved && bookCoverIdParam && !Number.isNaN(bookCoverId)) {
+      saved = true;
+      await storeEditedBookCover(bookCoverId, blob);
+      const toast = await toastController.create({
+        message: 'Cover gespeichert',
+        duration: 2000,
+        color: 'success'
+      });
+      await toast.present();
+    }
+    if (saved) {
+      goBack();
+    } else {
+      console.warn('ImageEditorPage: no save handler available');
+    }
   } catch (error) {
     console.error('Error saving edited image: ', error);
   } finally {

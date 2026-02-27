@@ -183,11 +183,10 @@ import {
   createOutline
 } from 'ionicons/icons';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { Filesystem } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { db, type Book, type BookCategory } from '@/services/database';
-import { downloadRemoteCoverImage, findLocalCoverImage, isRemoteImageUrl } from '@/services/imageStorage';
-import { buildSharedStoragePath, ensureDirectoryExists, getSharedStorageDirectory } from '@/services/storagePaths';
+import { downloadRemoteCoverImage, findLocalCoverImage, isRemoteImageUrl, readSharedStorageFileAsDataUrl } from '@/services/imageStorage';
+import { storeEditedBookCover } from '@/services/bookCoverStorage';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { lookupBookByISBN } from '@/services/books';
 import { setImageEditorNavigationContext } from '@/composables/useImageEditorNavigation';
@@ -197,7 +196,7 @@ const router = useRouter();
 const book = ref<Book | null>(null);
 const isLoading = ref(false);
 const categories = ref<BookCategory[]>([]);
-const bookCoverDirectory = buildSharedStoragePath('books');
+let coverEditorBookId: number | null = null;
 
 onMounted(async () => {
   await loadBook();
@@ -249,10 +248,13 @@ const ensureLocalCoverDownloaded = async (loadedBook: Book) => {
   return false;
 };
 
-const loadBook = async () => {
+const loadBook = async (overrideBookId?: number) => {
   isLoading.value = true;
   try {
-    const bookId = parseInt(route.params.id as string);
+    const bookId = typeof overrideBookId === 'number' ? overrideBookId : parseInt(route.params.id as string);
+    if (!bookId || isNaN(bookId)) {
+      throw new Error('Ungültige Buch-ID in der Route');
+    }
     book.value = await db.getBook(bookId);
     // Debug log
     if (book.value) {
@@ -296,6 +298,16 @@ const getImageSrc = (coverImage?: string): string => {
   }
   
   return coverImage;
+};
+
+const prepareCoverImageForEditor = async (coverImage?: string): Promise<string | null> => {
+  if (!coverImage) return null;
+  const dataUrl = await readSharedStorageFileAsDataUrl(coverImage);
+  if (dataUrl) return dataUrl;
+  if (coverImage.startsWith('file://')) {
+    return Capacitor.convertFileSrc(coverImage);
+  }
+  return getImageSrc(coverImage);
 };
 
 const getLanguageName = (code?: string): string => {
@@ -593,36 +605,38 @@ const confirmDelete = async () => {
   await alert.present();
 };
 
-const openCoverImageEditor = (imageSrc: string) => {
+const openCoverImageEditor = async (imageSrc?: string) => {
   if (!imageSrc) return;
+  const bookId = book.value?.id;
+  if (!bookId) return;
+
+  const editableSource = await prepareCoverImageForEditor(imageSrc);
+  if (!editableSource) return;
+
+  coverEditorBookId = bookId;
   setImageEditorNavigationContext({
-    imageSrc,
-    onSave: handleCoverEditorSave
+    imageSrc: editableSource,
+    onSave: handleCoverEditorSave,
+    onClose: () => {
+      coverEditorBookId = null;
+    }
   });
   router.push({
     path: '/image-editor',
     query: {
-      return: route.fullPath
+      return: route.fullPath,
+      bookCoverId: String(bookId)
     }
   });
 };
 
 const handleCoverEditorSave = async (blob: Blob) => {
-  if (!book.value || !book.value.id) return;
+  const bookId = coverEditorBookId ?? book.value?.id;
+  if (!bookId) return;
 
   try {
-    const base64Data = await convertBlobToBase64(blob);
-    const fileName = `book_cover_${book.value.id}_${Date.now()}.jpg`;
-    const targetPath = buildSharedStoragePath('books', fileName);
-    await ensureDirectoryExists(getSharedStorageDirectory(), bookCoverDirectory);
-    const result = await Filesystem.writeFile({
-      path: targetPath,
-      data: base64Data,
-      directory: getSharedStorageDirectory(),
-      recursive: true
-    });
-    await db.updateBook(book.value.id, { coverImage: result.uri });
-    await loadBook();
+    await storeEditedBookCover(bookId, blob);
+    await loadBook(bookId);
     const toast = await toastController.create({
       message: 'Cover gespeichert',
       duration: 2000,
@@ -637,6 +651,9 @@ const handleCoverEditorSave = async (blob: Blob) => {
       color: 'danger'
     });
     await toast.present();
+  }
+  finally {
+    coverEditorBookId = null;
   }
 };
 
@@ -655,9 +672,7 @@ const editCoverPhoto = async () => {
       return;
     }
   }
-  const imageSrc = getImageSrc(book.value.coverImage);
-  if (!imageSrc) return;
-  openCoverImageEditor(imageSrc);
+  await openCoverImageEditor(book.value.coverImage);
 };
 
 const takeCoverPhoto = async () => {
@@ -690,22 +705,7 @@ const takeCoverPhoto = async () => {
     // Lies Bilddaten
     const response = await fetch(image.webPath);
     const blob = await response.blob();
-    const base64Data = await convertBlobToBase64(blob);
-
-    // Speichere in Filesystem
-    const fileName = `book_cover_${book.value.id}_${Date.now()}.jpg`;
-    const relativePath = buildSharedStoragePath('books', fileName);
-    await ensureDirectoryExists(getSharedStorageDirectory(), bookCoverDirectory);
-    const savedFile = await Filesystem.writeFile({
-        path: relativePath,
-        data: base64Data,
-        directory: getSharedStorageDirectory(),
-        recursive: true
-      });
-
-    // Update Buch mit neuem Cover-Pfad
-    const coverPath = savedFile.uri;
-    await db.updateBook(book.value.id, { coverImage: coverPath });
+    const coverPath = await storeEditedBookCover(book.value.id, blob);
     
     // Frage ob Bild bearbeitet werden soll
     const alert = await alertController.create({
@@ -729,7 +729,7 @@ const takeCoverPhoto = async () => {
         {
           text: 'Bearbeiten',
           handler: () => {
-            openCoverImageEditor(Capacitor.convertFileSrc(coverPath));
+            openCoverImageEditor(coverPath);
           }
         }
       ]
@@ -748,17 +748,6 @@ const takeCoverPhoto = async () => {
   }
 };
 
-const convertBlobToBase64 = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = () => {
-      const result = reader.result as string;
-      resolve(result.split(',')[1]);
-    };
-    reader.readAsDataURL(blob);
-  });
-};
 </script>
 
 <style scoped>

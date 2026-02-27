@@ -73,3 +73,59 @@ export const ensureSharedStorageFoldersExist = async (folders: Array<string> = D
   const normalizedFolders = Array.from(new Set(folders.filter(Boolean)));
   await Promise.all(normalizedFolders.map((folder) => ensureDirectory(directory, buildSharedStoragePath(folder))));
 };
+
+const sanitizeIdentifier = (value?: number | string): string => {
+  if (value === undefined || value === null) return '';
+  return String(value).replace(/[^a-zA-Z0-9_-]/g, '');
+};
+
+const convertBlobToBase64 = async (blob: Blob): Promise<string> => {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = '';
+
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    const chunk = bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length));
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary);
+};
+
+const detectExtension = (mimeType?: string): string => {
+  if (!mimeType) return 'jpg';
+  const normalized = mimeType.toLowerCase().trim();
+  if (!normalized.startsWith('image/')) return 'jpg';
+  const candidate = normalized.replace('image/', '').replace(/[^a-z0-9]/g, '');
+  if (!candidate) return 'jpg';
+  if (candidate === 'jpeg' || candidate === 'pjpeg') return 'jpg';
+  return candidate;
+};
+
+export interface SharedStorageWriteOptions {
+  folder: string;
+  prefix?: string;
+  identifier?: number | string;
+  extension?: string;
+}
+
+export const writeBlobToSharedStorage = async (blob: Blob, options: SharedStorageWriteOptions): Promise<string> => {
+  const prefix = options.prefix ? sanitizeIdentifier(options.prefix) : 'file';
+  const identifierPart = options.identifier ? `${sanitizeIdentifier(options.identifier)}_` : '';
+  const extension = options.extension || detectExtension(blob.type);
+  const fileName = `${prefix}_${identifierPart}${Date.now()}.${extension}`;
+  const relativePath = buildSharedStoragePath(options.folder, fileName);
+  const directory = getSharedStorageDirectory();
+
+  await ensureDirectoryExists(directory, options.folder);
+  const data = await convertBlobToBase64(blob);
+  const result = await Filesystem.writeFile({
+    directory,
+    path: relativePath,
+    data,
+    recursive: true
+  });
+
+  return result.uri;
+};

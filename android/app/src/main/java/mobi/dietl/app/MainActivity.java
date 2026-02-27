@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.ClipData;
 import android.os.Build;
 import com.getcapacitor.BridgeActivity;
+import com.google.firebase.FirebaseApp;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -27,6 +28,7 @@ public class MainActivity extends BridgeActivity {
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
+		FirebaseApp.initializeApp(this);
 		super.onCreate(savedInstanceState);
 
 		try {
