@@ -26,7 +26,8 @@ export default {
     placeholders: {
       url: 'https://example.com',
       email: 'deine@email.com',
-      password: '••••••••'
+      password: '••••••••',
+      username: 'Benutzername'
     },
     storageModes: {
       web: 'In-Memory',
@@ -461,6 +462,7 @@ export default {
     "starten": "Starten",
     "sprache": "Sprache",
     "pocketbase_backend": "PocketBase Backend",
+    "pocketbase_username": "PocketBase Benutzername",
     "konfiguriere_die_verbindung_zu_deinem_pocketbase_server_für_": "Konfiguriere die Verbindung zu deinem PocketBase Server für Cloud-Synchronisation",
     "server_url": "Server URL",
     "valhalla_backend": "Valhalla Backend",

@@ -186,3 +186,8 @@ export const convertSavedImageDataToBlob = async (
   const arrayBuffer = decodeBase64ToArrayBuffer(base64);
   return new Blob([arrayBuffer], { type: mimeType });
 };
+
+export const base64ToBlob = (base64: string, mimeType = DEFAULT_MIME): Blob => {
+  const arrayBuffer = decodeBase64ToArrayBuffer(base64);
+  return new Blob([arrayBuffer], { type: mimeType });
+};

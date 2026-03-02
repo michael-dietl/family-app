@@ -17,15 +17,16 @@ class PocketBaseService {
         this.pb.authStore.save(token);
       } else {
         // Automatische Anmeldung mit gespeicherten Credentials
-        const [{ value: email }, { value: password }] = await Promise.all([
+        const [{ value: username }, { value: email }, { value: password }] = await Promise.all([
+          Preferences.get({ key: 'pocketbase_username' }),
           Preferences.get({ key: 'pocketbase_email' }),
           Preferences.get({ key: 'pocketbase_password' })
         ]);
 
-        
-        if (email && password) {
+        const identity = username || email;
+        if (identity && password) {
           try {
-            await this.pb.collection('users').authWithPassword(email, password);
+            await this.pb.collection('users').authWithPassword(identity, password);
             // Token wird automatisch gespeichert
           } catch (e) {
             console.warn('PocketBase auto-login fehlgeschlagen:', e);

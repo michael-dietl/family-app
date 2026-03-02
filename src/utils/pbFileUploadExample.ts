@@ -23,16 +23,18 @@ export async function uploadFileToPocketBase(
   await pocketbase.initialize();
   let pb = pocketbase.getInstance();
   if (!pb || !pocketbase.isAuthenticated()) {
-    const [{ value: url }, { value: email }, { value: password }] = await Promise.all([
+    const [{ value: url }, { value: username }, { value: email }, { value: password }] = await Promise.all([
       Preferences.get({ key: 'pocketbase_url' }),
+      Preferences.get({ key: 'pocketbase_username' }),
       Preferences.get({ key: 'pocketbase_email' }),
       Preferences.get({ key: 'pocketbase_password' })
     ]);
-    if (url && email && password) {
+    const identity = username || email;
+    if (url && identity && password) {
       pb = pocketbase.getInstance();
       if (pb) {
         try {
-          await pb.collection('users').authWithPassword(email, password);
+          await pb.collection('users').authWithPassword(identity, password);
           await pocketbase.initialize(); // Token übernehmen
         } catch (e) {
           throw new Error('Automatische Authentifizierung fehlgeschlagen!');

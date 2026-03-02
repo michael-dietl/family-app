@@ -77,6 +77,18 @@
               />
             </ion-item>
 
+            <ion-item>
+              <ion-label position="stacked">
+                <strong>{{ $t('auto.pocketbase_username') }}</strong>
+              </ion-label>
+              <ion-input
+                v-model="settings.username"
+                type="text"
+                :placeholder="t('settings.placeholders.username')"
+                clear-input
+              />
+            </ion-item>
+
             <ion-item v-if="urlError">
               <ion-label color="danger">
                 <p>{{ urlError }}</p>
@@ -362,6 +374,7 @@ const router = useRouter();
 const settings = ref({
   pocketbaseUrl: '',
   email: '',
+  username: '',
   password: '',
   autoSync: false,
   syncOnlyOnWifi: false,
@@ -392,9 +405,10 @@ onMounted(async () => {
 
 const loadSettings = async () => {
   try {
-    const [url, email, autoSync, syncOnlyOnWifi, valhallaUrl] = await Promise.all([
+    const [url, email, username, autoSync, syncOnlyOnWifi, valhallaUrl] = await Promise.all([
         Preferences.get({ key: 'pocketbase_url' }),
         Preferences.get({ key: 'pocketbase_email' }),
+        Preferences.get({ key: 'pocketbase_username' }),
         Preferences.get({ key: 'auto_sync' }),
         Preferences.get({ key: 'sync_only_on_wifi' }),
         Preferences.get({ key: 'valhalla_url' })
@@ -402,6 +416,7 @@ const loadSettings = async () => {
 
     if (url.value) settings.value.pocketbaseUrl = url.value;
     if (email.value) settings.value.email = email.value;
+    if (username.value) settings.value.username = username.value;
     if (autoSync.value) settings.value.autoSync = autoSync.value === 'true';
     if (syncOnlyOnWifi.value) settings.value.syncOnlyOnWifi = syncOnlyOnWifi.value === 'true';
     if (valhallaUrl.value) settings.value.valhallaUrl = valhallaUrl.value;
@@ -514,7 +529,8 @@ const testConnection = async () => {
 };
 
 const authenticateUser = async () => {
-  if (!settings.value.pocketbaseUrl || !settings.value.email || !settings.value.password) {
+  const identity = settings.value.username || settings.value.email;
+  if (!settings.value.pocketbaseUrl || !identity || !settings.value.password) {
     return;
   }
 
@@ -523,7 +539,7 @@ const authenticateUser = async () => {
   try {
     const pb = new PocketBase(settings.value.pocketbaseUrl);
     await pb.collection('users').authWithPassword(
-      settings.value.email,
+      identity,
       settings.value.password
     );
 
@@ -587,6 +603,7 @@ const saveSettings = async () => {
     await Promise.all([
       Preferences.set({ key: 'pocketbase_url', value: settings.value.pocketbaseUrl }),
       Preferences.set({ key: 'pocketbase_email', value: settings.value.email }),
+      Preferences.set({ key: 'pocketbase_username', value: settings.value.username }),
       Preferences.set({ key: 'pocketbase_password', value: settings.value.password }),
       Preferences.set({ key: 'auto_sync', value: settings.value.autoSync.toString() }),
       Preferences.set({ key: 'sync_only_on_wifi', value: settings.value.syncOnlyOnWifi.toString() }),

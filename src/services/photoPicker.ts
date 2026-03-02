@@ -32,7 +32,10 @@ export async function pickMedia(options?: { multiple?: boolean; allowVideos?: bo
     const { FilePicker } = await import('@capawesome/capacitor-file-picker');
     const limit = options?.multiple ? 0 : 1;
     const readData = false; // we only need URIs here
-    const result = await FilePicker.pickImages({ limit, readData });
+    const pickerOptions = { limit, readData };
+    const result = options?.allowVideos
+      ? await FilePicker.pickMedia(pickerOptions)
+      : await FilePicker.pickImages(pickerOptions);
     if (result.files && result.files.length > 0) {
       return result.files.map((f: any) => f.path || f.uri || '');
     }

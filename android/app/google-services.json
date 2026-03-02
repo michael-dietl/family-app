@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "551495398228",
+    "project_id": "dietl-mobi-d2c55",
+    "storage_bucket": "dietl-mobi-d2c55.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:551495398228:android:b1d2a8dc483458f69dcec1",
+        "android_client_info": {
+          "package_name": "mobi.dietl.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBLn4QGlzRsVHaOfzZRTmocuOJ7dhIAuXQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

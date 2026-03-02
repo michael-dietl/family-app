@@ -477,11 +477,13 @@ export function usePocketbaseSync() {
       return true;
     }
     // Versuche Login mit gespeicherten Credentials
-    const [{ value: email }, { value: password }] = await Promise.all([
+    const [{ value: username }, { value: email }, { value: password }] = await Promise.all([
+      Preferences.get({ key: 'pocketbase_username' }),
       Preferences.get({ key: 'pocketbase_email' }),
       Preferences.get({ key: 'pocketbase_password' })
     ]);
-    if (!email || !password) {
+    const identity = username || email;
+    if (!identity || !password) {
       return false;
     }
 
@@ -491,7 +493,7 @@ export function usePocketbaseSync() {
     }
 
     try {
-      await pb.collection('users').authWithPassword(email, password);
+      await pb.collection('users').authWithPassword(identity, password);
       return pocketbase.isAuthenticated();
     } catch (error) {
       logSyncWarn('Automatische Authentifizierung fehlgeschlagen', error);

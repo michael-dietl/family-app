@@ -149,6 +149,7 @@ export default {
     pausieren: 'Metti in pausa',
     plattform: 'Piattaforma',
     pocketbase_backend: 'Backend PocketBase',
+    pocketbase_username: 'Nome utente PocketBase',
     konfiguriere_die_verbindung_zu_deinem_pocketbase_server_für_: 'Configura la connessione al tuo server PocketBase per la sincronizzazione cloud',
     preis: 'Prezzo',
     qualität: 'Qualità',
@@ -317,7 +318,8 @@ export default {
     placeholders: {
       url: 'https://example.com',
       email: 'tuo@email.com',
-      password: '••••••••'
+      password: '••••••••',
+      username: 'Nome utente'
     },
     storageModes: {
       web: 'In memoria',

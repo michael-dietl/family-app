@@ -92,7 +92,7 @@ const ensureLocalNotificationChannel = async (): Promise<boolean> => {
   return channelConfigured;
 };
 
-const scheduleLocalNotification = async (title: string, body: string) => {
+export const scheduleLocalNotification = async (title: string, body: string) => {
   if (!isNativePlatform) return;
   const ready = await ensureLocalNotificationChannel();
   if (!ready) return;
