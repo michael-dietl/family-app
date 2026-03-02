@@ -375,7 +375,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onBeforeUnmount, onActivated } from 'vue';
-import { checkmark, image } from 'ionicons/icons';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
@@ -391,7 +390,6 @@ import {
   IonGrid,
   IonRow,
   IonCol,
-  IonImg,
   IonSpinner,
   IonSegment,
   IonSegmentButton,
@@ -411,6 +409,7 @@ import {
   ellipsisVertical,
   cameraOutline,
   camera,
+  image,
   images,
   gridOutline,
   mapOutline,
@@ -433,10 +432,9 @@ import { useGallery } from '@/composables/useGallery';
 import { usePhoto } from '@/composables/usePhoto';
 import { useLightbox } from '@/composables/useLightbox';
 import { useWakeLock } from '@/composables/useWakeLock';
-import { extractExifFromUri, extractExifFromImage } from '@/services/exif';
+import { extractExifFromImage } from '@/services/exif';
 import { default as GalleryMap } from '@/components/GalleryMap.vue';
 import { default as LocationPickerModal } from '@/components/LocationPickerModal.vue';
-// import { extractExifFromUri, extractExifFromImage } from '@/services/exif'; // ungenutzt
 import { db, type Photo } from '@/services/database';
 import { buildSharedStoragePath, getSharedStorageDirectory, ensureDirectoryExists } from '@/services/storagePaths';
 import { readSharedStorageFileAsDataUrl } from '@/services/imageStorage';
@@ -595,8 +593,6 @@ const videoPreviewSrc = ref<string | null>(null);
 const videoPreviewRef = ref<HTMLVideoElement | null>(null);
 
 let longPressTimer: ReturnType<typeof setTimeout> | null = null;
-let longPressPhoto: Photo | null = null;
-// let longPressPhoto: Photo | null = null; // ungenutzt
 
 const handlePhotoClick = (photo: Photo, index: number, event: Event) => {
   event.preventDefault();
@@ -624,7 +620,6 @@ const handleAutoplayToggle = () => {
 
 const handleTouchStart = (photo: Photo, event: TouchEvent) => {
   event.preventDefault();
-  longPressPhoto = photo;
   
   // 5 Sekunden Long-Press für Selektion
   longPressTimer = setTimeout(() => {
@@ -639,7 +634,6 @@ const handleTouchEnd = () => {
     clearTimeout(longPressTimer);
     longPressTimer = null;
   }
-  longPressPhoto = null;
 };
 
 const handleViewChange = (event: CustomEvent) => {
@@ -721,11 +715,6 @@ const handleImageEditorSave = async (blob: Blob) => {
     isSaving.value = false;
     photoBeingEdited.value = null;
   }
-};
-const openVideoPreview = (photo: Photo) => {
-// const openVideoPreview = (photo: Photo) => {
-//   videoPreviewSrc.value = getImageSrc(photo.filepath);
-  videoPreviewOpen.value = true;
 };
 const closeVideoPreview = () => {
   if (videoPreviewRef.value) {

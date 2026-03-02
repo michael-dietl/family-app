@@ -1,8 +1,8 @@
 
-import { ref, reactive } from 'vue';
+import { ref } from 'vue';
 import { Capacitor } from '@capacitor/core';
 import { pocketbase, getPocketbaseAuthorId, setPocketbaseAuthorId } from '@/services/pocketbase';
-import { db, type Gallery, type Photo, type Book, type BookCategory, type ShoppingList, type ShoppingItem, type TodoList, type TodoItem, type Route, type Waypoint, type Wine, type WinePhoto, type WineCategory, type DeletedEntry } from '@/services/database';
+import { db, type Gallery, type Photo, type Book, type BookCategory, type ShoppingList, type ShoppingItem, type TodoList, type TodoItem, type Route, type Waypoint, type Wine, type WinePhoto, type WineCategory } from '@/services/database';
 import { Preferences } from '@capacitor/preferences';
 import { toastController } from '@ionic/vue';
 import type { UnsubscribeFunc } from 'pocketbase';
@@ -370,7 +370,6 @@ const resolveRemoteRouteName = (name?: string, startTime?: string): string => {
   return 'Route';
 };
 
-const toCoordinateText = (value?: number): string => (Number.isFinite(value ?? 0) ? (value ?? 0).toString() : '0');
 
 const buildWaypointPayload = (waypoint: Waypoint) => {
   const valLatitude = waypoint.valLatitude ?? waypoint.latitude;
@@ -513,7 +512,6 @@ export function usePocketbaseSync() {
   const isSyncing = ref(false);
   const lastSyncTime = ref<string | null>(null);
 
-  let gallerySubscription: UnsubscribeFunc | null = null;
 
   const presentRealtimeToast = async (message: string) => {
     const toast = await toastController.create({

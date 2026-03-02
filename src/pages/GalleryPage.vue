@@ -73,10 +73,10 @@
             size-md="4" 
             size-lg="3"
           >
-            <ion-card @click="openGallery(gallery.id!)" button>
+            <ion-card @click="openGallery(gallery.id ?? 0)" button>
               <div class="gallery-cover">
-                <ion-icon v-if="!galleryCoverPhotos[gallery.id!]" :icon="imagesOutline" />
-                <img v-else :src="getImageSrc(galleryCoverPhotos[gallery.id!])" alt="Cover" />
+                <ion-icon v-if="!galleryCoverPhotos[gallery.id ?? 0]" :icon="imagesOutline" />
+                <img v-else :src="getImageSrc(galleryCoverPhotos[gallery.id ?? 0])" alt="Cover" />
                 <!-- Gallery name (max 2 Zeilen) and photo count badge -->
               </div>
               <ion-card-header>
@@ -84,7 +84,7 @@
                 <br/>
                 <ion-card-subtitle>
                   <ion-icon :icon="imageOutline" />
-                  {{ photoCount(gallery.id!) }} {{ t('auto.fotos') }}
+                  {{ photoCount(gallery.id ?? 0) }} {{ t('auto.fotos') }}
                   <span
                     class="gallery-color-swatch"
                     :style="{ backgroundColor: gallery.color || '#a0a0a0' }"
@@ -400,6 +400,7 @@ const photoCount = (galleryId: number) => {
 };
 
 const openGallery = (galleryId: number) => {
+  if (!galleryId) return;
   router.push(`/gallery/${galleryId}`);
 };
 

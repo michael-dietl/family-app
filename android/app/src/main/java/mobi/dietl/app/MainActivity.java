@@ -6,6 +6,8 @@ import android.util.Base64;
 import android.content.Intent;
 import android.content.ClipData;
 import android.os.Build;
+import android.database.Cursor;
+import android.provider.OpenableColumns;
 import com.getcapacitor.BridgeActivity;
 import com.google.firebase.FirebaseApp;
 
@@ -14,7 +16,10 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
@@ -56,6 +61,77 @@ public class MainActivity extends BridgeActivity {
 						return null;
 					}
 				}
+
+				@android.webkit.JavascriptInterface
+				public String getContentUriMeta(String uriStr) {
+					Cursor cursor = null;
+					try {
+						Uri uri = Uri.parse(uriStr);
+						String mimeType = getApplicationContext().getContentResolver().getType(uri);
+						String displayName = null;
+						Long size = null;
+						cursor = getApplicationContext().getContentResolver().query(uri, null, null, null, null);
+						if (cursor != null && cursor.moveToFirst()) {
+							int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+							if (nameIndex >= 0) {
+								displayName = cursor.getString(nameIndex);
+							}
+							int sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE);
+							if (sizeIndex >= 0) {
+								size = cursor.getLong(sizeIndex);
+							}
+						}
+
+						JSONObject meta = new JSONObject();
+						if (mimeType != null) meta.put("mimeType", mimeType);
+						if (displayName != null) meta.put("displayName", displayName);
+						if (size != null) meta.put("size", size);
+						return meta.toString();
+					} catch (Exception e) {
+						return null;
+					} finally {
+						if (cursor != null) {
+							cursor.close();
+						}
+					}
+				}
+
+				@android.webkit.JavascriptInterface
+				public String copyContentUriToFile(String uriStr, String relativePath) {
+					InputStream input = null;
+					OutputStream output = null;
+					try {
+						Uri uri = Uri.parse(uriStr);
+						File baseDir = getApplicationContext().getExternalFilesDir(null);
+						if (baseDir == null) return null;
+						File target = new File(baseDir, relativePath);
+						File parent = target.getParentFile();
+						if (parent != null && !parent.exists()) {
+							parent.mkdirs();
+						}
+						input = getApplicationContext().getContentResolver().openInputStream(uri);
+						if (input == null) return null;
+						output = new FileOutputStream(target);
+						byte[] buffer = new byte[16384];
+						int length;
+						while ((length = input.read(buffer)) > 0) {
+							output.write(buffer, 0, length);
+						}
+						output.flush();
+						return Uri.fromFile(target).toString();
+					} catch (Exception e) {
+						return null;
+					} finally {
+						try {
+							if (input != null) input.close();
+						} catch (Exception ignored) {
+						}
+						try {
+							if (output != null) output.close();
+						} catch (Exception ignored) {
+						}
+					}
+				}
 			}, "ContentReaderNative");
 
 			// Add a lightweight JS bridge to launch a native picker (SAF / ACTION_OPEN_DOCUMENT)
@@ -65,6 +141,8 @@ public class MainActivity extends BridgeActivity {
 					try {
 						Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
 						intent.addCategory(Intent.CATEGORY_OPENABLE);
+						intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+						intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
 						// Allow images and videos by default
 						intent.setType("*/*");
 						String[] mimeTypes = new String[] { "image/*", "video/*" };
@@ -113,12 +191,26 @@ public class MainActivity extends BridgeActivity {
 					// no data
 				} else {
 					if (data.getData() != null) {
+						try {
+							getContentResolver().takePersistableUriPermission(
+								data.getData(),
+								Intent.FLAG_GRANT_READ_URI_PERMISSION
+							);
+						} catch (Exception ignored) {
+						}
 						arr.put(data.getData().toString());
 					}
 					ClipData clip = data.getClipData();
 					if (clip != null) {
 						for (int i = 0; i < clip.getItemCount(); i++) {
 							Uri uri = clip.getItemAt(i).getUri();
+							try {
+								getContentResolver().takePersistableUriPermission(
+									uri,
+									Intent.FLAG_GRANT_READ_URI_PERMISSION
+								);
+							} catch (Exception ignored) {
+							}
 							arr.put(uri.toString());
 						}
 					}

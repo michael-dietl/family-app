@@ -5,10 +5,12 @@ import { Geolocation } from '@capacitor/geolocation'; // Retained for route trac
 import { Capacitor } from '@capacitor/core';
 import { db, type Photo } from '@/services/database';
 import { extractExifFromUri, extractGPSFromCameraExif, extractExifFromImage } from '@/services/exif';
-import { readContentUri } from '@/services/contentReader';
+import { copyContentUriToFile, getContentUriMeta, readContentUri } from '@/services/contentReader';
 import { buildSharedStoragePath, getSharedStorageDirectory } from '@/services/storagePaths';
 
 const videoExtensions = ['mp4', 'mov', 'webm', 'mkv', 'avi', '3gp', 'm4v'];
+const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'tiff'];
+const MAX_EXIF_FALLBACK_BYTES = 20 * 1024 * 1024;
 
 const getExtensionFromUri = (uri: string) => {
   if (!uri) return '';
@@ -25,6 +27,35 @@ const getExtensionFromMime = (mime?: string) => {
   if (parts.length !== 2) return '';
   const subtype = parts[1].split('+')[0].split('.')[0];
   return subtype.toLowerCase();
+};
+
+const getExtensionFromName = (name?: string) => {
+  if (!name) return '';
+  const clean = name.split('?')[0].split('#')[0];
+  const parts = clean.split('.');
+  if (parts.length <= 1) return '';
+  return parts.pop()?.toLowerCase() || '';
+};
+
+const normalizeVideoExtension = (ext?: string) => {
+  const normalized = (ext || '').toLowerCase();
+  if (normalized === 'quicktime') return 'mov';
+  return normalized;
+};
+
+const getVideoMimeFromExtension = (ext?: string) => {
+  const normalized = normalizeVideoExtension(ext);
+  if (normalized === 'mov') return 'video/quicktime';
+  if (normalized === '3gp') return 'video/3gpp';
+  if (normalized === 'm4v') return 'video/x-m4v';
+  return 'video/mp4';
+};
+
+const isVideoFromMeta = (meta?: { mimeType?: string; displayName?: string } | null) => {
+  if (!meta) return false;
+  if (meta.mimeType?.startsWith('video/')) return true;
+  const nameExt = normalizeVideoExtension(getExtensionFromName(meta.displayName));
+  return videoExtensions.includes(nameExt);
 };
 
 const isUriLikelyVideo = (uri?: string) => {
@@ -115,10 +146,13 @@ export function usePhoto() {
         console.log('📸 Picked native URI:', uri);
         // Try to request base64 via native ContentReader (no UI) as a best-effort for EXIF preservation
         try {
-          const cr = await import('@/services/contentReader');
-          const res = await cr.readContentUri(uri);
-          if (res && res.data) {
-            return { path: uri || null, data: res.data };
+          const meta = await getContentUriMeta(uri);
+          const isVideo = isUriLikelyVideo(uri) || isVideoFromMeta(meta);
+          if (!isVideo) {
+            const res = await readContentUri(uri);
+            if (res && res.data) {
+              return { path: uri || null, data: res.data };
+            }
           }
         } catch (e) {
           // ignore and return URI
@@ -141,12 +175,17 @@ export function usePhoto() {
         console.log(`📸 Picked ${uris.length} files from native picker`);
         // Try to enrich with base64 data via native ContentReader for each URI (no UI)
         try {
-          const cr = await import('@/services/contentReader');
           const out: Array<{ path: string | null; data?: string | null }> = [];
           for (const u of uris) {
             try {
-              const res = await cr.readContentUri(u);
-              out.push({ path: u || null, data: res?.data || null });
+              const meta = await getContentUriMeta(u);
+              const isVideo = isUriLikelyVideo(u) || isVideoFromMeta(meta);
+              if (!isVideo) {
+                const res = await readContentUri(u);
+                out.push({ path: u || null, data: res?.data || null });
+              } else {
+                out.push({ path: u || null, data: null });
+              }
             } catch (e) {
               out.push({ path: u || null, data: null });
             }
@@ -386,44 +425,55 @@ export function usePhoto() {
       }
       
       // Lade Datei als Blob (oder verwende provided base64Data direkt)
-      let blob: Blob;
-      const inferredIsVideo = isUriLikelyVideo(photoUri);
-
-      if (base64Data && !inferredIsVideo) {
-        // base64Data is raw base64 without data: prefix
-        console.log('📥 Using base64 data provided by FilePicker (preserves EXIF)');
-        const mime = guessMimeFromBase64(base64Data) || 'image/jpeg';
-        const binary = atob(base64Data);
-        const len = binary.length;
-        const buffer = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-          buffer[i] = binary.charCodeAt(i);
-        }
-        blob = new Blob([buffer.buffer], { type: mime });
-      } else {
-        if (photoUri.startsWith('content://') || photoUri.startsWith('file://')) {
-          // Native URI - Konvertiere zu WebView-kompatiblem Pfad
-          console.log('📱 Native URI detected, converting to WebView path...');
-          const webViewPath = Capacitor.convertFileSrc(photoUri);
-          console.log('   🔄 Converted to:', webViewPath);
-          const response = await fetch(webViewPath);
-          blob = await response.blob();
-          console.log('📦 Blob loaded:', { type: blob.type, size: blob.size });
-        } else {
-          // Data URL oder http:// URL - verwende fetch
-          const response = await fetch(photoUri);
-          blob = await response.blob();
+      let blob: Blob | undefined;
+      let contentMeta: { mimeType?: string; displayName?: string; size?: number } | null = null;
+      if (photoUri.startsWith('content://')) {
+        try {
+          contentMeta = await getContentUriMeta(photoUri);
+        } catch (metaError) {
+          console.warn('⚠️ Could not read content meta:', metaError);
         }
       }
-      
-      const sniffedMime = await guessMimeFromBlob(blob);
-      const mimeType = blob.type || sniffedMime || (inferredIsVideo ? 'video/mp4' : 'image/jpeg');
-      const isVideo = inferredIsVideo || mimeType.startsWith('video/');
-      
-      console.log('🖼️ Blob loaded:', { type: blob.type, size: blob.size, isVideo, mimeType });
+      const inferredIsVideo = isUriLikelyVideo(photoUri) || isVideoFromMeta(contentMeta);
+
+      const shouldLoadBlob = !(Capacitor.getPlatform() !== 'web' && inferredIsVideo && photoUri.startsWith('content://'));
+      if (shouldLoadBlob) {
+        if (base64Data && !inferredIsVideo) {
+          // base64Data is raw base64 without data: prefix
+          console.log('📥 Using base64 data provided by FilePicker (preserves EXIF)');
+          const mime = guessMimeFromBase64(base64Data) || 'image/jpeg';
+          const binary = atob(base64Data);
+          const len = binary.length;
+          const buffer = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            buffer[i] = binary.charCodeAt(i);
+          }
+          blob = new Blob([buffer.buffer], { type: mime });
+        } else {
+          if (photoUri.startsWith('content://') || photoUri.startsWith('file://')) {
+            // Native URI - Konvertiere zu WebView-kompatiblem Pfad
+            console.log('📱 Native URI detected, converting to WebView path...');
+            const webViewPath = Capacitor.convertFileSrc(photoUri);
+            console.log('   🔄 Converted to:', webViewPath);
+            const response = await fetch(webViewPath);
+            blob = await response.blob();
+            console.log('📦 Blob loaded:', { type: blob.type, size: blob.size });
+          } else {
+            // Data URL oder http:// URL - verwende fetch
+            const response = await fetch(photoUri);
+            blob = await response.blob();
+          }
+        }
+      }
+
+      const sniffedMime = blob ? await guessMimeFromBlob(blob) : undefined;
+      let mimeType = contentMeta?.mimeType || blob?.type || sniffedMime || (inferredIsVideo ? 'video/mp4' : 'image/jpeg');
+      let isVideo = inferredIsVideo || (mimeType ? mimeType.startsWith('video/') : false);
+
+      console.log('🖼️ Blob loaded:', { type: blob?.type, size: blob?.size, isVideo, mimeType });
 
       // 2. Falls noch keine EXIF-Daten, versuche aus Blob
-      if (!isVideo && !exifData.latitude && !exifData.longitude) {
+      if (!isVideo && blob && !exifData.latitude && !exifData.longitude) {
         console.log('📸 No GPS from URI, trying to extract from blob...');
         const arrayBuffer = await blob.arrayBuffer();
         arrayBufferForExif = arrayBuffer;
@@ -441,7 +491,17 @@ export function usePhoto() {
         // 2b. Fallback: Wenn noch immer keine GPS-Daten vorhanden sind und wir eine content:// URI haben,
         // frage das native ContentReader Plugin per Capacitor an, das den ContentResolver nutzt und die
         // Originalbytes als Base64 zurückliefert.
-        if (!exifData.latitude && photoUri.startsWith('content://')) {
+        const metaExt = getExtensionFromName(contentMeta?.displayName);
+        const looksLikeImage = (contentMeta?.mimeType ? contentMeta.mimeType.startsWith('image/') : false)
+          || mimeType.startsWith('image/')
+          || imageExtensions.includes(metaExt);
+        const allowContentExifFallback =
+          photoUri.startsWith('content://')
+          && !isVideo
+          && looksLikeImage
+          && (contentMeta?.size ? contentMeta.size <= MAX_EXIF_FALLBACK_BYTES : false);
+
+        if (!exifData.latitude && allowContentExifFallback) {
           try {
             console.log('🔁 Trying native ContentReader fallback for original bytes...');
             const res = await readContentUri(photoUri);
@@ -550,64 +610,97 @@ export function usePhoto() {
       }
 
       // 2. Dateiname generieren falls nicht vorhanden
-      const inferredExt = getExtensionFromUri(photoUri);
-      const mimeExt = getExtensionFromMime(mimeType) || 'mp4';
+      const inferredExt = normalizeVideoExtension(getExtensionFromUri(photoUri));
+      const metaExt = normalizeVideoExtension(getExtensionFromName(contentMeta?.displayName));
+      const mimeExt = normalizeVideoExtension(getExtensionFromMime(mimeType)) || 'mp4';
       const normalizedInferredExt = inferredExt.replace(/\./g, '');
-      const videoExt = videoExtensions.includes(normalizedInferredExt) && normalizedInferredExt
+      const videoExt = videoExtensions.includes(metaExt) && metaExt
+        ? metaExt
+        : videoExtensions.includes(normalizedInferredExt) && normalizedInferredExt
         ? normalizedInferredExt
-        : mimeExt;
+        : videoExtensions.includes(mimeExt)
+        ? mimeExt
+        : 'mp4';
       const extension = isVideo ? `.${videoExt}` : '.jpg';
       const finalFilename = filename || `${isVideo ? 'video' : 'photo'}_${Date.now()}${extension}`;
 
       // 3. Foto/Video konvertieren
       // If base64Data was passed in, reuse it (already raw base64); otherwise create it from blob
-      const finalBase64 = base64Data || await blobToBase64(blob);
-      const dataUrl = `data:${mimeType};base64,${finalBase64}`;
+      let finalBase64: string | undefined;
+      let dataUrl: string | undefined;
+      const shouldUseProvidedBase64 = base64Data && !isVideo;
+      if (blob || shouldUseProvidedBase64) {
+        finalBase64 = shouldUseProvidedBase64 ? base64Data || undefined : await blobToBase64(blob as Blob);
+        dataUrl = `data:${mimeType};base64,${finalBase64}`;
+      }
 
       // 4. Speichere Datei im Filesystem (nur auf nativen Plattformen)
       const isNative = Capacitor.getPlatform() !== 'web';
-      let filePath: string;
+      let filePath = '';
       let nativeStoragePath: string | undefined;
       
-      if (isNative) {
+      let usedNativeCopy = false;
+      if (isNative && isVideo && photoUri.startsWith('content://')) {
         try {
-          // Erstelle Gallery-Ordner explizit VORHER (recursive: true funktioniert nicht auf Android)
-          const galleryFolder = buildSharedStoragePath('galleries', galleryId.toString());
-          try {
-            await Filesystem.mkdir({
-              path: galleryFolder,
-              directory: getSharedStorageDirectory(),
-              recursive: true
-            });
-          } catch (mkdirError) {
-            console.log('📁 Directory already exists or created');
+          const targetPath = buildSharedStoragePath('galleries', galleryId.toString(), finalFilename);
+          const copiedPath = await copyContentUriToFile(photoUri, targetPath);
+          if (copiedPath) {
+            filePath = copiedPath;
+            nativeStoragePath = copiedPath;
+            usedNativeCopy = true;
+            if (!mimeType) {
+              mimeType = getVideoMimeFromExtension(videoExt);
+            }
           }
+        } catch (copyError) {
+          console.warn('⚠️ Native video copy failed, falling back to base64 write:', copyError);
+        }
+      }
 
-            const result = await Filesystem.writeFile({
-              path: buildSharedStoragePath('galleries', galleryId.toString(), finalFilename),
-              data: finalBase64,
-              directory: getSharedStorageDirectory()
-            });
-            const nativePath = result.uri;
-            filePath = nativePath;
-            nativeStoragePath = nativePath;
-            console.log('💾 File saved to filesystem:', nativePath);
-        } catch (fsError) {
-          console.error('⚠️ Filesystem write failed - skipping DB save:', fsError);
-          throw new Error(`Filesystem error: ${fsError}`);
+      if (isNative) {
+        if (!usedNativeCopy) {
+          try {
+            // Erstelle Gallery-Ordner explizit VORHER (recursive: true funktioniert nicht auf Android)
+            const galleryFolder = buildSharedStoragePath('galleries', galleryId.toString());
+            try {
+              await Filesystem.mkdir({
+                path: galleryFolder,
+                directory: getSharedStorageDirectory(),
+                recursive: true
+              });
+            } catch (mkdirError) {
+              console.log('📁 Directory already exists or created');
+            }
+
+              const result = await Filesystem.writeFile({
+                path: buildSharedStoragePath('galleries', galleryId.toString(), finalFilename),
+                data: finalBase64 || '',
+                directory: getSharedStorageDirectory()
+              });
+              const nativePath = result.uri;
+              filePath = nativePath;
+              nativeStoragePath = nativePath;
+              console.log('💾 File saved to filesystem:', nativePath);
+          } catch (fsError) {
+            console.error('⚠️ Filesystem write failed - skipping DB save:', fsError);
+            throw new Error(`Filesystem error: ${fsError}`);
+          }
         }
       } else {
         // Web: Verwende Data-URL
-        filePath = dataUrl;
+        filePath = dataUrl || '';
       }
 
       // 4.5 Width/Height sicherstellen (falls nicht aus EXIF vorhanden)
       if (!isVideo && (!exifData.width || !exifData.height)) {
         try {
-          const dimensions = await getImageDimensions(isNative ? filePath : dataUrl);
-          if (!exifData.width) exifData.width = dimensions.width;
-          if (!exifData.height) exifData.height = dimensions.height;
-          console.log('📐 Image dimensions extracted:', dimensions);
+          const source = isNative ? filePath : (dataUrl || '');
+          if (source) {
+            const dimensions = await getImageDimensions(source);
+            if (!exifData.width) exifData.width = dimensions.width;
+            if (!exifData.height) exifData.height = dimensions.height;
+            console.log('📐 Image dimensions extracted:', dimensions);
+          }
         } catch (dimError) {
           console.warn('⚠️ Could not extract image dimensions:', dimError);
         }
@@ -617,14 +710,16 @@ export function usePhoto() {
       let thumbnailPath: string | undefined;
       try {
         if (isVideo) {
-          const videoSrc = isNative ? Capacitor.convertFileSrc(filePath) : dataUrl;
-          const { thumbnailBlob: vidThumb } = await generateVideoThumbnail(videoSrc);
+          const videoSrc = isNative ? (filePath ? Capacitor.convertFileSrc(filePath) : '') : (dataUrl || '');
+          if (videoSrc) {
+            const { thumbnailBlob: vidThumb } = await generateVideoThumbnail(videoSrc);
           if (vidThumb) {
             const thumbBase64 = await blobToBase64(vidThumb);
             thumbnailPath = `data:image/jpeg;base64,${thumbBase64}`;
           }
+          }
         } else {
-          const { thumbnailBlob: photoThumb } = await generatePhotoThumbnail(dataUrl);
+          const { thumbnailBlob: photoThumb } = await generatePhotoThumbnail(dataUrl || '');
           const thumbBase64 = await blobToBase64(photoThumb);
           thumbnailPath = `data:image/jpeg;base64,${thumbBase64}`;
         }
@@ -641,7 +736,12 @@ export function usePhoto() {
       console.log('   - GPS Longitude:', exifData.longitude);
       console.log('   - Camera:', exifData.camera);
       console.log('   - Date taken:', exifData.dateTaken);
+
+      if (!filePath) {
+        throw new Error('File path missing after save');
+      }
       
+      const fileSize = blob?.size ?? contentMeta?.size;
       const photoId = await db.createPhoto({
         galleryId,
         filename: finalFilename,
@@ -650,7 +750,7 @@ export function usePhoto() {
         thumbnail: thumbnailPath,
         mimeType,
         isVideo,
-        filesize: blob.size,
+        filesize: fileSize,
         ...exifData
       });
 
