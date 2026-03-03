@@ -6,6 +6,11 @@
           <ion-back-button default-href="/todo" />
         </ion-buttons>
         <ion-title>{{ currentList?.name || 'ToDo' }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" @click="openEditListModal">
+            <ion-icon slot="icon-only" :icon="createOutline" />
+          </ion-button>
+        </ion-buttons>
       </ion-toolbar>
     </ion-header>
 
@@ -24,13 +29,16 @@
         <section class="add-task-card">
           <ion-card>
             <ion-card-header>
-              <ion-card-title>{{ $t('auto.neue_aufgabe') }}</ion-card-title>
+              <ion-card-title>
+                {{ isEditing ? 'Aufgabe bearbeiten' : $t('auto.neue_aufgabe') }}
+              </ion-card-title>
             </ion-card-header>
             <ion-card-content>
               <div class="task-input-row">
                 <ion-input
                   v-model="newItemTitle"
                   :placeholder="$t('auto.todo_title_placeholder')"
+                  autocapitalize="sentences"
                   @keyup.enter="handleAddItem"
                 />
               </div>
@@ -40,6 +48,7 @@
                   :placeholder="$t('auto.todo_description_placeholder')"
                   :rows="2"
                   auto-grow
+                  autocapitalize="sentences"
                 />
               </ion-item>
               <ion-item lines="none" class="due-date-item">
@@ -74,6 +83,15 @@
                 >
                   {{ $t('auto.speichern') }}
                 </ion-button>
+                <ion-button
+                  v-if="isEditing"
+                  expand="block"
+                  fill="clear"
+                  color="medium"
+                  @click="cancelEditing"
+                >
+                  {{ $t('auto.abbrechen') }}
+                </ion-button>
               </div>
             </ion-card-content>
           </ion-card>
@@ -99,33 +117,37 @@
         </ion-segment>
 
         <ion-list v-if="visibleItems.length > 0" class="todo-list">
-          <ion-item
-            v-for="item in visibleItems"
-            :key="item.id"
-            class="todo-row"
-            lines="full"
-          >
-            <ion-checkbox
-              slot="start"
-              :checked="item.completed"
-              @ionChange="() => handleToggleTodoCompletion(item, !item.completed)"
-            />
-            <div class="todo-item-content">
-              <h3 class="todo-title">{{ item.title }}</h3>
-              <p v-if="item.description" class="todo-description">{{ item.description }}</p>
-              <div class="todo-meta">
-                <span v-if="!item.completed && item.dueDate">
-                  {{ $t('auto.faelligkeitsdatum') }}: {{ formatSimpleDate(item.dueDate) }}
-                </span>
-                <span v-if="item.completed && item.completionDate">
-                  {{ $t('auto.todo_done_on') }}: {{ formatSimpleDate(item.completionDate) }}
-                </span>
+          <ion-reorder-group :disabled="false" @ionItemReorder="handleReorder">
+            <ion-item
+              v-for="item in visibleItems"
+              :key="item.id"
+              class="todo-row"
+              lines="full"
+              @dblclick="startEditing(item)"
+            >
+              <ion-checkbox
+                slot="start"
+                :checked="item.completed"
+                @ionChange="() => handleToggleTodoCompletion(item, !item.completed)"
+              />
+              <div class="todo-item-content">
+                <h3 class="todo-title">{{ item.title }}</h3>
+                <p v-if="item.description" class="todo-description">{{ item.description }}</p>
+                <div class="todo-meta">
+                  <span v-if="!item.completed && item.dueDate">
+                    {{ $t('auto.faelligkeitsdatum') }}: {{ formatSimpleDate(item.dueDate) }}
+                  </span>
+                  <span v-if="item.completed && item.completionDate">
+                    {{ $t('auto.todo_done_on') }}: {{ formatSimpleDate(item.completionDate) }}
+                  </span>
+                </div>
               </div>
-            </div>
-            <ion-button slot="end" fill="clear" color="danger" @click="handleDeleteTodoItem(item)">
-              <ion-icon :icon="trashOutline" slot="icon-only" />
-            </ion-button>
-          </ion-item>
+              <ion-button slot="end" fill="clear" color="danger" @click="handleDeleteTodoItem(item)">
+                <ion-icon :icon="trashOutline" slot="icon-only" />
+              </ion-button>
+              <ion-reorder slot="end" />
+            </ion-item>
+          </ion-reorder-group>
         </ion-list>
 
         <div v-else class="empty-state small">
@@ -164,6 +186,33 @@
         </div>
       </ion-content>
     </ion-modal>
+    <ion-modal :is-open="showEditListModal" @did-dismiss="closeEditListModal">
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Liste bearbeiten</ion-title>
+          <ion-buttons slot="end">
+            <ion-button @click="closeEditListModal">{{ $t('auto.abbrechen') }}</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <ion-item>
+          <ion-input
+            v-model="editListName"
+            :label="$t('auto.listenname')"
+            label-placement="stacked"
+            autocapitalize="sentences"
+          />
+        </ion-item>
+        <ion-button
+          expand="block"
+          :disabled="!editListName.trim()"
+          @click="saveListEdits"
+        >
+          {{ $t('auto.speichern') }}
+        </ion-button>
+      </ion-content>
+    </ion-modal>
   </ion-page>
 </template>
 
@@ -194,18 +243,22 @@ import {
   IonSegment,
   IonSegmentButton,
   IonCheckbox,
-  IonModal
+  IonModal,
+  IonReorderGroup,
+  IonReorder
 } from '@ionic/vue';
 import {
   checkboxOutline,
   camera,
   images,
   trashOutline,
-  calendarOutline
+  calendarOutline,
+  createOutline
 } from 'ionicons/icons';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
+import type { ItemReorderEventDetail } from '@ionic/core';
 import { useTodoList } from '@/composables/useTodoList';
 import { usePhoto } from '@/composables/usePhoto';
 import { type TodoItem } from '@/services/database';
@@ -225,8 +278,11 @@ const {
   loadItems,
   createItem,
   toggleItemCompleted,
+  updateItem,
+  updateList,
   deleteItem,
-  attachFilesToItem
+  attachFilesToItem,
+  updateItemOrder
 } = useTodoList();
 
 const { pickMultiplePhotos } = usePhoto();
@@ -238,6 +294,10 @@ const showDueDateModal = ref(false);
 const dueDatePickerValue = ref('');
 const tempPhotos = ref<Array<{ path?: string | null; data?: string | null }>>([]);
 const activeSegment = ref<'pending' | 'completed'>('pending');
+const editingItemId = ref<number | null>(null);
+const showEditListModal = ref(false);
+const editListName = ref('');
+const isEditing = computed(() => editingItemId.value !== null);
 
 const formatSimpleDate = (value?: string | null) => {
   if (!value) return '';
@@ -275,6 +335,42 @@ const visibleItems = computed(() =>
   activeSegment.value === 'pending' ? pendingItems.value : completedItems.value
 );
 
+const moveItem = <T,>(list: T[], from: number, to: number): T[] => {
+  const updated = [...list];
+  const [moved] = updated.splice(from, 1);
+  updated.splice(to, 0, moved);
+  return updated;
+};
+
+const handleReorder = async (event: CustomEvent<ItemReorderEventDetail>) => {
+  const { from, to } = event.detail;
+  if (from === to) {
+    event.detail.complete();
+    return;
+  }
+
+  const listId = numericListId.value;
+  if (!listId) {
+    event.detail.complete();
+    return;
+  }
+
+  const pending = items.value.filter(item => !item.completed);
+  const completed = items.value.filter(item => item.completed);
+
+  if (activeSegment.value === 'pending') {
+    const reorderedPending = moveItem(pending, from, to);
+    items.value = [...reorderedPending, ...completed];
+    await updateItemOrder(listId, reorderedPending.map(item => item.id!).filter(Boolean), false);
+  } else {
+    const reorderedCompleted = moveItem(completed, from, to);
+    items.value = [...pending, ...reorderedCompleted];
+    await updateItemOrder(listId, reorderedCompleted.map(item => item.id!).filter(Boolean), true);
+  }
+
+  event.detail.complete();
+};
+
 const loadCurrentList = async (id: number) => {
   await loadList(id);
   await loadItems(id);
@@ -289,10 +385,6 @@ const hydrateList = async () => {
   await loadCurrentList(id);
 };
 
-onMounted(() => {
-  void hydrateList();
-});
-
 watch(
   () => numericListId.value,
   (newId, oldId) => {
@@ -300,6 +392,10 @@ watch(
     void hydrateList();
   }
 );
+
+onMounted(() => {
+  void hydrateList();
+});
 
 const handleAddItem = async () => {
   const title = newItemTitle.value.trim();
@@ -309,27 +405,64 @@ const handleAddItem = async () => {
     const currentListId = numericListId.value;
     if (currentListId === null) return;
 
-    const id = await createItem(
-      currentListId,
-      title,
-      newItemDescription.value.trim() || undefined,
-      newItemDueDate.value || undefined
-    );
-
-    if (tempPhotos.value.length > 0) {
-      await attachFilesToItem(
-        id,
-        tempPhotos.value.map(p => ({ path: p.path || null, data: p.data || null }))
+    if (editingItemId.value !== null) {
+      await updateItem(
+        editingItemId.value,
+        {
+          title,
+          description: newItemDescription.value.trim() || undefined,
+          dueDate: newItemDueDate.value || null
+        },
+        currentListId
       );
+
+      if (tempPhotos.value.length > 0) {
+        await attachFilesToItem(
+          editingItemId.value,
+          tempPhotos.value.map(p => ({ path: p.path || null, data: p.data || null }))
+        );
+      }
+    } else {
+      const id = await createItem(
+        currentListId,
+        title,
+        newItemDescription.value.trim() || undefined,
+        newItemDueDate.value || undefined
+      );
+
+      if (tempPhotos.value.length > 0) {
+        await attachFilesToItem(
+          id,
+          tempPhotos.value.map(p => ({ path: p.path || null, data: p.data || null }))
+        );
+      }
     }
 
     newItemTitle.value = '';
     newItemDescription.value = '';
     newItemDueDate.value = '';
     tempPhotos.value = [];
+    editingItemId.value = null;
   } catch (err) {
     console.error('Error creating todo item:', err);
   }
+};
+
+const startEditing = (item: TodoItem) => {
+  if (!item.id) return;
+  editingItemId.value = item.id;
+  newItemTitle.value = item.title;
+  newItemDescription.value = item.description || '';
+  newItemDueDate.value = item.dueDate || '';
+  tempPhotos.value = [];
+};
+
+const cancelEditing = () => {
+  editingItemId.value = null;
+  newItemTitle.value = '';
+  newItemDescription.value = '';
+  newItemDueDate.value = '';
+  tempPhotos.value = [];
 };
 
 const handleTakePhoto = async () => {
@@ -388,9 +521,21 @@ const handleDeleteTodoItem = async (item: TodoItem) => {
   await deleteItem(item.id, listId);
 };
 
-const getImageSrc = (path: string | null | undefined) => {
-  if (!path) return '';
-  return Capacitor.convertFileSrc(path);
+const openEditListModal = () => {
+  editListName.value = currentList.value?.name || '';
+  showEditListModal.value = true;
+};
+
+const closeEditListModal = () => {
+  showEditListModal.value = false;
+};
+
+const saveListEdits = async () => {
+  const listId = numericListId.value;
+  const name = editListName.value.trim();
+  if (listId === null || !name) return;
+  await updateList(listId, { name });
+  showEditListModal.value = false;
 };
 
 const getTempPhotoSrc = (photo: { path?: string | null; data?: string | null }) => {
@@ -628,19 +773,19 @@ onMounted(async () => {
   object-fit: cover;
 }
 
-::v-deep .half-modal .modal-wrapper {
+:deep(.half-modal .modal-wrapper) {
   height: 55vh;
   max-height: 75vh;
   border-radius: 20px 20px 0 0;
   overflow: hidden;
 }
 
-::v-deep .half-modal .modal-wrapper ion-content {
+:deep(.half-modal .modal-wrapper ion-content) {
   --border-radius: 0;
   padding-bottom: 0;
 }
 
-::v-deep .half-modal .modal-wrapper ion-datetime {
+:deep(.half-modal .modal-wrapper ion-datetime) {
   max-width: 100%;
 }
 </style>

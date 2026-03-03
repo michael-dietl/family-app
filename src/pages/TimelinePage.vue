@@ -2,8 +2,8 @@
   <ion-page>
     <ion-header :translucent="true">
       <ion-toolbar>
-        <ion-buttons>
-          <ion-back-button default-href="/" slot="start"/>
+        <ion-buttons slot="start">
+          <ion-back-button default-href="/" />
         </ion-buttons>
         <ion-title>{{ $t('auto.timeline_title') }}</ion-title>
       </ion-toolbar>
@@ -20,21 +20,21 @@
 
       <div class="timeline-filter-row">
         <ion-chip
-          outline="true"
+          outline
           :style="chipStyle(activeFilterGallery)"
           @click="toggleFilterGallery"
         >
           <ion-label>{{ $t('auto.timeline_gallery') }}</ion-label>
         </ion-chip>
         <ion-chip
-          outline="true"
+          outline
           :style="chipStyle(activeFilterRoutes)"
           @click="toggleFilterRoutes"
         >
           <ion-label>{{ $t('auto.timeline_routes') }}</ion-label>
         </ion-chip>
         <ion-chip
-          outline="true"
+          outline
           :style="chipStyle(activeFilterEvents)"
           @click="toggleFilterEvents"
         >
@@ -207,7 +207,7 @@
                   <ion-input
                     v-model="manualLocation"
                     :placeholder="$t('auto.timeline_location')"
-                    clear-input="true"
+                    :clear-input="true"
                   />
                   <div class="manual-actions">
                     <div class="date-row">
@@ -343,6 +343,32 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { onIonViewDidLeave, onIonViewWillEnter } from '@ionic/vue';
+import {
+  IonPage,
+  IonHeader,
+  IonToolbar,
+  IonButtons,
+  IonBackButton,
+  IonTitle,
+  IonContent,
+  IonSearchbar,
+  IonChip,
+  IonLabel,
+  IonSegment,
+  IonSegmentButton,
+  IonSpinner,
+  IonIcon,
+  IonInput,
+  IonTextarea,
+  IonButton,
+  IonModal,
+  IonDatetime,
+  IonCard,
+  IonCardHeader,
+  IonCardTitle,
+  IonCardContent,
+  IonBadge
+} from '@ionic/vue';
 import { db, type Route, type TimelineEventPhoto } from '@/services/database';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -754,8 +780,8 @@ const removePendingPhoto = (index: number) => {
   pendingPhotos.value.splice(index, 1);
 };
 
-const handleSegmentChange = (event: CustomEvent<{ value?: 'timeline' | 'events' }>) => {
-  const newValue = event.detail?.value;
+const handleSegmentChange = (event: CustomEvent) => {
+  const newValue = String((event as CustomEvent<{ value?: string | null }>).detail?.value || '');
   if (newValue === 'timeline' || newValue === 'events') {
     activeTab.value = newValue;
   }

@@ -2,9 +2,9 @@
   <ion-page>
     <ion-header :translucent="true">
       <ion-toolbar>
-          <ion-buttons slot="start">
-            <ion-back-button default-href="/routes"  router-direction="back"/>
-          </ion-buttons>
+        <ion-buttons slot="start">
+          <ion-back-button default-href="/routes"  router-direction="back"/>
+        </ion-buttons>
         <ion-title>{{ routeData?.name || $t('auto.route') }}</ion-title>
         <ion-buttons slot="end">
           <ion-button fill="clear" color="medium" @click="showOptionsMenu" aria-label="{{ t('auto.route_optionen') }}">
@@ -161,16 +161,8 @@
                 :disabled="valhallaMatching || !hasTrackPoints"
                 @click="sendRouteToValhalla"
               >
-                <ion-spinner
-                  v-if="valhallaMatching"
-                  slot="start"
-                  name="crescent"
-                />
-                <ion-icon
-                  v-else
-                  slot="start"
-                  :icon="valhallaIcon"
-                />
+                <ion-spinner v-if="valhallaMatching" slot="start" name="crescent" />
+                <ion-icon v-else slot="start" :icon="valhallaIcon" />
                 <span>
                   {{ valhallaMatching ? $t('auto.valhalla_processing') : $t('auto.valhalla_abgleichen') }}
                 </span>
@@ -192,7 +184,7 @@
                   detail
                   @click="centerOnWaypoint(wp)"
                 >
-                  <template v-slot:start>
+                  <div slot="start">
                     <div
                       v-if="wp.type === 'photo'"
                       class="waypoint-preview"
@@ -208,7 +200,7 @@
                       :icon="getWaypointIcon(wp.type)"
                       :color="getWaypointColor(wp.type)"
                     />
-                  </template>
+                  </div>
                   <ion-label>
                     <div class="waypoint-title">{{ wp.name || getDefaultWaypointLabel(wp.type) }}</div>
                     <p v-if="wp.description" class="waypoint-description">{{ wp.description }}</p>

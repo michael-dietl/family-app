@@ -80,6 +80,16 @@ export function useShoppingList() {
     await loadItems(listId);
   };
 
+  const updateItemOrder = async (listId: number, orderedIds: number[], completed: boolean) => {
+    for (let index = 0; index < orderedIds.length; index += 1) {
+      await db.updateShoppingItem(orderedIds[index], {
+        sortOrder: index + 1,
+        completed
+      });
+    }
+    await loadItems(listId);
+  };
+
   const deleteItem = async (id: number, listId: number) => {
     await db.deleteShoppingItem(id);
     await loadItems(listId);
@@ -99,6 +109,7 @@ export function useShoppingList() {
     createItem,
     toggleItemCompleted,
     updateItem,
+    updateItemOrder,
     deleteItem
   };
 }

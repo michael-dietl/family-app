@@ -2,7 +2,7 @@
   <ion-page>
     <ion-header :translucent="true">
       <ion-toolbar>
-        <ion-buttons  slot="start">
+        <ion-buttons slot="start">
           <ion-back-button v-if="!selectionMode" :default-href="backHref"/>
           <ion-button v-else @click="cancelSelectionMode">
             <ion-icon :icon="close"/>
@@ -262,6 +262,7 @@
             label="Name"
             label-placement="stacked"
             placeholder="z.B. Urlaub 2026"
+            autocapitalize="sentences"
           />
         </ion-item>
         <ion-item>
@@ -271,6 +272,7 @@
             label-placement="stacked"
             :rows="4"
             placeholder="Beschreibe deine Gallerie..."
+            autocapitalize="sentences"
           />
         </ion-item>
         <ion-item>
@@ -433,8 +435,8 @@ import { usePhoto } from '@/composables/usePhoto';
 import { useLightbox } from '@/composables/useLightbox';
 import { useWakeLock } from '@/composables/useWakeLock';
 import { extractExifFromImage } from '@/services/exif';
-import { default as GalleryMap } from '@/components/GalleryMap.vue';
-import { default as LocationPickerModal } from '@/components/LocationPickerModal.vue';
+import GalleryMap from '@/components/GalleryMap.vue';
+import LocationPickerModal from '@/components/LocationPickerModal.vue';
 import { db, type Photo } from '@/services/database';
 import { buildSharedStoragePath, getSharedStorageDirectory, ensureDirectoryExists } from '@/services/storagePaths';
 import { readSharedStorageFileAsDataUrl } from '@/services/imageStorage';
@@ -670,16 +672,16 @@ const handleImageEditorClose = () => {
 };
 
 const isSaving = ref(false);
-const blobToBase64 = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      resolve(result.split(',')[1]);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+const blobToBase64 = async (blob: Blob): Promise<string> => {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    const chunk = bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length));
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
 };
 const handleImageEditorSave = async (blob: Blob) => {
   if (isSaving.value || !photoBeingEdited.value || !currentGallery.value) return;
@@ -710,7 +712,12 @@ const handleImageEditorSave = async (blob: Blob) => {
 
     await loadGallery(galleryId);
   } catch (error) {
-    console.error('Error saving edited photo:', error);
+    const err = error as { name?: string; message?: string; stack?: string } | null;
+    console.error('Error saving edited photo:', {
+      name: err?.name,
+      message: err?.message,
+      stack: err?.stack
+    });
   } finally {
     isSaving.value = false;
     photoBeingEdited.value = null;

@@ -33,15 +33,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { IonPage, IonHeader, IonToolbar, IonTitle, IonButtons, IonButton, IonIcon, IonContent, IonSpinner, toastController } from '@ionic/vue';
 import { arrowBackOutline, checkmark } from 'ionicons/icons';
-import FilerobotImageEditor from 'filerobot-image-editor';
-import {
-  buildFilerobotConfig,
-  convertSavedImageDataToBlob,
-  getDevicePixelRatio,
-  getFilerobotLanguage,
-  loadFilerobotStyles,
-  unloadFilerobotStyles,
-} from '@/utils/filerobotEditor';
+type FilerobotEditorCtor = (typeof import('filerobot-image-editor'))['default'];
+type FilerobotUtils = typeof import('@/utils/filerobotEditor');
 import { storeEditedBookCover } from '@/services/bookCoverStorage';
 import {
   useImageEditorNavigationContext,
@@ -56,10 +49,13 @@ const { editorContext } = useImageEditorNavigationContext();
 const editorContainer = ref<HTMLElement | null>(null);
 const isSaving = ref(false);
 const editorReady = ref(false);
-let editorInstance: InstanceType<typeof FilerobotImageEditor> | null = null;
+let editorInstance: InstanceType<FilerobotEditorCtor> | null = null;
 let stylesLoaded = false;
 let styleLoadPromise: Promise<void> | null = null;
 let initTimeout: ReturnType<typeof setTimeout> | null = null;
+let filerobotCtor: FilerobotEditorCtor | null = null;
+let filerobotUtils: FilerobotUtils | null = null;
+let filerobotLoadPromise: Promise<void> | null = null;
 
 const imageSrc = computed(() => editorContext.value?.imageSrc ?? '');
 const returnPath = computed(() => (route.query.return as string) || '');
@@ -91,16 +87,34 @@ const scheduleStyleUnload = () => {
     const pending = styleLoadPromise;
     styleLoadPromise = null;
     pending.finally(() => {
-      unloadFilerobotStyles();
+      filerobotUtils?.unloadFilerobotStyles();
       stylesLoaded = false;
     });
     return;
   }
 
   if (stylesLoaded) {
-    unloadFilerobotStyles();
+    filerobotUtils?.unloadFilerobotStyles();
     stylesLoaded = false;
   }
+};
+
+const ensureFilerobotLoaded = async () => {
+  if (filerobotCtor && filerobotUtils) return;
+  if (!filerobotLoadPromise) {
+    filerobotLoadPromise = Promise.all([
+      import('filerobot-image-editor'),
+      import('@/utils/filerobotEditor')
+    ])
+      .then(([editorModule, utilsModule]) => {
+        filerobotCtor = editorModule.default;
+        filerobotUtils = utilsModule;
+      })
+      .finally(() => {
+        filerobotLoadPromise = null;
+      });
+  }
+  await filerobotLoadPromise;
 };
 
 const cleanupEditor = () => {
@@ -126,7 +140,10 @@ const initEditor = async () => {
   if (!editorContainer.value || !imageSrc.value) return;
   cleanupEditor();
 
-  styleLoadPromise = loadFilerobotStyles();
+  await ensureFilerobotLoaded();
+  if (!filerobotUtils || !filerobotCtor) return;
+
+  styleLoadPromise = filerobotUtils.loadFilerobotStyles();
   try {
     await styleLoadPromise;
     stylesLoaded = true;
@@ -134,10 +151,10 @@ const initEditor = async () => {
     styleLoadPromise = null;
   }
 
-  const language = getFilerobotLanguage(locale.value);
-  editorInstance = new FilerobotImageEditor(
+  const language = filerobotUtils.getFilerobotLanguage(locale.value);
+  editorInstance = new filerobotCtor(
     editorContainer.value,
-    buildFilerobotConfig(imageSrc.value, language, {
+    filerobotUtils.buildFilerobotConfig(imageSrc.value, language, {
       onClose: handleClose,
       Rotate: getRotateConfig()
     })
@@ -170,11 +187,13 @@ const handleSave = async () => {
 
   isSaving.value = true;
   try {
+    await ensureFilerobotLoaded();
+    if (!filerobotUtils) return;
     const { imageData } = editorInstance.getCurrentImgData(
       { name: 'photo', extension: 'jpg' },
-      getDevicePixelRatio()
+      filerobotUtils.getDevicePixelRatio()
     );
-    const blob = await convertSavedImageDataToBlob(imageData);
+    const blob = await filerobotUtils.convertSavedImageDataToBlob(imageData);
     let saved = false;
     if (currentContext) {
       await currentContext.onSave(blob);
@@ -198,7 +217,12 @@ const handleSave = async () => {
       console.warn('ImageEditorPage: no save handler available');
     }
   } catch (error) {
-    console.error('Error saving edited image: ', error);
+    const err = error as { name?: string; message?: string; stack?: string } | null;
+    console.error('Error saving edited image:', {
+      name: err?.name,
+      message: err?.message,
+      stack: err?.stack
+    });
   } finally {
     isSaving.value = false;
   }

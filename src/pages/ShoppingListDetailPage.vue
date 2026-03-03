@@ -6,6 +6,11 @@
           <ion-back-button default-href="/shopping" />
         </ion-buttons>
         <ion-title>{{ currentList?.name || 'Einkaufsliste' }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" @click="openEditListModal">
+            <ion-icon slot="icon-only" :icon="createOutline" />
+          </ion-button>
+        </ion-buttons>
       </ion-toolbar>
     </ion-header>
 
@@ -20,6 +25,7 @@
           <ion-input
             v-model="newItemName"
             placeholder="Artikel hinzufügen..."
+            autocapitalize="sentences"
             @keyup.enter="handleAddItem"
           />
           <ion-input
@@ -44,20 +50,23 @@
         </div>
 
         <ion-list v-else-if="visibleShoppingItems.length > 0">
-          <ion-item v-for="item in visibleShoppingItems" :key="item.id">
-            <ion-checkbox
-              slot="start"
-              :checked="item.completed"
-              @ionChange="() => handleToggleShoppingItem(item)"
-            />
-            <ion-label :class="{ 'completed-item': item.completed }">
-              <h3>{{ item.name }}</h3>
-              <p v-if="item.quantity">{{ $t('auto.anzahl') }}: {{ item.quantity }}</p>
-            </ion-label>
-            <ion-button slot="end" fill="clear" @click="deleteItem(item.id!, listId)">
-              <ion-icon slot="icon-only" :icon="trashOutline" color="danger" />
-            </ion-button>
-          </ion-item>
+          <ion-reorder-group :disabled="false" @ionItemReorder="handleReorder">
+            <ion-item v-for="item in visibleShoppingItems" :key="item.id">
+              <ion-checkbox
+                slot="start"
+                :checked="item.completed"
+                @ionChange="() => handleToggleShoppingItem(item)"
+              />
+              <ion-label :class="{ 'completed-item': item.completed }">
+                <h3>{{ item.name }}</h3>
+                <p v-if="item.quantity">{{ $t('auto.anzahl') }}: {{ item.quantity }}</p>
+              </ion-label>
+              <ion-button slot="end" fill="clear" @click="deleteItem(item.id!, listId)">
+                <ion-icon slot="icon-only" :icon="trashOutline" color="danger" />
+              </ion-button>
+              <ion-reorder slot="end" />
+            </ion-item>
+          </ion-reorder-group>
         </ion-list>
 
         <div v-else class="empty-state">
@@ -68,6 +77,29 @@
         </div>
       </template>
     </ion-content>
+    <ion-modal :is-open="showEditListModal" @did-dismiss="closeEditListModal">
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Liste bearbeiten</ion-title>
+          <ion-buttons slot="end">
+            <ion-button @click="closeEditListModal">{{ $t('auto.abbrechen') }}</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <ion-item>
+          <ion-input
+            v-model="editListName"
+            :label="$t('auto.listenname')"
+            label-placement="stacked"
+            autocapitalize="sentences"
+          />
+        </ion-item>
+        <ion-button expand="block" :disabled="!editListName.trim()" @click="saveListEdits">
+          {{ $t('auto.speichern') }}
+        </ion-button>
+      </ion-content>
+    </ion-modal>
   </ion-page>
 </template>
 
@@ -78,11 +110,12 @@ import { useRoute } from 'vue-router';
 import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons,
   IonBackButton, IonList, IonItem, IonLabel, IonCheckbox, IonInput,
-  IonButton, IonIcon, IonSpinner, IonSegment, IonSegmentButton
+  IonButton, IonIcon, IonSpinner, IonSegment, IonSegmentButton, IonReorderGroup, IonReorder
 } from '@ionic/vue';
-import { add, cartOutline, trashOutline } from 'ionicons/icons';
+import { add, cartOutline, trashOutline, createOutline } from 'ionicons/icons';
 import { useShoppingList } from '@/composables/useShoppingList';
 import { type ShoppingItem } from '@/services/database';
+import type { ItemReorderEventDetail } from '@ionic/core';
 
 const route = useRoute();
 const listId = Number(route.params.id);
@@ -95,7 +128,9 @@ const {
   loadItems,
   createItem,
   toggleItemCompleted,
-  deleteItem
+  updateList,
+  deleteItem,
+  updateItemOrder
 } = useShoppingList();
 
 const shoppingSegment = ref<'pending' | 'completed'>('pending');
@@ -108,6 +143,8 @@ const visibleShoppingItems = computed(() =>
 
 const newItemName = ref('');
 const newItemQuantity = ref<number | undefined>();
+const showEditListModal = ref(false);
+const editListName = ref('');
 
 onMounted(async () => {
   await loadList(listId);
@@ -125,6 +162,52 @@ const handleAddItem = async () => {
 const handleToggleShoppingItem = async (item: ShoppingItem) => {
   if (!item.id) return;
   await toggleItemCompleted(item.id, !item.completed, listId);
+};
+
+const moveItem = <T,>(list: T[], from: number, to: number): T[] => {
+  const updated = [...list];
+  const [moved] = updated.splice(from, 1);
+  updated.splice(to, 0, moved);
+  return updated;
+};
+
+const handleReorder = async (event: CustomEvent<ItemReorderEventDetail>) => {
+  const { from, to } = event.detail;
+  if (from === to) {
+    event.detail.complete();
+    return;
+  }
+
+  const pending = items.value.filter(item => !item.completed);
+  const completed = items.value.filter(item => item.completed);
+
+  if (shoppingSegment.value === 'pending') {
+    const reorderedPending = moveItem(pending, from, to);
+    items.value = [...reorderedPending, ...completed];
+    await updateItemOrder(listId, reorderedPending.map(item => item.id!).filter(Boolean), false);
+  } else {
+    const reorderedCompleted = moveItem(completed, from, to);
+    items.value = [...pending, ...reorderedCompleted];
+    await updateItemOrder(listId, reorderedCompleted.map(item => item.id!).filter(Boolean), true);
+  }
+
+  event.detail.complete();
+};
+
+const openEditListModal = () => {
+  editListName.value = currentList.value?.name || '';
+  showEditListModal.value = true;
+};
+
+const closeEditListModal = () => {
+  showEditListModal.value = false;
+};
+
+const saveListEdits = async () => {
+  const name = editListName.value.trim();
+  if (!name) return;
+  await updateList(listId, { name });
+  showEditListModal.value = false;
 };
 
 

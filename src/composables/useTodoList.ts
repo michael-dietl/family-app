@@ -217,6 +217,16 @@ export function useTodoList() {
     await loadItems(listId);
   };
 
+  const updateItemOrder = async (listId: number, orderedIds: number[], completed: boolean) => {
+    for (let index = 0; index < orderedIds.length; index += 1) {
+      await db.updateTodoItem(orderedIds[index], {
+        sortOrder: index + 1,
+        completed
+      });
+    }
+    await loadItems(listId);
+  };
+
   const deleteItem = async (id: number, listId: number) => {
     await db.deleteTodoItem(id);
     await loadItems(listId);
@@ -237,6 +247,7 @@ export function useTodoList() {
     createItem,
     toggleItemCompleted,
     updateItem,
+    updateItemOrder,
     deleteItem
     ,
     photosMap,

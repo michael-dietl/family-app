@@ -52,9 +52,14 @@
             <h2>{{ list.name }}</h2>
             <p>{{ formatDate(list.updated) }}</p>
           </ion-label>
-          <ion-button slot="end" fill="clear" @click.stop="confirmDelete(list.id!)">
-            <ion-icon slot="icon-only" :icon="trashOutline" color="danger" />
-          </ion-button>
+          <ion-buttons slot="end">
+            <ion-button fill="clear" @click.stop="openEditModal(list)">
+              <ion-icon slot="icon-only" :icon="createOutline" />
+            </ion-button>
+            <ion-button fill="clear" @click.stop="confirmDelete(list.id!)">
+              <ion-icon slot="icon-only" :icon="trashOutline" color="danger" />
+            </ion-button>
+          </ion-buttons>
         </ion-item>
       </ion-list>
     </ion-content>
@@ -76,10 +81,36 @@
             label="Listenname"
             label-placement="stacked"
             placeholder="z.B. Wocheneinkauf"
+            autocapitalize="sentences"
           />
         </ion-item>
         <ion-button expand="block" @click="handleCreate" :disabled="!newListName.trim()">
           {{ $t('auto.liste_erstellen') }}
+        </ion-button>
+      </ion-content>
+    </ion-modal>
+
+    <!-- Edit Modal -->
+    <ion-modal :is-open="showEditModal" @did-dismiss="closeEditModal">
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Liste bearbeiten</ion-title>
+          <ion-buttons slot="end">
+            <ion-button @click="closeEditModal">{{ $t('auto.abbrechen') }}</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <ion-item>
+          <ion-input
+            v-model="editListName"
+            :label="$t('auto.listenname')"
+            label-placement="stacked"
+            autocapitalize="sentences"
+          />
+        </ion-item>
+        <ion-button expand="block" :disabled="!editListName.trim()" @click="saveEdit">
+          {{ $t('auto.speichern') }}
         </ion-button>
       </ion-content>
     </ion-modal>
@@ -95,14 +126,17 @@ import {
   IonIcon, IonList, IonItem, IonLabel, IonSpinner, IonModal, IonInput,
   alertController
 } from '@ionic/vue';
-import { add, cartOutline, trashOutline, arrowBack } from 'ionicons/icons';
+import { add, cartOutline, trashOutline, arrowBack, createOutline } from 'ionicons/icons';
 import { useShoppingList } from '@/composables/useShoppingList';
 
 const router = useRouter();
-const { lists, isLoading, loadLists, createList, deleteList } = useShoppingList();
+const { lists, isLoading, loadLists, createList, updateList, deleteList } = useShoppingList();
 
 const showCreateModal = ref(false);
 const newListName = ref('');
+const showEditModal = ref(false);
+const editListId = ref<number | null>(null);
+const editListName = ref('');
 
 onMounted(() => {
   loadLists();
@@ -131,6 +165,26 @@ const confirmDelete = async (id: number) => {
     ]
   });
   await alert.present();
+};
+
+const openEditModal = (list: { id?: number; name: string }) => {
+  if (!list.id) return;
+  editListId.value = list.id;
+  editListName.value = list.name;
+  showEditModal.value = true;
+};
+
+const closeEditModal = () => {
+  showEditModal.value = false;
+  editListId.value = null;
+};
+
+const saveEdit = async () => {
+  const id = editListId.value;
+  const name = editListName.value.trim();
+  if (!id || !name) return;
+  await updateList(id, { name });
+  closeEditModal();
 };
 
 const formatDate = (dateStr: string) => {

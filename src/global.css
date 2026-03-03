@@ -13,6 +13,13 @@ ion-content {
   --padding-bottom: var(--ion-safe-area-bottom, env(safe-area-inset-bottom, 0px));
 }
 
+input,
+textarea,
+ion-input input,
+ion-textarea textarea {
+  caret-color: var(--ion-color-primary);
+}
+
 .wine-photo img {
   display: block;
   width: 100%;

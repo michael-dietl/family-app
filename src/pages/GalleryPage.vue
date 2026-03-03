@@ -115,6 +115,7 @@
               :label="t('auto.name')" 
               label-placement="stacked"
               :placeholder="t('auto.z_b_urlaub_2026')"
+              autocapitalize="sentences"
             />
           </ion-item>
           <ion-item>
@@ -124,6 +125,7 @@
               label-placement="stacked"
               :rows="4"
               :placeholder="t('auto.beschreibe_deine_gallerie')"
+              autocapitalize="sentences"
             />
           </ion-item>
           
@@ -743,19 +745,19 @@ ion-card-subtitle ion-icon {
   margin-top: 1rem;
 }
 
-::v-deep .half-modal .modal-wrapper {
+:deep(.half-modal .modal-wrapper) {
   height: 55vh;
   max-height: 75vh;
   border-radius: 20px 20px 0 0;
   overflow: hidden;
 }
 
-::v-deep .half-modal .modal-wrapper ion-content {
+:deep(.half-modal .modal-wrapper ion-content) {
   --border-radius: 0;
   padding-bottom: 0;
 }
 
-::v-deep .half-modal .modal-wrapper ion-datetime {
+:deep(.half-modal .modal-wrapper ion-datetime) {
   width: 100%;
 }
 </style>

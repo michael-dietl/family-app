@@ -33,7 +33,7 @@
 
         <ion-list class="feature-list">
           <ion-item button @click="navigateTo('/gallery')" lines="full">
-            <ion-icon :icon="imagesOutline" slot="start" color="primary" />
+            <ion-icon :icon="imagesOutline" slot="start" color="primary" class="feature-icon" />
             <ion-label>
               <h2>{{ $t('auto.galerien') }}</h2>
               <p>{{ $t('auto.fotos_und_videos_verwalten') }}</p>
@@ -42,7 +42,7 @@
           </ion-item>
 
           <ion-item button @click="navigateTo('/timeline')" lines="full">
-            <ion-icon :icon="calendarOutline" slot="start" color="tertiary" />
+            <ion-icon :icon="calendarOutline" slot="start" color="tertiary" class="feature-icon" />
             <ion-label>
               <h2>{{ $t('auto.timeline_title') }}</h2>
               <p>{{ $t('auto.timeline_gallery_hint') }}</p>
@@ -51,7 +51,7 @@
           </ion-item>
 
           <ion-item button @click="navigateTo('/library')" lines="full">
-            <ion-icon :icon="bookOutline" slot="start" color="secondary" />
+            <ion-icon :icon="bookOutline" slot="start" color="secondary" class="feature-icon" />
             <ion-label>
               <h2>{{ $t('auto.bibliothek') }}</h2>
               <p>{{ $t('auto.bücher_per_isbn_scannen_und_verwalten') }}</p>
@@ -60,7 +60,7 @@
           </ion-item>
 
           <ion-item button @click="navigateTo('/map')" lines="full">
-            <ion-icon :icon="mapOutline" slot="start" color="success" />
+            <ion-icon :icon="mapOutline" slot="start" color="success" class="feature-icon" />
             <ion-label>
               <h2>{{ $t('auto.karte') }}</h2>
               <p>{{ $t('auto.fotos_auf_der_karte_anzeigen') }}</p>
@@ -69,7 +69,7 @@
           </ion-item>
 
           <ion-item button @click="navigateTo('/routes')" lines="full">
-            <ion-icon :icon="navigateOutline" slot="start" color="warning" />
+            <ion-icon :icon="navigateOutline" slot="start" color="warning" class="feature-icon" />
             <ion-label>
               <h2>{{ $t('auto.routen') }}</h2>
               <p>{{ $t('auto.gps_routen_aufzeichnen_mit_wegpunkten') }}</p>
@@ -78,7 +78,7 @@
           </ion-item>
 
           <ion-item button @click="navigateTo('/wine')" lines="full">
-            <ion-icon :icon="wineOutline" slot="start" color="tertiary" />
+            <ion-icon :icon="wineOutline" slot="start" color="tertiary" class="feature-icon" />
             <ion-label>
               <h2>{{ $t('auto.weinkeller') }}</h2>
               <p>{{ $t('auto.wein_sammlung_verwalten') }}</p>
@@ -87,7 +87,7 @@
           </ion-item>
 
           <ion-item button @click="navigateTo('/shopping')" lines="full">
-            <ion-icon :icon="cartOutline" slot="start" color="primary" />
+            <ion-icon :icon="cartOutline" slot="start" color="primary" class="feature-icon" />
             <ion-label>
               <h2>{{ $t('auto.einkaufslisten') }}</h2>
               <p>{{ $t('auto.einkäufe_organisieren') }}</p>
@@ -96,7 +96,7 @@
           </ion-item>
 
           <ion-item button @click="navigateTo('/todo')" lines="full">
-            <ion-icon :icon="checkboxOutline" slot="start" color="secondary" />
+            <ion-icon :icon="checkboxOutline" slot="start" color="secondary" class="feature-icon" />
             <ion-label>
               <h2>{{ $t('auto.todo') }}</h2>
               <p>{{ $t('auto.aufgaben_verwalten') }}</p>
@@ -124,8 +124,6 @@ import {
   IonList,
   IonItem,
   IonLabel,
-  IonCard,
-  IonCardContent,
   IonSpinner,
   toastController
 } from '@ionic/vue';
@@ -137,8 +135,6 @@ import {
   bookOutline,
   navigateOutline,
   chevronForward,
-  cloudDone,
-  cloudOffline,
   syncOutline,
   cartOutline,
   checkboxOutline,
@@ -284,7 +280,7 @@ const manualSync = async () => {
   --min-height: 60px;
 }
 
-.feature-list ion-icon[slot="start"] {
+.feature-list .feature-icon {
   font-size: 30px;
   margin-right: 0.75rem;
 }

@@ -213,6 +213,7 @@ export interface ShoppingItem {
   name: string;
   quantity?: number;
   completed: boolean;
+  sortOrder?: number;
   created: string;
   updated: string;
   foreignID?: string;
@@ -236,6 +237,7 @@ export interface TodoItem {
   photoPath?: string;
   dueDate?: string | null;
   completionDate?: string | null;
+  sortOrder?: number;
   created: string;
   updated: string;
   foreignID?: string;
@@ -429,7 +431,25 @@ class DatabaseService {
 
     this.initializationPromise = (async () => {
       this.sqlite = new SQLiteConnection(CapacitorSQLite);
-      this.db = await this.sqlite.createConnection(this.dbName, false, 'no-encryption', 1, false);
+      const consistency = await this.sqlite.checkConnectionsConsistency().catch(() => ({ result: true }));
+      if (!consistency?.result) {
+        await this.sqlite.closeAllConnections().catch(() => undefined);
+      }
+      const existing = await this.sqlite.isConnection(this.dbName, false).catch(() => ({ result: false }));
+      if (existing?.result) {
+        this.db = await this.sqlite.retrieveConnection(this.dbName, false);
+      } else {
+        try {
+          this.db = await this.sqlite.createConnection(this.dbName, false, 'no-encryption', 1, false);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (/connection .* already exists/i.test(message)) {
+            this.db = await this.sqlite.retrieveConnection(this.dbName, false);
+          } else {
+            throw error;
+          }
+        }
+      }
       await this.db.open();
       await this.migrateAndSetupTables();
       await this.mirrorDatabaseToSharedStorage();
@@ -720,6 +740,7 @@ class DatabaseService {
         name TEXT NOT NULL,
         quantity INTEGER,
         completed INTEGER DEFAULT 0,
+        sortOrder INTEGER DEFAULT 0,
         created TEXT NOT NULL,
         updated TEXT NOT NULL,
         FOREIGN KEY (listId) REFERENCES shopping_lists(id) ON DELETE CASCADE
@@ -749,6 +770,7 @@ class DatabaseService {
         photoPath TEXT,
         dueDate TEXT,
         completionDate TEXT,
+        sortOrder INTEGER DEFAULT 0,
         created TEXT NOT NULL,
         updated TEXT NOT NULL,
         FOREIGN KEY (listId) REFERENCES todo_lists(id) ON DELETE CASCADE
@@ -923,9 +945,13 @@ class DatabaseService {
     await ensureColumn('shopping_lists', 'foreignID', 'ALTER TABLE shopping_lists ADD COLUMN foreignID TEXT;');
     await ensureColumn('shopping_items', 'foreignID', 'ALTER TABLE shopping_items ADD COLUMN foreignID TEXT;');
     await ensureColumn('shopping_items', 'updated', 'ALTER TABLE shopping_items ADD COLUMN updated TEXT;');
+    await ensureColumn('shopping_items', 'sortOrder', 'ALTER TABLE shopping_items ADD COLUMN sortOrder INTEGER DEFAULT 0;');
+    await this.db.execute('CREATE INDEX IF NOT EXISTS idx_shopping_items_order ON shopping_items(listId, completed, sortOrder);');
     await ensureColumn('todo_lists', 'foreignID', 'ALTER TABLE todo_lists ADD COLUMN foreignID TEXT;');
     await ensureColumn('todo_items', 'foreignID', 'ALTER TABLE todo_items ADD COLUMN foreignID TEXT;');
     await ensureColumn('todo_items', 'updated', 'ALTER TABLE todo_items ADD COLUMN updated TEXT;');
+    await ensureColumn('todo_items', 'sortOrder', 'ALTER TABLE todo_items ADD COLUMN sortOrder INTEGER DEFAULT 0;');
+    await this.db.execute('CREATE INDEX IF NOT EXISTS idx_todo_items_order ON todo_items(listId, completed, sortOrder);');
     await ensureColumn('todo_photos', 'foreignID', 'ALTER TABLE todo_photos ADD COLUMN foreignID TEXT;');
     await ensureColumn('todo_photos', 'updated', 'ALTER TABLE todo_photos ADD COLUMN updated TEXT;');
     await ensureColumn('timeline_events', 'foreignID', 'ALTER TABLE timeline_events ADD COLUMN foreignID TEXT;');
@@ -2250,13 +2276,24 @@ class DatabaseService {
 
     const now = new Date().toISOString();
     const updated = item.updated ?? now;
-    const sql = 'INSERT INTO shopping_items (foreignID, listId, name, quantity, completed, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?);';
+    let sortOrder = item.sortOrder;
+    if (sortOrder === undefined) {
+      const orderResult = await this.db.query(
+        'SELECT COALESCE(MAX(sortOrder), 0) AS maxOrder FROM shopping_items WHERE listId = ? AND completed = ?;',
+        [item.listId, item.completed ? 1 : 0]
+      );
+      const maxOrder = orderResult.values?.[0]?.maxOrder ?? 0;
+      sortOrder = Number(maxOrder) + 1;
+    }
+
+    const sql = 'INSERT INTO shopping_items (foreignID, listId, name, quantity, completed, sortOrder, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?);';
     const result = await this.db.run(sql, [
       item.foreignID || null,
       item.listId,
       item.name,
       item.quantity || null,
       item.completed ? 1 : 0,
+      sortOrder,
       now,
       updated
     ]);
@@ -2269,7 +2306,7 @@ class DatabaseService {
     if (this.useInMemory) return [];
     if (!this.db) throw new Error('Database not initialized');
 
-    const sql = 'SELECT * FROM shopping_items WHERE listId = ? ORDER BY completed ASC, created DESC;';
+    const sql = 'SELECT * FROM shopping_items WHERE listId = ? ORDER BY completed ASC, COALESCE(sortOrder, 0) ASC, created DESC;';
     const result = await this.db.query(sql, [listId]);
     
     return (result.values || []).map(row => ({
@@ -2297,6 +2334,10 @@ class DatabaseService {
     if (updates.completed !== undefined) {
       fields.push('completed = ?');
       values.push(updates.completed ? 1 : 0);
+    }
+    if (updates.sortOrder !== undefined) {
+      fields.push('sortOrder = ?');
+      values.push(updates.sortOrder);
     }
     if (updates.foreignID !== undefined) {
       fields.push('foreignID = ?');
@@ -2427,7 +2468,17 @@ class DatabaseService {
 
     const now = new Date().toISOString();
     const updated = item.updated ?? now;
-    const sql = 'INSERT INTO todo_items (foreignID, listId, title, description, completed, photoPath, dueDate, completionDate, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);';
+    let sortOrder = item.sortOrder;
+    if (sortOrder === undefined) {
+      const orderResult = await this.db.query(
+        'SELECT COALESCE(MAX(sortOrder), 0) AS maxOrder FROM todo_items WHERE listId = ? AND completed = ?;',
+        [item.listId, item.completed ? 1 : 0]
+      );
+      const maxOrder = orderResult.values?.[0]?.maxOrder ?? 0;
+      sortOrder = Number(maxOrder) + 1;
+    }
+
+    const sql = 'INSERT INTO todo_items (foreignID, listId, title, description, completed, photoPath, dueDate, completionDate, sortOrder, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);';
     const result = await this.db.run(sql, [
       item.foreignID || null,
       item.listId,
@@ -2437,6 +2488,7 @@ class DatabaseService {
       (item as any).photoPath || null,
       item.dueDate || null,
       item.completionDate || null,
+      sortOrder,
       now,
       updated
     ]);
@@ -2449,7 +2501,7 @@ class DatabaseService {
     if (this.useInMemory) return [];
     if (!this.db) throw new Error('Database not initialized');
 
-    const sql = 'SELECT * FROM todo_items WHERE listId = ? ORDER BY completed ASC, created DESC;';
+    const sql = 'SELECT * FROM todo_items WHERE listId = ? ORDER BY completed ASC, COALESCE(sortOrder, 0) ASC, created DESC;';
     const result = await this.db.query(sql, [listId]);
     
     return (result.values || []).map(row => ({
@@ -2550,6 +2602,10 @@ class DatabaseService {
     if ((updates as any).completionDate !== undefined) {
       fields.push('completionDate = ?');
       values.push((updates as any).completionDate ?? null);
+    }
+    if (updates.sortOrder !== undefined) {
+      fields.push('sortOrder = ?');
+      values.push(updates.sortOrder);
     }
     if (updates.foreignID !== undefined) {
       fields.push('foreignID = ?');
