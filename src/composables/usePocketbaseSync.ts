@@ -1048,8 +1048,45 @@ export function usePocketbaseSync() {
         const alreadyExists = localId ? localBooks.some(b => b.id === localId) : false;
         if (alreadyExists) continue;
 
+        const normalizedIsbn = typeof remote.isbn === 'string' ? remote.isbn.trim() : '';
+        if (!normalizedIsbn) {
+          logSyncWarn('Skipping remote book without ISBN', { remoteId: remote.id });
+          continue;
+        }
+
+        const existingByIsbn = await db.getBookByISBN(normalizedIsbn);
+        if (existingByIsbn?.id) {
+          const resolvedCategoryId = resolveRemoteCategoryId(remote.categoryId);
+          await db.updateBook(existingByIsbn.id, {
+            isbn: normalizedIsbn,
+            title: remote.title,
+            subtitle: remote.subtitle ?? undefined,
+            authors: remote.authors ?? undefined,
+            publisher: remote.publisher ?? undefined,
+            publishedDate: remote.publishedDate ?? undefined,
+            description: remote.description ?? undefined,
+            pageCount: remote.pageCount ?? undefined,
+            categories: remote.categories ?? undefined,
+            language: remote.language ?? undefined,
+            coverImage: getRemoteCoverUrlFromRecord(remote) ?? existingByIsbn.coverImage,
+            categoryId: resolvedCategoryId ?? undefined,
+            notes: remote.notes ?? undefined,
+            rating: remote.rating ?? undefined,
+            read: remote.read ?? false,
+            quantity: remote.quantity ?? existingByIsbn.quantity ?? 1,
+            foreignID: remote.id,
+            updated: remote.updated
+          });
+
+          await pb.collection('books').update(remote.id, {
+            foreignID: existingByIsbn.id,
+            updated: remote.updated
+          });
+          continue;
+        }
+
         const newLocalId = await db.createBook({
-          isbn: remote.isbn,
+          isbn: normalizedIsbn,
           title: remote.title,
           subtitle: remote.subtitle ?? undefined,
           authors: remote.authors ?? undefined,
