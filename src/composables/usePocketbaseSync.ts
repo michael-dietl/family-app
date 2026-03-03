@@ -514,6 +514,7 @@ export function usePocketbaseSync() {
 
 
   const presentRealtimeToast = async (message: string) => {
+    if (isSyncing.value) return;
     const toast = await toastController.create({
       message,
       duration: 3500,
@@ -585,7 +586,9 @@ export function usePocketbaseSync() {
       realtimeActive = false;
     }
 
-    void ensurePocketbaseNotificationSubscription();
+    if (!isSyncing.value) {
+      void ensurePocketbaseNotificationSubscription();
+    }
   };
 
   const unsubscribeFromRealtimeCollections = async (collections?: string[]) => {

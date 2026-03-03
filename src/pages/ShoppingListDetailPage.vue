@@ -179,7 +179,7 @@ const handleReorder = async (event: CustomEvent<ItemReorderEventDetail>) => {
     return;
   }
 
-  const targetIndex = from < to ? to - 1 : to;
+  const targetIndex = to;
 
   const pending = items.value.filter(item => !item.completed);
   const completed = items.value.filter(item => item.completed);

@@ -112,7 +112,7 @@
                   v-for="bar in timelineRouteBars"
                   :key="bar.key"
                   class="timeline-bar route-bar"
-                  :style="{ left: bar.left, width: bar.width, backgroundColor: bar.color || '#6c5ce7', top: '78%' }"
+                  :style="{ left: bar.left, width: bar.width, backgroundColor: bar.color || '#6c5ce7', top: '82%' }"
                   @click="openRoute(bar.id)"
                 >
                   <ion-icon :icon="imagesOutline" size="small" />
@@ -122,7 +122,7 @@
                   v-for="event in timelineEventBars"
                   :key="event.id"
                   class="timeline-event-bar"
-                  :style="{ left: eventBarStyle(event).left, width: 'auto', top: '22%' }"
+                  :style="{ left: eventBarStyle(event).left, width: 'auto', top: '18%' }"
                   @click.stop="openEvent(event)"
                 >
                   <ion-icon :icon="calendarNumber" size="small" />
@@ -1317,7 +1317,9 @@ onMounted(async () => {
 }
 
 :deep(.half-modal .modal-wrapper ion-datetime) {
-  max-width: 100%;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
 }
 
 .manual-actions {

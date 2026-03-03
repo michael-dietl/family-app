@@ -350,7 +350,7 @@ const handleReorder = async (event: CustomEvent<ItemReorderEventDetail>) => {
     return;
   }
 
-  const targetIndex = from < to ? to - 1 : to;
+  const targetIndex = to;
 
   const listId = numericListId.value;
   if (!listId) {
