@@ -310,6 +310,10 @@
             <ion-icon :icon="calendarOutline" />
           </ion-button>
         </ion-item>
+        <ion-item lines="none">
+          <ion-label>{{ $t('auto.auf_karte_und_zeitachse_anzeigen') }}</ion-label>
+          <ion-toggle slot="end" v-model="editGalleryShowOnMap" />
+        </ion-item>
         <ion-button
           expand="block"
           class="ion-margin-top"
@@ -401,6 +405,7 @@ import {
   IonInput,
   IonTextarea,
   IonDatetime,
+  IonToggle,
   IonFab,
   IonFabButton,
   actionSheetController,
@@ -475,6 +480,7 @@ const editGalleryDescription = ref('');
 const editGalleryColor = ref('#3880ff');
 const editGalleryStartDate = ref('');
 const editGalleryEndDate = ref('');
+const editGalleryShowOnMap = ref(true);
 const showStartDateModal = ref(false);
 const startDatePickerValue = ref('');
 const showEndDateModal = ref(false);
@@ -1032,6 +1038,7 @@ function populateEditFields() {
   editGalleryColor.value = currentGallery.value.color || '#3880ff';
   editGalleryStartDate.value = currentGallery.value.startDate || '';
   editGalleryEndDate.value = currentGallery.value.endDate || '';
+  editGalleryShowOnMap.value = currentGallery.value.showOnMapAndTimeline !== false;
 }
 
 function openEditGalleryModal() {
@@ -1056,7 +1063,8 @@ const handleUpdateGallery = async () => {
       description: trimmedDescription || undefined,
       color: editGalleryColor.value,
       startDate: editGalleryStartDate.value || undefined,
-      endDate: editGalleryEndDate.value || undefined
+      endDate: editGalleryEndDate.value || undefined,
+      showOnMapAndTimeline: editGalleryShowOnMap.value
     });
     showEditDialog.value = false;
   } catch (error) {

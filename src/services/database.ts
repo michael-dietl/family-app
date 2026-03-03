@@ -362,6 +362,16 @@ class InMemoryStorage {
     return id;
   }
 
+  updateTimelineEvent(id: number, updates: Partial<TimelineEvent>): void {
+    const index = this.timelineEvents.findIndex(event => event.id === id);
+    if (index === -1) return;
+    this.timelineEvents[index] = {
+      ...this.timelineEvents[index],
+      ...updates,
+      updated: updates.updated ?? new Date().toISOString()
+    };
+  }
+
   getTimelineEvents(): TimelineEvent[] {
     return [...this.timelineEvents].sort((a, b) => {
       const dateA = Date.parse(a.startDate || a.created);
@@ -1163,6 +1173,40 @@ class DatabaseService {
     ]);
 
     return result.changes?.lastId || 0;
+  }
+
+  async updateTimelineEvent(id: number, updates: Partial<TimelineEvent>): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+
+    if (this.useInMemory) {
+      this.inMemory.updateTimelineEvent(id, updates);
+      return;
+    }
+
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const updated = updates.updated ?? now;
+    const sql = `
+      UPDATE timeline_events
+      SET title = ?,
+          description = ?,
+          startDate = ?,
+          endDate = ?,
+          location = ?,
+          updated = ?
+      WHERE id = ?;
+    `;
+
+    await this.db.run(sql, [
+      updates.title ?? null,
+      updates.description ?? null,
+      updates.startDate ?? null,
+      updates.endDate ?? null,
+      updates.location ?? null,
+      updated,
+      id
+    ]);
   }
 
   async getTimelineEvents(): Promise<TimelineEvent[]> {

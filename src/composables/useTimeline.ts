@@ -36,6 +36,12 @@ export function useTimeline() {
     return id;
   };
 
+  const updateManualEvent = async (id: number, payload: Partial<TimelineEvent>) => {
+    if (!id) return;
+    await db.updateTimelineEvent(id, payload);
+    await loadEvents();
+  };
+
   const addEventPhotos = async (eventId: number, photos: PickedPhoto[]) => {
     if (!eventId || photos.length === 0) return;
 
@@ -63,6 +69,7 @@ export function useTimeline() {
     attachments,
     loadEvents,
     createManualEvent,
+    updateManualEvent,
     addEventPhotos
   };
 }

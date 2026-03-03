@@ -323,7 +323,12 @@
                   <span v-else>{{ $t('auto.timeline_no_manual_events') }}</span>
                 </p>
               </div>
-              <article v-for="event in manualEvents" :key="event.id" class="event-row">
+              <article
+                v-for="event in manualEvents"
+                :key="event.id"
+                class="event-row"
+                @dblclick="handleEditManualEvent(event)"
+              >
                 <div class="event-content">
                   <div class="event-title">{{ event.title }}</div>
                   <div class="event-date">
@@ -360,7 +365,12 @@
                 <span v-else>{{ $t('auto.timeline_no_manual_events') }}</span>
               </p>
             </div>
-            <article v-for="event in manualEvents" :key="event.id" class="event-row">
+            <article
+              v-for="event in manualEvents"
+              :key="event.id"
+              class="event-row"
+              @dblclick="handleEditManualEvent(event)"
+            >
               <div class="event-content">
                 <div class="event-title">{{ event.title }}</div>
                 <div class="event-date">
@@ -451,7 +461,7 @@ const activeTab = ref<'timeline' | 'events'>('timeline');
 const manualTab = ref<'create' | 'list'>('create');
 
 const { galleries, loadGalleries, isLoading: isGalleryLoading } = useGallery();
-const { events, attachments, loadEvents, createManualEvent, addEventPhotos } = useTimeline();
+const { events, attachments, loadEvents, createManualEvent, updateManualEvent, addEventPhotos } = useTimeline();
 const { pickMultiplePhotos } = usePhoto();
 const { initLightbox, openLightbox, destroyLightbox } = useLightbox();
 
@@ -472,6 +482,7 @@ const manualStart = ref<string | null>(null);
 const manualEnd = ref<string | null>(null);
 const manualStartPickerValue = ref('');
 const manualEndPickerValue = ref('');
+const editingEventId = ref<number | null>(null);
 const selectedEvent = ref<TimelineEvent | null>(null);
 const pendingPhotos = ref<PickedPhoto[]>([]);
 const isSubmitting = ref(false);
@@ -893,17 +904,28 @@ const handleSaveManualEvent = async () => {
   if (!manualTitle.value.trim() || !manualStart.value) return;
   isSubmitting.value = true;
   try {
-    const createdId = await createManualEvent({
+    const payload = {
       title: manualTitle.value.trim(),
       description: manualDescription.value.trim() || undefined,
       location: manualLocation.value.trim() || undefined,
       startDate: manualStart.value || '',
       endDate: manualEnd.value || null,
       updated: new Date().toISOString()
-    });
-    if (pendingPhotos.value.length) {
-      await addEventPhotos(createdId, pendingPhotos.value);
+    };
+
+    if (editingEventId.value) {
+      await updateManualEvent(editingEventId.value, payload);
+      if (pendingPhotos.value.length) {
+        await addEventPhotos(editingEventId.value, pendingPhotos.value);
+      }
+    } else {
+      const createdId = await createManualEvent(payload);
+      if (pendingPhotos.value.length) {
+        await addEventPhotos(createdId, pendingPhotos.value);
+      }
     }
+
+    editingEventId.value = null;
     manualTitle.value = '';
     manualDescription.value = '';
     manualLocation.value = '';
@@ -925,6 +947,21 @@ const handleSaveManualEvent = async () => {
 const getAttachmentsForEvent = (eventId?: number) => {
   if (!eventId) return [];
   return attachments.value[eventId] || [];
+};
+
+const handleEditManualEvent = (event: TimelineEvent) => {
+  if (!event.id) return;
+  editingEventId.value = event.id;
+  manualTitle.value = event.title || '';
+  manualDescription.value = event.description || '';
+  manualLocation.value = event.location || '';
+  manualStart.value = event.startDate || '';
+  manualEnd.value = event.endDate || null;
+  manualStartPickerValue.value = manualStart.value || '';
+  manualEndPickerValue.value = manualEnd.value || '';
+  pendingPhotos.value = [];
+  activeTab.value = 'timeline';
+  manualTab.value = 'create';
 };
 
 const getAttachmentSrc = (filepath: string) => {
@@ -988,7 +1025,9 @@ const scrollToToday = () => {
     const now = Date.now();
     const span = Math.max(max - min, 1);
     const percent = Math.min(1, Math.max(0, (now - min) / span));
-    const scrollLeft = (axis.scrollWidth - container.clientWidth) * percent;
+    const maxScroll = Math.max(0, axis.scrollWidth - container.clientWidth);
+    const target = axis.scrollWidth * percent;
+    const scrollLeft = Math.min(maxScroll, Math.max(0, target - container.clientWidth / 2));
     container.scrollLeft = scrollLeft;
   });
 };
