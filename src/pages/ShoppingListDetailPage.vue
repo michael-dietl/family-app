@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-deprecated-slot-attribute -->
 <template>
   <ion-page>
     <ion-header :translucent="true">
@@ -61,7 +62,7 @@
                 <h3>{{ item.name }}</h3>
                 <p v-if="item.quantity">{{ $t('auto.anzahl') }}: {{ item.quantity }}</p>
               </ion-label>
-              <ion-button slot="end" fill="clear" @click="deleteItem(item.id!, listId)">
+              <ion-button slot="end" fill="clear" @click="item.id && deleteItem(item.id, listId)">
                 <ion-icon slot="icon-only" :icon="trashOutline" color="danger" />
               </ion-button>
               <ion-reorder slot="end" />
@@ -178,15 +179,17 @@ const handleReorder = async (event: CustomEvent<ItemReorderEventDetail>) => {
     return;
   }
 
+  const targetIndex = from < to ? to - 1 : to;
+
   const pending = items.value.filter(item => !item.completed);
   const completed = items.value.filter(item => item.completed);
 
   if (shoppingSegment.value === 'pending') {
-    const reorderedPending = moveItem(pending, from, to);
+    const reorderedPending = moveItem(pending, from, targetIndex);
     items.value = [...reorderedPending, ...completed];
     await updateItemOrder(listId, reorderedPending.map(item => item.id!).filter(Boolean), false);
   } else {
-    const reorderedCompleted = moveItem(completed, from, to);
+    const reorderedCompleted = moveItem(completed, from, targetIndex);
     items.value = [...pending, ...reorderedCompleted];
     await updateItemOrder(listId, reorderedCompleted.map(item => item.id!).filter(Boolean), true);
   }

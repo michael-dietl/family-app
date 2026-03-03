@@ -2406,7 +2406,6 @@ class DatabaseService {
     if (this.useInMemory) return;
     if (!this.db) throw new Error('Database not initialized');
 
-    const now = new Date().toISOString();
     const fields: string[] = [];
     const values: any[] = [];
 

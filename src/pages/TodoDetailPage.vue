@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-deprecated-slot-attribute -->
 <template>
   <ion-page>
     <ion-header :translucent="true">
@@ -349,6 +350,8 @@ const handleReorder = async (event: CustomEvent<ItemReorderEventDetail>) => {
     return;
   }
 
+  const targetIndex = from < to ? to - 1 : to;
+
   const listId = numericListId.value;
   if (!listId) {
     event.detail.complete();
@@ -359,11 +362,11 @@ const handleReorder = async (event: CustomEvent<ItemReorderEventDetail>) => {
   const completed = items.value.filter(item => item.completed);
 
   if (activeSegment.value === 'pending') {
-    const reorderedPending = moveItem(pending, from, to);
+    const reorderedPending = moveItem(pending, from, targetIndex);
     items.value = [...reorderedPending, ...completed];
     await updateItemOrder(listId, reorderedPending.map(item => item.id!).filter(Boolean), false);
   } else {
-    const reorderedCompleted = moveItem(completed, from, to);
+    const reorderedCompleted = moveItem(completed, from, targetIndex);
     items.value = [...pending, ...reorderedCompleted];
     await updateItemOrder(listId, reorderedCompleted.map(item => item.id!).filter(Boolean), true);
   }

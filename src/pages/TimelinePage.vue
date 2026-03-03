@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-deprecated-slot-attribute -->
 <template>
   <ion-page>
     <ion-header :translucent="true">
@@ -58,50 +59,50 @@
               class="timeline-scroll-container"
               @wheel.prevent="handleTimelineWheel"
             >
-                <div class="timeline-axis" :style="{ minWidth: '1200px', width: timelineAxisWidth }" @click="handleAxisClick">
-                  <div class="timeline-middle-line" />
-                  <div class="axis-line" />
-                  <div class="timeline-grid-lines">
-                    <div
-                      v-for="segment in timelineDaySegments"
-                      :key="`day-${segment.start}`"
-                      class="timeline-day-boundary"
-                      :style="{ left: segment.left }"
-                    />
-                    <div
-                      v-for="segment in timelineWeekSegments"
-                      :key="`week-${segment.start}`"
-                      class="timeline-week-boundary"
-                      :style="{ left: segment.left }"
-                    />
-                    <div
-                      v-for="segment in timelineMonthSegments"
-                      :key="`month-${segment.start}`"
-                      class="timeline-month-boundary"
-                      :style="{ left: segment.left }"
-                    />
-                    <span
-                      v-for="segment in timelineMonthSegments"
-                      :key="`label-${segment.start}`"
-                      class="timeline-month-label"
-                      :style="{ left: segment.labelPosition }"
-                    >
-                      {{ segment.monthLabel }}
-                    </span>
-                    <span
-                      v-for="segment in timelineYearSegments"
-                      :key="`year-${segment.start}`"
-                      class="timeline-year-label"
-                      :style="{ left: segment.left }"
-                    >
-                      {{ segment.yearLabel }}
-                    </span>
-                  </div>
+              <div class="timeline-axis" :style="{ minWidth: '1200px', width: timelineAxisWidth }" @click="handleAxisClick">
+                <div class="timeline-middle-line" />
+                <div class="axis-line" />
+                <div class="timeline-grid-lines">
+                  <div
+                    v-for="segment in timelineDaySegments"
+                    :key="`day-${segment.start}`"
+                    class="timeline-day-boundary"
+                    :style="{ left: segment.left }"
+                  />
+                  <div
+                    v-for="segment in timelineWeekSegments"
+                    :key="`week-${segment.start}`"
+                    class="timeline-week-boundary"
+                    :style="{ left: segment.left }"
+                  />
+                  <div
+                    v-for="segment in timelineMonthSegments"
+                    :key="`month-${segment.start}`"
+                    class="timeline-month-boundary"
+                    :style="{ left: segment.left }"
+                  />
+                  <span
+                    v-for="segment in timelineMonthSegments"
+                    :key="`label-${segment.start}`"
+                    class="timeline-month-label"
+                    :style="{ left: segment.labelPosition }"
+                  >
+                    {{ segment.monthLabel }}
+                  </span>
+                  <span
+                    v-for="segment in timelineYearSegments"
+                    :key="`year-${segment.start}`"
+                    class="timeline-year-label"
+                    :style="{ left: segment.left }"
+                  >
+                    {{ segment.yearLabel }}
+                  </span>
+                </div>
                 <div
                   v-for="bar in timelineGalleryBars"
                   :key="bar.key"
                   class="timeline-bar gallery-bar"
-                  :style="{ left: bar.left, width: bar.width, backgroundColor: bar.color || '#3880ff', top: 'calc(50% - 48px)' }"
+                  :style="{ left: bar.left, width: bar.width, backgroundColor: bar.color || '#3880ff', top: '50%' }"
                   @click="openGallery(bar.id)"
                 >
                   <ion-icon :icon="imagesOutline" size="small" />
@@ -111,7 +112,7 @@
                   v-for="bar in timelineRouteBars"
                   :key="bar.key"
                   class="timeline-bar route-bar"
-                  :style="{ left: bar.left, width: bar.width, backgroundColor: bar.color || '#6c5ce7', top: 'calc(50% - 18px)' }"
+                  :style="{ left: bar.left, width: bar.width, backgroundColor: bar.color || '#6c5ce7', top: '78%' }"
                   @click="openRoute(bar.id)"
                 >
                   <ion-icon :icon="imagesOutline" size="small" />
@@ -121,7 +122,7 @@
                   v-for="event in timelineEventBars"
                   :key="event.id"
                   class="timeline-event-bar"
-                  :style="{ left: eventBarStyle(event).left, width: 'auto', top: 'calc(50% + 16px)' }"
+                  :style="{ left: eventBarStyle(event).left, width: 'auto', top: '22%' }"
                   @click.stop="openEvent(event)"
                 >
                   <ion-icon :icon="calendarNumber" size="small" />
@@ -180,6 +181,10 @@
                 </div>
               </div>
             </div>
+            <ion-segment v-model="manualTab" class="manual-tabs">
+              <ion-segment-button value="create">Ereignis speichern</ion-segment-button>
+              <ion-segment-button value="list">{{ $t('auto.timeline_manual_events') }}</ion-segment-button>
+            </ion-segment>
             <div v-if="!hasTimelineItems" class="timeline-empty">
               <p>
                 <span v-if="timelineSearch">{{ $t('auto.timeline_no_gallery_matches') }}</span>
@@ -187,58 +192,105 @@
               </p>
             </div>
 
-            <section class="manual-event-form">
+            <section v-if="manualTab === 'create'" class="manual-event-form">
               <ion-card>
                 <ion-card-header>
                   <ion-card-title>{{ $t('auto.timeline_create_event') }}</ion-card-title>
                 </ion-card-header>
                 <ion-card-content>
-                    <ion-input
-                      v-model="manualTitle"
-                      :placeholder="$t('auto.timeline_manual_events')"
-                      @keyup.enter="handleSaveManualEvent"
-                    />
-                    <ion-textarea
-                      v-model="manualDescription"
-                      :placeholder="$t('auto.timeline_attach_photos')"
-                      :rows="2"
-                      auto-grow
-                    />
+                  <ion-input
+                    v-model="manualTitle"
+                    :placeholder="$t('auto.timeline_manual_events')"
+                    @keyup.enter="handleSaveManualEvent"
+                  />
+                  <ion-textarea
+                    v-model="manualDescription"
+                    :placeholder="$t('auto.beschreibung_optional')"
+                    :rows="2"
+                    auto-grow
+                  />
                   <ion-input
                     v-model="manualLocation"
                     :placeholder="$t('auto.timeline_location')"
                     :clear-input="true"
                   />
-                  <div class="manual-actions">
-                    <div class="date-row">
-                      <label class="date-label">{{ $t('auto.timeline_start_date') }}:</label>
+                  <ion-item lines="none" class="due-date-item">
+                    <ion-label>
+                      <span class="date-label">{{ $t('auto.timeline_start_date') }}</span>
                       <span class="date-value">{{ manualStart ? formatDate(manualStart) : '-' }}</span>
-                      <ion-button size="small" fill="clear" @click="showStartPicker = true">
-                        <ion-icon :icon="calendarNumber" />
-                      </ion-button>
-                    </div>
-                    <ion-modal :is-open="showStartPicker" @didDismiss="showStartPicker = false">
-                      <ion-datetime v-model="manualStart" presentation="date-time" display-format="DD.MM.YYYY HH:mm" />
-                      <ion-button color="primary" expand="block" @click="showStartPicker = false">OK</ion-button>
-                    </ion-modal>
-                  </div>
-                  <div class="manual-actions">
-                    <div class="date-row">
-                      <label class="date-label">{{ $t('auto.timeline_end_date') }}:</label>
+                    </ion-label>
+                    <ion-button fill="clear" class="date-picker-icon" @click="openManualStartPicker">
+                      <ion-icon :icon="calendarNumber" />
+                    </ion-button>
+                  </ion-item>
+                  <ion-modal css-class="half-modal" :is-open="showStartPicker" @didDismiss="cancelManualStartPicker">
+                    <ion-header>
+                      <ion-toolbar>
+                        <ion-buttons slot="start">
+                          <ion-button @click="cancelManualStartPicker">{{ $t('buttons.cancel') }}</ion-button>
+                        </ion-buttons>
+                        <ion-title>{{ $t('auto.timeline_start_date') }}</ion-title>
+                        <ion-buttons slot="end">
+                          <ion-button strong @click="confirmManualStartPicker">{{ $t('auto.speichern') }}</ion-button>
+                        </ion-buttons>
+                      </ion-toolbar>
+                    </ion-header>
+                    <ion-content class="ion-padding">
+                      <div class="date-picker-wrapper">
+                        <ion-datetime
+                          v-model="manualStartPickerValue"
+                          presentation="date-time"
+                          display-format="DD.MM.YYYY HH:mm"
+                          :show-default-buttons="false"
+                        />
+                      </div>
+                      <div class="modal-actions">
+                        <ion-button expand="block" fill="clear" color="medium" @click="clearManualStartPicker">
+                          {{ $t('auto.zuruecksetzen') }}
+                        </ion-button>
+                      </div>
+                    </ion-content>
+                  </ion-modal>
+                  <ion-item lines="none" class="due-date-item">
+                    <ion-label>
+                      <span class="date-label">{{ $t('auto.timeline_end_date') }}</span>
                       <span class="date-value">{{ manualEnd ? formatDate(manualEnd) : '-' }}</span>
-                      <ion-button size="small" fill="clear" @click="showEndPicker = true">
-                        <ion-icon :icon="calendarNumber" />
-                      </ion-button>
-                    </div>
-                    <ion-modal :is-open="showEndPicker" @didDismiss="showEndPicker = false">
-                      <ion-datetime v-model="manualEnd" presentation="date-time" display-format="DD.MM.YYYY HH:mm" />
-                      <ion-button color="primary" expand="block" @click="showEndPicker = false">OK</ion-button>
-                    </ion-modal>
-                  </div>
+                    </ion-label>
+                    <ion-button fill="clear" class="date-picker-icon" @click="openManualEndPicker">
+                      <ion-icon :icon="calendarNumber" />
+                    </ion-button>
+                  </ion-item>
+                  <ion-modal css-class="half-modal" :is-open="showEndPicker" @didDismiss="cancelManualEndPicker">
+                    <ion-header>
+                      <ion-toolbar>
+                        <ion-buttons slot="start">
+                          <ion-button @click="cancelManualEndPicker">{{ $t('buttons.cancel') }}</ion-button>
+                        </ion-buttons>
+                        <ion-title>{{ $t('auto.timeline_end_date') }}</ion-title>
+                        <ion-buttons slot="end">
+                          <ion-button strong @click="confirmManualEndPicker">{{ $t('auto.speichern') }}</ion-button>
+                        </ion-buttons>
+                      </ion-toolbar>
+                    </ion-header>
+                    <ion-content class="ion-padding">
+                      <div class="date-picker-wrapper">
+                        <ion-datetime
+                          v-model="manualEndPickerValue"
+                          presentation="date-time"
+                          display-format="DD.MM.YYYY HH:mm"
+                          :show-default-buttons="false"
+                        />
+                      </div>
+                      <div class="modal-actions">
+                        <ion-button expand="block" fill="clear" color="medium" @click="clearManualEndPicker">
+                          {{ $t('auto.zuruecksetzen') }}
+                        </ion-button>
+                      </div>
+                    </ion-content>
+                  </ion-modal>
                   <div class="manual-actions">
                     <ion-button fill="clear" @click="handlePickPhotos">
                       <ion-icon :icon="imagesOutline" />
-                      {{ $t('auto.timeline_attach_photos') }}
                     </ion-button>
                   </div>
                   <div class="manual-actions">
@@ -249,56 +301,58 @@
                   <div v-if="pendingPhotos.length" class="pending-photos">
                     <div v-for="(photo, idx) in pendingPhotos" :key="idx" class="pending-thumb">
                       <img :src="getPendingPhotoSrc(photo)" alt="pending photo" />
-                      <ion-button fill="clear" color="danger" @click="removePendingPhoto(idx)">×</ion-button>
+                      <ion-button
+                        fill="clear"
+                        color="danger"
+                        class="pending-remove"
+                        @click="removePendingPhoto(idx)"
+                      >
+                        ×
+                      </ion-button>
                     </div>
                   </div>
                 </ion-card-content>
               </ion-card>
             </section>
-              <section class="manual-event-list">
-                <header>
-                  <h3>{{ $t('auto.timeline_manual_events') }}</h3>
-                </header>
-                <div v-if="!manualEvents.length" class="empty-state">
-                  <ion-icon :icon="imagesOutline" size="large" />
-                  <p>
-                    <span v-if="eventsSearch">{{ $t('auto.timeline_no_event_matches') }}</span>
-                    <span v-else>{{ $t('auto.timeline_no_manual_events') }}</span>
+
+            <section v-else class="manual-event-list">
+              <div v-if="!manualEvents.length" class="empty-state">
+                <ion-icon :icon="imagesOutline" size="large" />
+                <p>
+                  <span v-if="eventsSearch">{{ $t('auto.timeline_no_event_matches') }}</span>
+                  <span v-else>{{ $t('auto.timeline_no_manual_events') }}</span>
+                </p>
+              </div>
+              <article v-for="event in manualEvents" :key="event.id" class="event-row">
+                <div class="event-content">
+                  <div class="event-title">{{ event.title }}</div>
+                  <div class="event-date">
+                    {{ formatDate(event.startDate) }}
+                    <span v-if="event.endDate">− {{ formatDate(event.endDate) }}</span>
+                  </div>
+                  <p v-if="event.location" class="event-location">
+                    <ion-icon :icon="locationOutline" />
+                    {{ event.location }}
                   </p>
+                  <p v-if="event.description" class="event-description">{{ event.description }}</p>
                 </div>
-                <article v-for="event in manualEvents" :key="event.id" class="event-row">
-                  <div class="event-content">
-                    <div class="event-title">{{ event.title }}</div>
-                    <div class="event-date">
-                      {{ formatDate(event.startDate) }}
-                      <span v-if="event.endDate">− {{ formatDate(event.endDate) }}</span>
-                    </div>
-                    <p v-if="event.location" class="event-location">
-                      <ion-icon :icon="locationOutline" />
-                      {{ event.location }}
-                    </p>
-                    <p v-if="event.description" class="event-description">{{ event.description }}</p>
+                <div class="event-meta">
+                  <ion-badge v-if="getAttachmentsForEvent(event.id)?.length">{{ getAttachmentsForEvent(event.id).length }}</ion-badge>
+                  <div class="attachment-preview" v-if="getAttachmentsForEvent(event.id).length">
+                    <img
+                      v-for="photo in getAttachmentsForEvent(event.id)"
+                      :key="photo.id"
+                      :src="getAttachmentSrc(photo.filepath)"
+                      loading="lazy"
+                    />
                   </div>
-                  <div class="event-meta">
-                    <ion-badge v-if="getAttachmentsForEvent(event.id)?.length">{{ getAttachmentsForEvent(event.id).length }}</ion-badge>
-                    <div class="attachment-preview" v-if="getAttachmentsForEvent(event.id).length">
-                      <img
-                        v-for="photo in getAttachmentsForEvent(event.id)"
-                        :key="photo.id"
-                        :src="getAttachmentSrc(photo.filepath)"
-                        loading="lazy"
-                      />
-                    </div>
-                  </div>
-                </article>
-              </section>
+                </div>
+              </article>
+            </section>
           </section>
         </template>
         <template v-else>
           <section class="manual-event-list">
-            <header>
-              <h3>{{ $t('auto.timeline_manual_events') }}</h3>
-            </header>
             <div v-if="!manualEvents.length" class="empty-state">
               <ion-icon :icon="imagesOutline" size="large" />
               <p>
@@ -394,6 +448,7 @@ const shortMonths = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'S
 const { t: $t } = useI18n();
 const router = useRouter();
 const activeTab = ref<'timeline' | 'events'>('timeline');
+const manualTab = ref<'create' | 'list'>('create');
 
 const { galleries, loadGalleries, isLoading: isGalleryLoading } = useGallery();
 const { events, attachments, loadEvents, createManualEvent, addEventPhotos } = useTimeline();
@@ -415,6 +470,8 @@ const manualDescription = ref('');
 const manualLocation = ref('');
 const manualStart = ref<string | null>(null);
 const manualEnd = ref<string | null>(null);
+const manualStartPickerValue = ref('');
+const manualEndPickerValue = ref('');
 const selectedEvent = ref<TimelineEvent | null>(null);
 const pendingPhotos = ref<PickedPhoto[]>([]);
 const isSubmitting = ref(false);
@@ -678,6 +735,7 @@ const formatDate = (value: string | number) => {
 };
 
 const manualEvents = computed(() => {
+  if (activeTab.value === 'timeline') return events.value;
   const q = normalizedEventSearch.value;
   if (!q) return events.value;
   return events.value.filter(event => {
@@ -780,6 +838,44 @@ const removePendingPhoto = (index: number) => {
   pendingPhotos.value.splice(index, 1);
 };
 
+const openManualStartPicker = () => {
+  manualStartPickerValue.value = manualStart.value || new Date().toISOString();
+  showStartPicker.value = true;
+};
+
+const confirmManualStartPicker = () => {
+  manualStart.value = manualStartPickerValue.value || '';
+  showStartPicker.value = false;
+};
+
+const cancelManualStartPicker = () => {
+  showStartPicker.value = false;
+};
+
+const clearManualStartPicker = () => {
+  manualStart.value = '';
+  showStartPicker.value = false;
+};
+
+const openManualEndPicker = () => {
+  manualEndPickerValue.value = manualEnd.value || new Date().toISOString();
+  showEndPicker.value = true;
+};
+
+const confirmManualEndPicker = () => {
+  manualEnd.value = manualEndPickerValue.value || '';
+  showEndPicker.value = false;
+};
+
+const cancelManualEndPicker = () => {
+  showEndPicker.value = false;
+};
+
+const clearManualEndPicker = () => {
+  manualEnd.value = '';
+  showEndPicker.value = false;
+};
+
 const handleSegmentChange = (event: CustomEvent) => {
   const newValue = String((event as CustomEvent<{ value?: string | null }>).detail?.value || '');
   if (newValue === 'timeline' || newValue === 'events') {
@@ -813,9 +909,12 @@ const handleSaveManualEvent = async () => {
     manualLocation.value = '';
     manualStart.value = null;
     manualEnd.value = null;
+    manualStartPickerValue.value = '';
+    manualEndPickerValue.value = '';
     pendingPhotos.value = [];
     showStartPicker.value = false;
     showEndPicker.value = false;
+    manualTab.value = 'list';
   } catch (error) {
     console.error('Failed to save timeline event', error);
   } finally {
@@ -934,11 +1033,15 @@ onMounted(async () => {
   padding: 0 1rem;
 }
 
+.manual-tabs {
+  margin: 0.5rem 0 0.25rem;
+}
+
 .timeline-scroll-container {
   overflow-x: auto;
   width: 100%;
   min-height: 180px;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .timeline-axis {
@@ -1161,6 +1264,62 @@ onMounted(async () => {
   padding: 0 1rem 2rem;
 }
 
+.due-date-item {
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 0.5rem;
+}
+
+.due-date-item ion-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.75rem;
+  color: var(--ion-color-medium);
+}
+
+.due-date-item .date-label {
+  font-weight: 500;
+}
+
+.due-date-item .date-value {
+  font-size: 0.85rem;
+  color: var(--ion-color-dark);
+}
+
+.date-picker-icon {
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  min-width: 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.date-picker-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.25rem;
+}
+
+:deep(.half-modal .modal-wrapper) {
+  height: 55vh;
+  max-height: 75vh;
+  border-radius: 20px 20px 0 0;
+  overflow: hidden;
+}
+
+:deep(.half-modal .modal-wrapper ion-content) {
+  --border-radius: 0;
+  padding-bottom: 0;
+}
+
+:deep(.half-modal .modal-wrapper ion-datetime) {
+  max-width: 100%;
+}
+
 .manual-actions {
   display: flex;
   justify-content: space-between;
@@ -1185,6 +1344,18 @@ onMounted(async () => {
   background: var(--ion-color-light);
   display: flex;
   align-items: flex-end;
+}
+
+.pending-remove {
+  --background: transparent;
+  --background-hover: transparent;
+  --background-focused: transparent;
+  --background-activated: transparent;
+  --box-shadow: none;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  margin: 0;
 }
 
 .pending-thumb img {

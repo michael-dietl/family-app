@@ -940,6 +940,16 @@ export function usePocketbaseSync() {
   // Books Sync
   const syncBooks = async (): Promise<void> => {
     const localBooks = await db.getBooks();
+    const normalizeIsbn = (value?: string | null): string =>
+      (value || '').replace(/[^0-9a-z]/gi, '').toUpperCase();
+    const localBooksByIsbn = new Map<string, Book>();
+    for (const book of localBooks) {
+      const key = normalizeIsbn(book.isbn);
+      if (!key) continue;
+      if (!localBooksByIsbn.has(key)) {
+        localBooksByIsbn.set(key, book);
+      }
+    }
     showSyncProgress('Bücher', localBooks.length);
     await authenticateUserIfNeeded();
     const pb = pocketbase.getInstance();
@@ -1048,13 +1058,12 @@ export function usePocketbaseSync() {
         const alreadyExists = localId ? localBooks.some(b => b.id === localId) : false;
         if (alreadyExists) continue;
 
-        const normalizedIsbn = typeof remote.isbn === 'string' ? remote.isbn.trim() : '';
+        const normalizedIsbn = normalizeIsbn(typeof remote.isbn === 'string' ? remote.isbn.trim() : '');
         if (!normalizedIsbn) {
           logSyncWarn('Skipping remote book without ISBN', { remoteId: remote.id });
           continue;
         }
-
-        const existingByIsbn = await db.getBookByISBN(normalizedIsbn);
+        const existingByIsbn = localBooksByIsbn.get(normalizedIsbn) || await db.getBookByISBN(normalizedIsbn);
         if (existingByIsbn?.id) {
           const resolvedCategoryId = resolveRemoteCategoryId(remote.categoryId);
           await db.updateBook(existingByIsbn.id, {
