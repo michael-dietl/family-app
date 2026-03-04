@@ -145,16 +145,18 @@ export const buildFilerobotConfig = (
 
 const buildDataUrl = (mimeType: string, base64: string) => `data:${mimeType};base64,${base64}`;
 
+const sanitizeBase64 = (base64: string): string => {
+  const trimmed = base64.trim().replace(/[\r\n\s]/g, '');
+  if (!trimmed) return trimmed;
+  const normalized = trimmed.replace(/-/g, '+').replace(/_/g, '/');
+  const stripped = normalized.replace(/[^A-Za-z0-9+/=]/g, '');
+  const padding = stripped.length % 4;
+  if (padding === 0) return stripped;
+  return stripped + '='.repeat(4 - padding);
+};
+
 const getBase64Payload = (imageData: SavedImageData, fallbackMime = DEFAULT_MIME): ImagePayload => {
   const mimeType = imageData.mimeType || fallbackMime;
-
-  if (imageData.imageBase64) {
-    return {
-      base64: imageData.imageBase64,
-      mimeType,
-      dataUrl: buildDataUrl(mimeType, imageData.imageBase64),
-    };
-  }
 
   if (imageData.imageCanvas) {
     const dataUrl = imageData.imageCanvas.toDataURL(mimeType);
@@ -166,6 +168,15 @@ const getBase64Payload = (imageData: SavedImageData, fallbackMime = DEFAULT_MIME
     };
   }
 
+  if (imageData.imageBase64) {
+    const cleaned = sanitizeBase64(imageData.imageBase64);
+    return {
+      base64: cleaned,
+      mimeType,
+      dataUrl: buildDataUrl(mimeType, cleaned),
+    };
+  }
+
   throw new Error('Filerobot returned no image data.');
 };
 
@@ -174,8 +185,9 @@ export const getImagePayload = (imageData: SavedImageData, fallbackMime = DEFAUL
 };
 
 const decodeBase64ToArrayBuffer = (base64: string): ArrayBuffer => {
+  const cleaned = sanitizeBase64(base64);
   if (typeof globalThis.atob === 'function') {
-    const binary = globalThis.atob(base64);
+    const binary = globalThis.atob(cleaned);
     const buffer = new ArrayBuffer(binary.length);
     const bytes = new Uint8Array(buffer);
     for (let i = 0; i < binary.length; i += 1) {
@@ -185,7 +197,7 @@ const decodeBase64ToArrayBuffer = (base64: string): ArrayBuffer => {
   }
 
   if (typeof globalThis.Buffer !== 'undefined') {
-    const buffer = globalThis.Buffer.from(base64, 'base64');
+    const buffer = globalThis.Buffer.from(cleaned, 'base64');
     return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
   }
 
@@ -196,6 +208,19 @@ export const convertSavedImageDataToBlob = async (
   imageData: SavedImageData,
   fallbackMime = DEFAULT_MIME
 ): Promise<Blob> => {
+  const mimeType = imageData.mimeType || fallbackMime;
+  if (imageData.imageCanvas && typeof imageData.imageCanvas.toBlob === 'function') {
+    return new Promise((resolve, reject) => {
+      imageData.imageCanvas!.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error('Canvas toBlob returned null'));
+        }
+      }, mimeType);
+    });
+  }
+
   const payload = getBase64Payload(imageData, fallbackMime);
   try {
     const response = await fetch(payload.dataUrl);

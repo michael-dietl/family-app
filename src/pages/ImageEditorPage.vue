@@ -218,11 +218,17 @@ const handleSave = async () => {
     }
   } catch (error) {
     const err = error as { name?: string; message?: string; stack?: string } | null;
-    console.error('Error saving edited image:', {
+    const fallbackMessage = typeof error === 'string'
+      ? error
+      : error instanceof Error
+        ? error.message
+        : JSON.stringify(error);
+    const payload = {
       name: err?.name,
-      message: err?.message,
+      message: err?.message ?? fallbackMessage,
       stack: err?.stack
-    });
+    };
+    console.error(`Error saving edited image: ${JSON.stringify(payload)}`);
   } finally {
     isSaving.value = false;
   }

@@ -110,6 +110,9 @@ export interface SharedStorageWriteOptions {
 }
 
 export const writeBlobToSharedStorage = async (blob: Blob, options: SharedStorageWriteOptions): Promise<string> => {
+  if (!blob || blob.size === 0) {
+    throw new Error('Blob is empty');
+  }
   const prefix = options.prefix ? sanitizeIdentifier(options.prefix) : 'file';
   const identifierPart = options.identifier ? `${sanitizeIdentifier(options.identifier)}_` : '';
   const extension = options.extension || detectExtension(blob.type);
@@ -118,13 +121,28 @@ export const writeBlobToSharedStorage = async (blob: Blob, options: SharedStorag
   const directory = getSharedStorageDirectory();
 
   await ensureDirectoryExists(directory, options.folder);
-  const data = await convertBlobToBase64(blob);
-  const result = await Filesystem.writeFile({
-    directory,
-    path: relativePath,
-    data,
-    recursive: true
-  });
+  try {
+    const data = await convertBlobToBase64(blob);
+    const result = await Filesystem.writeFile({
+      directory,
+      path: relativePath,
+      data,
+      recursive: true
+    });
 
-  return result.uri;
+    return result.uri;
+  } catch (error) {
+    const err = error as { name?: string; message?: string; stack?: string } | null;
+    const payload = {
+      name: err?.name,
+      message: err?.message,
+      stack: err?.stack,
+      directory,
+      relativePath,
+      size: blob.size,
+      type: blob.type
+    };
+    console.error(`writeBlobToSharedStorage failed: ${JSON.stringify(payload)}`);
+    throw error;
+  }
 };
