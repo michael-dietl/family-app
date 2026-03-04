@@ -108,6 +108,13 @@ export const buildFilerobotConfig = (
     tabsIds: tabsIds ?? DEFAULT_TABS,
     defaultTabId: TABS.ADJUST,
     defaultToolId: TOOLS.CROP,
+    Crop: {
+      ratio: 'custom',
+      presetsItems: [
+        { titleKey: 'custom', ratio: 'custom' },
+        { titleKey: 'original', ratio: 'original', noEffect: true }
+      ]
+    },
     removeSaveButton: true,
     disableSaveIfNoChanges: false,
     observePluginContainerSize: true,
@@ -123,6 +130,13 @@ export const buildFilerobotConfig = (
     (config as any).Rotate = {
       ...(config as any).Rotate,
       ...overrides.Rotate,
+    };
+  }
+
+  if (overrides.Crop) {
+    (config as any).Crop = {
+      ...(config as any).Crop,
+      ...overrides.Crop
     };
   }
 
@@ -182,9 +196,14 @@ export const convertSavedImageDataToBlob = async (
   imageData: SavedImageData,
   fallbackMime = DEFAULT_MIME
 ): Promise<Blob> => {
-  const { base64, mimeType } = getBase64Payload(imageData, fallbackMime);
-  const arrayBuffer = decodeBase64ToArrayBuffer(base64);
-  return new Blob([arrayBuffer], { type: mimeType });
+  const payload = getBase64Payload(imageData, fallbackMime);
+  try {
+    const response = await fetch(payload.dataUrl);
+    return await response.blob();
+  } catch (error) {
+    const arrayBuffer = decodeBase64ToArrayBuffer(payload.base64);
+    return new Blob([arrayBuffer], { type: payload.mimeType });
+  }
 };
 
 export const base64ToBlob = (base64: string, mimeType = DEFAULT_MIME): Blob => {
