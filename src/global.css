@@ -17,7 +17,37 @@ input,
 textarea,
 ion-input input,
 ion-textarea textarea {
-  caret-color: var(--ion-color-primary);
+  caret-color: var(--ion-text-color);
+}
+
+ion-input,
+ion-textarea,
+input,
+textarea {
+  --highlight-color: var(--ion-color-primary);
+  --highlight-color-focused: var(--ion-color-primary);
+  --highlight-color-valid: var(--ion-color-primary);
+  --highlight-color-invalid: var(--ion-color-primary);
+}
+
+input::selection,
+textarea::selection,
+ion-input input::selection,
+ion-textarea textarea::selection {
+  background: transparent;
+  color: inherit;
+}
+
+*::selection,
+*::-moz-selection {
+  background: transparent !important;
+  color: inherit;
+}
+
+ion-input::part(native)::selection,
+ion-textarea::part(native)::selection {
+  background: transparent !important;
+  color: inherit;
 }
 
 .wine-photo img {
