@@ -512,6 +512,7 @@ const normalizedEventSearch = computed(() => eventsSearch.value.trim().toLowerCa
 
 const timelineGalleries = computed(() => {
   return galleries.value
+    .filter(gallery => gallery.showOnMapAndTimeline !== false)
     .map(gallery => {
       const start = gallery.startDate || gallery.created;
       const end = gallery.endDate || gallery.updated || gallery.startDate || gallery.created;

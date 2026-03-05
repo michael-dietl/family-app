@@ -25,6 +25,7 @@ export interface ValhallaTraceSummary {
   max_lon?: number;
   time?: number;
   length?: number;
+  units?: string;
   [key: string]: unknown;
 }
 export interface ValhallaMatchResult {
@@ -44,7 +45,18 @@ const DEFAULT_ENDPOINT: ValhallaEndpoint = 'trace_attributes';
 const ENCODED_POLYLINE_THRESHOLD = 150;
 const MIN_SHAPE_POINTS = 4;
 const VALHALLA_URL_KEY = 'valhalla_url';
+const LOCALE_PREFERENCE_KEY = 'locale';
+const DEFAULT_LOCALE = 'de';
+const DEFAULT_VALHALLA_LANGUAGE = 'de-DE';
+const VALHALLA_LOCALE_LANGUAGE_MAP: Record<string, string> = {
+  de: 'de-DE',
+  en: 'en-US',
+  it: 'it-IT',
+  fr: 'fr-FR',
+  bar: 'de-DE'
+};
 let cachedBaseUrl: string | null | undefined;
+let cachedLocalePreference: string | undefined;
 
 const normalizeUrl = (value: string) => value.trim().replace(/\/$/, '');
 
@@ -74,6 +86,43 @@ export const setValhallaBaseUrl = async (value: string | null) => {
   await Preferences.set({ key: VALHALLA_URL_KEY, value: normalized });
   cachedBaseUrl = normalized;
   return cachedBaseUrl;
+};
+const mapLocaleToValhallaLanguage = (value?: string): string => {
+  if (!value) {
+    return DEFAULT_VALHALLA_LANGUAGE;
+  }
+  const normalized = value.replace('_', '-');
+  const lower = normalized.toLowerCase();
+  if (VALHALLA_LOCALE_LANGUAGE_MAP[lower]) {
+    return VALHALLA_LOCALE_LANGUAGE_MAP[lower];
+  }
+  const primary = lower.split('-')[0];
+  if (VALHALLA_LOCALE_LANGUAGE_MAP[primary]) {
+    return VALHALLA_LOCALE_LANGUAGE_MAP[primary];
+  }
+  if (normalized.includes('-')) {
+    const [lang, region] = normalized.split('-');
+    return `${lang.toLowerCase()}-${region.toUpperCase()}`;
+  }
+  return DEFAULT_VALHALLA_LANGUAGE;
+};
+const getPreferredLocale = async () => {
+  if (cachedLocalePreference !== undefined) {
+    return cachedLocalePreference;
+  }
+  const stored = await Preferences.get({ key: LOCALE_PREFERENCE_KEY });
+  cachedLocalePreference = stored.value ?? DEFAULT_LOCALE;
+  return cachedLocalePreference;
+};
+export const setValhallaPreferredLocale = (value: string | null | undefined) => {
+  cachedLocalePreference = value ?? undefined;
+};
+const resolveValhallaLanguage = async (languageOption?: string) => {
+  if (languageOption) {
+    return mapLocaleToValhallaLanguage(languageOption);
+  }
+  const preferredLocale = await getPreferredLocale();
+  return mapLocaleToValhallaLanguage(preferredLocale);
 };
 type CoordinateOrder = 'latlon' | 'lonlat';
 
@@ -379,7 +428,11 @@ export async function planRouteWithValhalla(
     const result = data as {
       trip?: {
         summary?: ValhallaTraceSummary;
-        legs?: Array<{ shape?: number[][] | string; summary?: ValhallaTraceSummary }>;
+        legs?: Array<{
+          shape?: number[][] | string;
+          summary?: ValhallaTraceSummary;
+          maneuvers?: unknown[];
+        }>;
       };
       shape?: number[][] | string;
     };
@@ -407,9 +460,22 @@ export interface ValhallaRouteOptions {
   originLabel?: string;
 }
 
+export interface ValhallaInstruction {
+  type?: number;
+  instruction?: string;
+  verbal_transition_alert_instruction?: string;
+  verbal_succinct_transition_instruction?: string;
+  verbal_pre_transition_instruction?: string;
+  verbal_post_transition_instruction?: string;
+  begin_shape_index?: number;
+  end_shape_index?: number;
+}
+
 export interface ValhallaRouteResult {
   path: LatLonPoint[];
   summary?: ValhallaTraceSummary | null;
+  instructions?: ValhallaInstruction[];
+  units?: string;
 }
 
 export async function planRouteWithValhallaRoute(
@@ -421,6 +487,8 @@ export async function planRouteWithValhallaRoute(
   if (!baseUrl) {
     return null;
   }
+
+  const directionsLanguage = await resolveValhallaLanguage(options.language);
 
   const payload = {
     locations: [
@@ -439,7 +507,7 @@ export async function planRouteWithValhallaRoute(
     directions_options: {
       units: options.units ?? 'kilometers',
       narrative: options.narrative ?? true,
-      language: options.language ?? 'de-DE'
+      language: directionsLanguage
     }
   };
 
@@ -451,7 +519,7 @@ export async function planRouteWithValhallaRoute(
     const result = data as {
       trip?: {
         summary?: ValhallaTraceSummary;
-        legs?: Array<{ shape?: number[][] | string; summary?: ValhallaTraceSummary }>;
+        legs?: Array<{ shape?: number[][] | string; summary?: ValhallaTraceSummary; maneuvers?: unknown[] }>;
       };
       shape?: number[][] | string;
     };
@@ -463,8 +531,23 @@ export async function planRouteWithValhallaRoute(
     if (decoded.length === 0) {
       return null;
     }
-    const summary = result.trip?.summary ?? result.trip?.legs?.[0]?.summary ?? null;
-    return { path: decoded, summary };
+    const rawSummary = result.trip?.summary ?? result.trip?.legs?.[0]?.summary ?? null;
+    const rawManeuvers = result.trip?.legs?.[0]?.maneuvers;
+    const instructions: ValhallaInstruction[] = Array.isArray(rawManeuvers)
+      ? rawManeuvers.map((maneuver: any) => ({
+          instruction: typeof maneuver.instruction === 'string' ? maneuver.instruction : undefined,
+          verbal_transition_alert_instruction: typeof maneuver.verbal_transition_alert_instruction === 'string' ? maneuver.verbal_transition_alert_instruction : undefined,
+          verbal_succinct_transition_instruction: typeof maneuver.verbal_succinct_transition_instruction === 'string' ? maneuver.verbal_succinct_transition_instruction : undefined,
+          verbal_pre_transition_instruction: typeof maneuver.verbal_pre_transition_instruction === 'string' ? maneuver.verbal_pre_transition_instruction : undefined,
+          verbal_post_transition_instruction: typeof maneuver.verbal_post_transition_instruction === 'string' ? maneuver.verbal_post_transition_instruction : undefined,
+          begin_shape_index: typeof maneuver.begin_shape_index === 'number' ? maneuver.begin_shape_index : undefined,
+          end_shape_index: typeof maneuver.end_shape_index === 'number' ? maneuver.end_shape_index : undefined,
+          type: typeof maneuver.type === 'number' ? maneuver.type : undefined
+        }))
+      : [];
+    const units = typeof (data as any).units === 'string' ? (data as any).units : undefined;
+    const summary = rawSummary ? { ...rawSummary, units: (rawSummary as ValhallaTraceSummary).units ?? units } : null;
+    return { path: decoded, summary, instructions, units };
   } catch (error) {
     console.warn('Valhalla route planning failed', error);
     return null;

@@ -124,6 +124,8 @@ export default {
     keine_kategorie_zugewiesen: 'Nessuna categoria assegnata.',
     keine_routen: 'Nessun percorso',
     routen_durchsuchen: 'Cerca percorsi',
+    speech_mute: 'Disattiva audio',
+    speech_unmute: 'Attiva audio',
     keine_passenden_routen: 'Nessun percorso corrispondente',
     probiere_andere_stichworte: 'Prova parole chiave diverse',
     keine_todo_listen: 'Nessuna lista ToDo',

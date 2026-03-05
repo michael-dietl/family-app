@@ -1394,7 +1394,8 @@ ion-content.content-safe::part(scroll) {
 :global(body.wine-detail-lightbox-short .glightbox-container .ginner-container),
 :global(body.wine-detail-lightbox-short .glightbox-container .gslide),
 :global(body.wine-detail-lightbox-short .glightbox-container .gslide-inner-content) {
-  height: 80vh;
+  min-height: 100vh;
+  height: 100vh;
 }
 
 :global(body.wine-detail-lightbox-short .glightbox-container .gslide-media) {

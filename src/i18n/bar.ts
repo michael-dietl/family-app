@@ -415,6 +415,8 @@ export default {
     "verlassen": "Verlassen",
     "keine_routen": "Keine Routen",
     "routen_durchsuchen": "Routen durchsuchen",
+    "speech_mute": "Sprachausgabe stummschalten",
+    "speech_unmute": "Sprachausgabe einschalten",
     "keine_passenden_routen": "Koane passende Route gfundn",
     "probiere_andere_stichworte": "Probier andere Stichwörter",
     "starte_deine_erste_routenaufzeichnung": "Starte deine erste Routenaufzeichnung",

@@ -301,6 +301,8 @@ export default {
     "verlassen": "Quitter",
     "keine_routen": "Aucun parcours",
     "routen_durchsuchen": "Rechercher des parcours",
+    "speech_mute": "Couper la lecture",
+    "speech_unmute": "Réactiver la lecture",
     "meine_routen": "Mes parcours",
     "keine_passenden_routen": "Aucun itinéraire correspondant",
     "probiere_andere_stichworte": "Essayez d'autres mots-clés",

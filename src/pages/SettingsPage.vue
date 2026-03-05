@@ -324,7 +324,7 @@ import i18n from '@/i18n/i18n';
 import PocketBase from 'pocketbase';
 import { pocketbase, setPocketbaseAuthorId } from '@/services/pocketbase';
 import { db } from '@/services/database';
-import { setValhallaBaseUrl } from '@/services/valhalla';
+import { setValhallaBaseUrl, setValhallaPreferredLocale } from '@/services/valhalla';
 import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 import type { AppTheme } from '@/services/theme';
 import { applyTheme, availableThemes, loadTheme, persistTheme } from '@/services/theme';
@@ -396,6 +396,7 @@ const platform = Capacitor.getPlatform();
 const isWebPlatform = platform === 'web';
 const { locale, t } = useI18n({ useScope: 'global' });
 const selectedLocale = ref<string>(locale.value ?? 'de');
+setValhallaPreferredLocale(selectedLocale.value);
 const selectedTheme = ref<AppTheme>('default');
 const themeOptions = availableThemes;
 
@@ -477,7 +478,11 @@ const testValhallaConnection = async () => {
   isValhallaTesting.value = true;
   valhallaStatus.value = null;
   try {
-    const response = await fetch(buildValhallaHealthUrl(settings.value.valhallaUrl));
+    const response = await fetch(buildValhallaHealthUrl(settings.value.valhallaUrl), {
+      headers: {
+        Accept: 'application/json'
+      }
+    });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
@@ -659,6 +664,7 @@ const changeLocale = async (eventOrValue: any) => {
     i18n.global.locale.value = value;
     selectedLocale.value = value;
     await Preferences.set({ key: 'locale', value });
+    setValhallaPreferredLocale(value);
     const toast = await toastController.create({
       message: 'Sprache gespeichert',
       duration: 1500,

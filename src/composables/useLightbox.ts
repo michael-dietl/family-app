@@ -119,6 +119,36 @@ export function useLightbox() {
     });
   };
 
+  const VIEWPORT_VIDEO_SELECTOR = '.glightbox-container .gslide.current video';
+  let viewportListenerAttached = false;
+
+  const handleViewportChange = () => {
+    if (typeof document === 'undefined') return;
+    const video = document.querySelector(VIEWPORT_VIDEO_SELECTOR) as HTMLVideoElement | null;
+    const wasPlaying = !!video && !video.paused;
+    requestAnimationFrame(() => {
+      alignVideoPreview();
+      const currentVideo = document.querySelector(VIEWPORT_VIDEO_SELECTOR) as HTMLVideoElement | null;
+      if (wasPlaying && currentVideo) {
+        currentVideo.play().catch(() => {});
+      }
+    });
+  };
+
+  const addViewportListeners = () => {
+    if (viewportListenerAttached || typeof window === 'undefined') return;
+    window.addEventListener('orientationchange', handleViewportChange);
+    window.addEventListener('resize', handleViewportChange);
+    viewportListenerAttached = true;
+  };
+
+  const removeViewportListeners = () => {
+    if (!viewportListenerAttached || typeof window === 'undefined') return;
+    window.removeEventListener('orientationchange', handleViewportChange);
+    window.removeEventListener('resize', handleViewportChange);
+    viewportListenerAttached = false;
+  };
+
   function removePlayButton() {
     if (!playButton) return;
     playButton.remove();
@@ -182,6 +212,7 @@ export function useLightbox() {
       }
       alignVideoPreview();
       setTimeout(alignVideoPreview, 250);
+      addViewportListeners();
     });
 
     lightbox.value.on('close', () => {
@@ -195,6 +226,7 @@ export function useLightbox() {
       }
       removePlayButton();
       detachIonBackButtonListener();
+      removeViewportListeners();
     });
 
     lightbox.value.on('slide_changed', (payload: any) => {
@@ -286,6 +318,7 @@ export function useLightbox() {
       timelineEl = null;
       progressEl = null;
     }
+    removeViewportListeners();
     if (lightbox.value) {
       lightbox.value.destroy();
       lightbox.value = null;

@@ -107,7 +107,7 @@
                   v-else-if="routeData && !routeData.endTime"
                   shape="round"
                   fill="outline"
-                  class="route-action"
+                  class="route-action meta-continue-button move-right"
                   :aria-label="$t('auto.fortsetzen')"
                   @click="resumeRecording"
                   expand="block"
@@ -149,9 +149,24 @@
                   <ion-icon slot="icon-only" :icon="cameraOutline" expand="block"/>
                 </ion-button>
               </div>
+              <div v-if="showNextInstruction" class="next-instruction">
+                <div class="next-instruction-header">
+                  <p class="next-instruction-label">{{ t('auto.naechste_anweisung') }}</p>
+                  <ion-button
+                    fill="clear"
+                    size="small"
+                    class="next-instruction-mute-btn"
+                    :aria-label="speechMuted ? t('auto.speech_unmute') : t('auto.speech_mute')"
+                    @click="toggleSpeechMute"
+                  >
+                    <ion-icon :icon="speechMuted ? volumeMuteOutline : volumeHighOutline" />
+                  </ion-button>
+                </div>
+                <p class="next-instruction-text">{{ nextSpeechInstructionText }}</p>
+              </div>
             </div>
             <div
-              v-if="routeData && !routeData.isRecording"
+              v-if="routeData && !routeData.isRecording && !hasSpeechFutureRoute"
               class="valhalla-footer"
             >
               <ion-button
@@ -353,18 +368,21 @@ import {
   stopCircleOutline,
   carOutline,
   bicycleOutline,
-  walkOutline
+  walkOutline,
+  volumeHighOutline,
+  volumeMuteOutline
 } from 'ionicons/icons';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { db } from '@/services/database';
 import { useRouteTracking, resolveTrackingProfile } from '@/composables/useRouteTracking';
-import { matchPositionsWithValhalla, traceRouteSummary, type ValhallaTraceSummary } from '@/services/valhalla';
+import { matchPositionsWithValhalla, traceRouteSummary, type ValhallaTraceSummary, type ValhallaInstruction } from '@/services/valhalla';
 import { extractGPSFromCameraExif } from '@/services/exif';
 import { useI18n } from 'vue-i18n';
 import { scooterIcon } from '@/icons/scooter';
 import { valhallaIcon } from '@/icons/valhalla';
 import type { LatLonPoint } from '@/services/positionSmoothing';
+import { QueueStrategy, TextToSpeech } from '@capacitor-community/text-to-speech';
 
 type RouteData = import('@/services/database').Route;
 type Waypoint = import('@/services/database').Waypoint;
@@ -377,7 +395,7 @@ const routeId = Number(vueRoute.params.id);
 const routeData = ref<RouteData | null>(null);
 const isLoading = ref(true);
 const waypoints = ref<Waypoint[]>([]);
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const hasLoadedOnce = ref(false);
 
 const routeMode = computed<RouteData['travelMode']>(() =>
@@ -450,10 +468,10 @@ const TRAVEL_MODE_CONFIGS: Array<{
   { value: 'motor_scooter', icon: scooterIcon, color: 'warning' }
 ];
 
-let map: L.Map | null = null;
-let routeLine: L.Polyline | null = null;
-let matchedLine: L.Polyline | null = null;
-let plannedLine: L.Polyline | null = null;
+  let map: L.Map | null = null;
+  let routeLine: L.Polyline | null = null;
+  let matchedLine: L.Polyline | null = null;
+  let futureRouteLine: L.Polyline | null = null;
 const waypointMarkers: Map<number, L.Marker> = new Map();
 let currentPositionMarker: L.Marker | null = null;
 let positionWatchInterval: number | null = null;
@@ -521,7 +539,12 @@ const hasTrackPoints = computed(() =>
   waypoints.value.filter((wp) => wp.type === 'position').length >= 3
 );
 const SPEECH_PLAN_STORAGE_KEY = 'speechPlanRoute';
-const speechPlannedShape = ref<LatLonPoint[]>([]);
+const speechPastRouteShape = ref<LatLonPoint[]>([]);
+const speechFutureRouteShape = ref<LatLonPoint[]>([]);
+const speechPlannedInstructions = ref<ValhallaInstruction[]>([]);
+const speechMuted = ref(false);
+const lastSpokenInstructionText = ref<string | null>(null);
+const hasSpeechFutureRoute = computed(() => speechFutureRouteShape.value.length > 1);
 
 const SHAPABLE_WAYPOINT_TYPES: Waypoint['type'][] = ['position', 'manual', 'photo'];
 
@@ -563,6 +586,67 @@ const determineTraceShape = (): LatLonPoint[] => {
   if (valhallaTrace.value.length >= 3) return valhallaTrace.value;
   if (matchedPath.value.length >= 3) return matchedPath.value;
   return buildPositionShape(waypoints.value);
+};
+
+const normalizeRoutePoints = (source?: LatLonPoint[] | null): LatLonPoint[] => {
+  if (!Array.isArray(source)) return [];
+  return source
+    .map((point) => ({
+      latitude: Number(point.latitude),
+      longitude: Number(point.longitude)
+    }))
+    .filter(({ latitude, longitude }) => Number.isFinite(latitude) && Number.isFinite(longitude));
+};
+
+const selectInstructionText = (instruction?: ValhallaInstruction): string | null => {
+  if (!instruction) return null;
+  return (
+    instruction.verbal_transition_alert_instruction
+    ?? instruction.verbal_succinct_transition_instruction
+    ?? instruction.instruction
+    ?? instruction.verbal_pre_transition_instruction
+    ?? instruction.verbal_post_transition_instruction
+    ?? null
+  );
+};
+
+const nextSpeechInstruction = computed(() => speechPlannedInstructions.value[0]);
+const nextSpeechInstructionText = computed(() => selectInstructionText(nextSpeechInstruction.value));
+const showNextInstruction = computed(() => !!nextSpeechInstructionText.value && !routeData.value?.endTime);
+
+const speakInstructionText = async (text: string): Promise<boolean> => {
+  if (!text) return false;
+  if (speechMuted.value) return false;
+  const langTag = (locale.value ?? 'de-DE').replace('_', '-');
+  try {
+    await TextToSpeech.speak({ text, lang: langTag, queueStrategy: QueueStrategy.Flush });
+    return true;
+  } catch (error) {
+    console.warn('TextToSpeech failed', error);
+    return false;
+  }
+};
+
+const readNextInstruction = async (force = false) => {
+  const text = nextSpeechInstructionText.value;
+  if (!text) {
+    lastSpokenInstructionText.value = null;
+    return;
+  }
+  if (speechMuted.value) return;
+  if (!force && lastSpokenInstructionText.value === text) return;
+  if (await speakInstructionText(text)) {
+    lastSpokenInstructionText.value = text;
+  }
+};
+
+const toggleSpeechMute = () => {
+  speechMuted.value = !speechMuted.value;
+  if (speechMuted.value) {
+    void TextToSpeech.stop();
+    return;
+  }
+  void readNextInstruction(true);
 };
 
 watch(hasWaypointTab, (visible) => {
@@ -879,6 +963,14 @@ const preloadWaypointPhotos = async (list: Waypoint[]) => {
     } catch (error) {
       console.warn('Unable to resolve waypoint location', error);
       return null;
+    }
+  };
+
+  const focusMapOnCurrentLocation = async () => {
+    if (!map) return;
+    const location = await resolveCurrentWaypointLocation();
+    if (location) {
+      map.setView([location.latitude, location.longitude], 15);
     }
   };
 
@@ -1291,10 +1383,14 @@ watch(valhallaTrace, () => {
   drawRoute();
 }, { deep: true });
 
-watch(speechPlannedShape, () => {
+watch([speechFutureRouteShape, speechPastRouteShape], () => {
   if (map) {
     drawRoute();
   }
+});
+
+watch(nextSpeechInstructionText, () => {
+  void readNextInstruction();
 });
 
 onUnmounted(() => {
@@ -1368,24 +1464,43 @@ const applySpeechPlanCacheForRoute = (targetRouteId: number) => {
   try {
     const parsed = JSON.parse(raw) as {
       routeId?: number;
+      past_route?: LatLonPoint[];
+      future_route?: LatLonPoint[];
       path?: LatLonPoint[];
+      instructions?: ValhallaInstruction[];
     };
-    if (parsed.routeId !== targetRouteId || !Array.isArray(parsed.path)) {
+    speechPlannedInstructions.value = [];
+    lastSpokenInstructionText.value = null;
+    speechPastRouteShape.value = [];
+    speechFutureRouteShape.value = [];
+    if (parsed.routeId !== targetRouteId) {
       return;
     }
     consumed = true;
-    const validPath = parsed.path
-      .map((point) => ({
-        latitude: Number(point.latitude),
-        longitude: Number(point.longitude)
-      }))
-      .filter(({ latitude, longitude }) => Number.isFinite(latitude) && Number.isFinite(longitude));
-    if (validPath.length > 1) {
-      speechPlannedShape.value = validPath;
-      if (map) {
-        drawRoute();
-      }
+    const futureShape = normalizeRoutePoints(parsed.future_route ?? parsed.path);
+    const pastShape = normalizeRoutePoints(parsed.past_route);
+    if (futureShape.length > 1) {
+      speechFutureRouteShape.value = futureShape;
     }
+    if (pastShape.length > 1) {
+      speechPastRouteShape.value = pastShape;
+    }
+    if (map) {
+      drawRoute();
+    }
+    const instructions = Array.isArray(parsed.instructions)
+      ? parsed.instructions.map((instruction) => ({
+          instruction: typeof instruction.instruction === 'string' ? instruction.instruction : undefined,
+          verbal_transition_alert_instruction: typeof instruction.verbal_transition_alert_instruction === 'string' ? instruction.verbal_transition_alert_instruction : undefined,
+          verbal_succinct_transition_instruction: typeof instruction.verbal_succinct_transition_instruction === 'string' ? instruction.verbal_succinct_transition_instruction : undefined,
+          verbal_pre_transition_instruction: typeof instruction.verbal_pre_transition_instruction === 'string' ? instruction.verbal_pre_transition_instruction : undefined,
+          verbal_post_transition_instruction: typeof instruction.verbal_post_transition_instruction === 'string' ? instruction.verbal_post_transition_instruction : undefined,
+          begin_shape_index: typeof instruction.begin_shape_index === 'number' ? instruction.begin_shape_index : undefined,
+          end_shape_index: typeof instruction.end_shape_index === 'number' ? instruction.end_shape_index : undefined,
+          type: typeof instruction.type === 'number' ? instruction.type : undefined
+        }))
+      : [];
+    speechPlannedInstructions.value = instructions;
   } catch (error) {
     console.warn('Unable to read speech plan cache', error);
     consumed = true;
@@ -1455,6 +1570,7 @@ const initMap = () => {
 
     // Draw route and waypoints
     drawRoute();
+    void focusMapOnCurrentLocation();
   }, 100);
 };
 
@@ -1496,9 +1612,9 @@ function drawRoute() {
     map.removeLayer(matchedLine);
     matchedLine = null;
   }
-  if (plannedLine) {
-    map.removeLayer(plannedLine);
-    plannedLine = null;
+  if (futureRouteLine) {
+    map.removeLayer(futureRouteLine);
+    futureRouteLine = null;
   }
   waypointMarkers.forEach(marker => {
     if (map) map.removeLayer(marker);
@@ -1509,9 +1625,11 @@ function drawRoute() {
   const matchShape = valhallaTrace.value.length > 1 ? valhallaTrace.value : matchedPath.value;
   const matchedLatLngs = matchShape.map(p => L.latLng(p.latitude, p.longitude));
 
-  if (positionWaypoints.length > 0) {
-    const latlngs = positionWaypoints.map(wp => L.latLng(wp.latitude, wp.longitude));
-    routeLine = L.polyline(latlngs, {
+  const recordedLatLngs = speechPastRouteShape.value.length > 1
+    ? speechPastRouteShape.value.map(p => L.latLng(p.latitude, p.longitude))
+    : positionWaypoints.map(wp => L.latLng(wp.latitude, wp.longitude));
+  if (recordedLatLngs.length > 1) {
+    routeLine = L.polyline(recordedLatLngs, {
       color: '#3880ff',
       weight: 4,
       opacity: 0.7
@@ -1527,9 +1645,9 @@ function drawRoute() {
     }).addTo(map);
   }
 
-  if (speechPlannedShape.value.length > 1) {
-    const plannedLatLngs = speechPlannedShape.value.map(p => L.latLng(p.latitude, p.longitude));
-    plannedLine = L.polyline(plannedLatLngs, {
+  if (speechFutureRouteShape.value.length > 1) {
+    const futureLatLngs = speechFutureRouteShape.value.map(p => L.latLng(p.latitude, p.longitude));
+    futureRouteLine = L.polyline(futureLatLngs, {
       color: '#ff7a18',
       weight: 3,
       opacity: 0.9,
@@ -1545,7 +1663,7 @@ function drawRoute() {
   };
   extendBoundsFromLayer(routeLine);
   extendBoundsFromLayer(matchedLine);
-  extendBoundsFromLayer(plannedLine);
+  extendBoundsFromLayer(futureRouteLine);
 
   if (viewBounds) {
     map.fitBounds(viewBounds, { padding: [50, 50] });
@@ -1878,6 +1996,49 @@ onMounted(async () => {
 .route-action ion-icon {
   font-size: 22px;
 }
+.move-right {
+  margin-left: 12px;
+}
+.next-instruction {
+  border: 1px solid var(--ion-color-medium);
+  border-radius: 16px;
+  padding: 10px 12px;
+  background: rgba(56, 128, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(56, 128, 255, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.next-instruction-label {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ion-color-medium);
+}
+.next-instruction-text {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ion-text-color);
+}
+.next-instruction-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.next-instruction-mute-btn {
+  --min-width: 36px;
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  --border-radius: 12px;
+}
+.next-instruction-mute-btn ion-icon {
+  font-size: 20px;
+}
 @keyframes recordingPulse {
   0% {
     transform: scale(1);
@@ -1898,13 +2059,13 @@ onMounted(async () => {
   top: 0;
   left: 0;
   right: 0;
-  bottom: 50%;
+  bottom: 55%;
   z-index: 20;
 }
 
 .info-card {
   position: absolute;
-  top: calc(50% + 8px);
+  top: calc(55% + 16px);
   left: 0;
   right: 0;
   bottom: 0;
@@ -1914,7 +2075,7 @@ onMounted(async () => {
   padding: 24px 20px 20px;
   overflow-y: auto;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-  z-index: 10;
+  z-index: 30;
 }
 
 .info-header {

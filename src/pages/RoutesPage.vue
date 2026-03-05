@@ -316,7 +316,7 @@ import { scooterIcon } from '@/icons/scooter';
 import { db, type Route } from '@/services/database';
 import { getPocketbaseAuthorId } from '@/services/pocketbase';
 import { DEFAULT_MAP_STYLE, MAP_STYLE_CONFIGS, type MapStyle } from '@/utils/mapStyles';
-import { planRouteWithValhalla, planRouteWithValhallaRoute, traceRouteSummary, type ValhallaTraceSummary } from '@/services/valhalla';
+import { planRouteWithValhalla, planRouteWithValhallaRoute, traceRouteSummary, type ValhallaTraceSummary, type ValhallaInstruction } from '@/services/valhalla';
 
 type LatLonPoint = import('@/services/positionSmoothing').LatLonPoint;
 
@@ -371,6 +371,9 @@ const geocodedDestinationLabel = ref('');
 const plannedRoute = ref<LatLonPoint[] | null>(null);
 const plannedDestination = ref<LatLonPoint | null>(null);
 const plannedSummary = ref<ValhallaTraceSummary | null>(null);
+const DEFAULT_ROUTE_UNITS = 'kilometers';
+const plannedSummaryUnits = ref<string>(DEFAULT_ROUTE_UNITS);
+const plannedInstructions = ref<ValhallaInstruction[]>([]);
 const speechMapContainer = ref<HTMLElement | null>(null);
 let speechMap: L.Map | null = null;
 let speechRouteLayer: L.Polyline | null = null;
@@ -378,6 +381,7 @@ let speechStartMarker: L.CircleMarker | null = null;
 let speechDestinationMarker: L.CircleMarker | null = null;
 const SPEECH_PLAN_STORAGE_KEY = 'speechPlanRoute';
 const speechPlanCache = ref<LatLonPoint[] | null>(null);
+const speechInstructionCache = ref<ValhallaInstruction[] | null>(null);
 const speechPlanLaunched = ref(false);
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 type NominatimResult = { lat: string; lon: string; display_name?: string };
@@ -578,6 +582,10 @@ const resetSpeechPlanState = () => {
   plannedRoute.value = null;
   plannedDestination.value = null;
   plannedSummary.value = null;
+  plannedSummaryUnits.value = DEFAULT_ROUTE_UNITS;
+  plannedInstructions.value = [];
+  speechPlanCache.value = null;
+  speechInstructionCache.value = null;
   speechPlanLaunched.value = false;
 };
 
@@ -746,11 +754,15 @@ const planRouteFromText = async (text: string) => {
     const costing = MODE_TO_COSTING[modeKey];
     const valhallaRoute = await planRouteWithValhallaRoute(startPoint, destinationPoint, {
       costing,
-      language: (locale.value ?? 'de-DE').replace('_', '-'),
+      language: locale.value ?? 'de',
       destinationLabel: recognizedText.value?.trim() || geocodedDestinationLabel.value || undefined,
       units: 'kilometers',
       narrative: true
     });
+    const instructions = valhallaRoute?.instructions ?? [];
+    plannedInstructions.value = instructions;
+    speechInstructionCache.value = instructions.length > 0 ? instructions.map((instruction) => ({ ...instruction })) : null;
+    const routeUnits = valhallaRoute?.units ?? DEFAULT_ROUTE_UNITS;
     let route = valhallaRoute?.path ?? null;
     let routeSummary = valhallaRoute?.summary ?? null;
     if (!route || route.length === 0) {
@@ -763,9 +775,11 @@ const planRouteFromText = async (text: string) => {
         routeSummary = await traceRouteSummary(route, { costing });
       }
       plannedSummary.value = routeSummary;
+      plannedSummaryUnits.value = routeSummary?.units ?? routeUnits;
     } else {
       plannedRoute.value = [startPoint, destinationPoint];
       plannedSummary.value = null;
+      plannedSummaryUnits.value = DEFAULT_ROUTE_UNITS;
     }
     if (plannedRoute.value?.length && plannedRoute.value.length > 1) {
       await startRouteFromSpeechPlan(text);
@@ -813,6 +827,11 @@ const startRouteFromSpeechPlan = async (spokenText: string) => {
     latitude: point.latitude,
     longitude: point.longitude
   }));
+  if (!speechInstructionCache.value && plannedInstructions.value.length > 0) {
+    speechInstructionCache.value = plannedInstructions.value.map((instruction) => ({
+      ...instruction
+    }));
+  }
   const name = recognizedText.value?.trim() || t('auto.route');
   const mode = detectSpeechTravelMode(spokenText);
   newRouteName.value = name;
@@ -847,11 +866,21 @@ const persistSpeechPlanForRoute = (routeId: number) => {
   const storage = typeof window !== 'undefined' ? window.sessionStorage : null;
   if (storage) {
     if (speechPlanCache.value && speechPlanCache.value.length > 1) {
+      const payload: {
+        routeId: number;
+        past_route: LatLonPoint[];
+        future_route: LatLonPoint[];
+        instructions?: ValhallaInstruction[];
+      } = {
+        routeId,
+        past_route: [],
+        future_route: speechPlanCache.value
+      };
+      if (speechInstructionCache.value && speechInstructionCache.value.length > 0) {
+        payload.instructions = speechInstructionCache.value;
+      }
       try {
-        storage.setItem(
-          SPEECH_PLAN_STORAGE_KEY,
-          JSON.stringify({ routeId, path: speechPlanCache.value })
-        );
+        storage.setItem(SPEECH_PLAN_STORAGE_KEY, JSON.stringify(payload));
       } catch (error) {
         console.warn('Unable to store speech plan preview', error);
       }
@@ -860,6 +889,7 @@ const persistSpeechPlanForRoute = (routeId: number) => {
     }
   }
   speechPlanCache.value = null;
+  speechInstructionCache.value = null;
 };
 
 const transcribeSpeech = async (): Promise<string> => {
@@ -988,6 +1018,17 @@ const formatDistance = (meters: number): string => {
   return `${(meters / 1000).toFixed(2)} km`;
 };
 
+const formatValhallaDistance = (length: number, units?: string): string => {
+  const normalized = (units ?? DEFAULT_ROUTE_UNITS).toLowerCase();
+  if (normalized.startsWith('mile')) {
+    return `${length.toFixed(2)} mi`;
+  }
+  if (normalized.startsWith('met')) {
+    return `${Math.round(length)} m`;
+  }
+  return `${length.toFixed(2)} km`;
+};
+
 const getRouteModeIcon = (mode: Route['travelMode'] | undefined) => {
   switch (mode) {
     case 'pedestrian':
@@ -1060,8 +1101,9 @@ const formatDuration = (seconds: number): string => {
 };
 
 const planSummaryDistance = computed(() => {
-  if (!plannedSummary.value?.length) return '';
-  return formatDistance(plannedSummary.value.length);
+  const length = plannedSummary.value?.length;
+  if (!length) return '';
+  return formatValhallaDistance(length, plannedSummaryUnits.value);
 });
 
 const planSummaryDuration = computed(() => {

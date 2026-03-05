@@ -86,7 +86,7 @@ interface MapMarker {
 const markers = ref<MapMarker[]>([]);
 const showPhotos = ref(true);
 const showWines = ref(true);
-const galleryColors = ref<Map<number, string>>(new Map());
+const galleryMeta = ref<Map<number, { color: string; name: string }>>(new Map());
 
 const getImageSrc = (path: string | undefined) => {
   if (!path) return '';
@@ -121,10 +121,15 @@ const loadMarkers = async () => {
     // Lade Fotos
     if (showPhotos.value) {
       const galleries = await db.getGalleries();
-      // Build quick lookup for gallery colors so markers can use the gallery's color
-      galleryColors.value.clear();
+      // Build quick lookup for gallery metadata so markers can use colors and names
+      galleryMeta.value.clear();
       galleries.forEach(g => {
-        if (g.id) galleryColors.value.set(g.id, g.color || '#3880ff');
+        if (g.id) {
+          galleryMeta.value.set(g.id, {
+            color: g.color || '#3880ff',
+            name: g.name || ''
+          });
+        }
       });
       const photoPromises = galleries.map(g => db.getPhotosByGallery(g.id!));
       const photoArrays = await Promise.all(photoPromises);
@@ -219,7 +224,8 @@ const initMap = async (centerLat?: number, centerLng?: number, zoomLevel = 6) =>
 const addPhotoMarker = (photo: Photo, bounds: L.LatLngTuple[]) => {
   if (!map || !photo.latitude || !photo.longitude) return;
   // Use gallery color when available
-  const galleryColor = galleryColors.value.get(photo.galleryId) || '#3880ff';
+  const galleryInfo = galleryMeta.value.get(photo.galleryId);
+  const galleryColor = galleryInfo?.color || '#3880ff';
   const photoIcon = L.divIcon({
     className: 'custom-marker',
     html: `<div style="
@@ -254,12 +260,12 @@ const addPhotoMarker = (photo: Photo, bounds: L.LatLngTuple[]) => {
   const popupContent = `
     <div style="min-width: 200px;">
       <img src="${getImageSrc(photo.filepath)}" alt="${photo.filename}" style="width: 100%; max-height: 150px; object-fit: cover; border-radius: 4px; margin-bottom: 8px;">
-      <p style="margin: 0; font-size: 12px; font-weight: 500;">${photo.filename}</p>
+      <p style="margin: 0; font-size: 12px; font-weight: 500;">${galleryInfo?.name || photo.filename}</p>
       ${dateStr ? `<p style="margin: 4px 0 0; font-size: 11px; color: #666;">${dateStr}</p>` : ''}
       <button onclick="window.openPhoto(${photo.galleryId})" style="
         margin-top: 8px;
         padding: 6px 12px;
-        background: ${galleryColors.value.get(photo.galleryId) || '#3880ff'};
+        background: ${galleryColor};
         color: white;
         border: none;
         border-radius: 4px;

@@ -107,19 +107,19 @@
           >
             <div class="photo-container">
               <template v-if="!selectionMode">
-                <a
-                  :href="getImageSrc(photo.filepath)"
-                  :data-type="isVideoPhoto(photo) ? 'video' : 'image'"
-                  :data-source="isVideoPhoto(photo) ? 'local' : undefined"
-                  :data-video="isVideoPhoto(photo) ? getVideoData(photo) : undefined"
-                  :data-poster="isVideoPhoto(photo) ? getVideoPoster(photo.id) : undefined"
-                  @click="handlePhotoClick(photo, index, $event)"
-                  @touchstart.passive="handleTouchStart(photo, $event)"
-                  @touchend.passive="handleTouchEnd"
-                  @touchmove.passive="handleTouchEnd"
-                  class="photo-item"
-                  :class="{ glightbox: true, 'photo-selected': selectedPhoto?.id === photo.id }"
-                >
+                  <a
+                    :href="getImageSrc(photo.filepath)"
+                    :data-type="isVideoPhoto(photo) ? 'video' : 'image'"
+                    :data-source="isVideoPhoto(photo) ? 'local' : undefined"
+                    :data-video="isVideoPhoto(photo) ? getVideoData(photo) : undefined"
+                    :data-poster="isVideoPhoto(photo) ? getVideoPoster(photo.id) : undefined"
+                    @click="handlePhotoClick(photo, index, $event)"
+                    @touchstart.passive="handleTouchStart(photo, $event)"
+                    @touchend.passive="handleTouchEnd"
+                    @touchmove.passive="handleTouchEnd"
+                    class="photo-item"
+                    :class="{ glightbox: !isVideoPhoto(photo), 'photo-selected': selectedPhoto?.id === photo.id }"
+                  >
                   <div v-if="isVideoPhoto(photo)" class="video-thumbnail-wrapper">
                     <video 
                       :src="getImageSrc(photo.filepath)"
@@ -129,7 +129,7 @@
                       muted
                       playsinline
                     ></video>
-                    <div class="video-overlay" @click.stop.prevent="openLightbox(index)">
+                    <div class="video-overlay" @click.stop.prevent="playVideoInModal(photo)">
                       <ion-icon :icon="playCircle" />
                     </div>
                   </div>
@@ -267,39 +267,33 @@
         </ion-grid>
       </ion-content>
     </ion-modal>
-    <ion-modal
-      :is-open="videoPreviewOpen"
-      @did-dismiss="closeVideoPreview"
-      class="video-preview-modal"
-      :initial-breakpoint="0.8"
-      :breakpoints="[0.4, 0.7, 0.95]"
-    >
-      <ion-header>
-        <ion-toolbar>
-          <ion-buttons>
-            <ion-button @click="closeVideoPreview">
+      <ion-modal
+        :is-open="videoPreviewOpen"
+        @did-dismiss="closeVideoPreview"
+        class="video-preview-modal"
+        :initial-breakpoint="1"
+        :breakpoints="[1]"
+        backdrop-dismiss="false"
+      >
+        <ion-content class="video-preview-content">
+          <div class="video-preview-container">
+            <button class="video-preview-close" @click="closeVideoPreview" aria-label="Schließen">
               <ion-icon :icon="close" />
-            </ion-button>
-          </ion-buttons>
-          <ion-title>Video Vorschau</ion-title>
-        </ion-toolbar>
-      </ion-header>
-      <ion-content class="video-preview-content">
-        <div class="video-preview-container">
-          <video
-            v-if="videoPreviewSrc"
-            ref="videoPreviewRef"
-            :src="videoPreviewSrc"
-            controls
-            autoplay
-            playsinline
-            class="video-preview-player"
-            :style="videoPreviewStyle"
-            @loadedmetadata="handleVideoPreviewMetadata"
-          ></video>
-        </div>
-      </ion-content>
-    </ion-modal>
+            </button>
+            <video
+              v-if="videoPreviewSrc"
+              ref="videoPreviewRef"
+              :src="videoPreviewSrc"
+              controls
+              autoplay
+              playsinline
+              :class="['video-preview-player', videoPreviewOrientationClass]"
+              :style="videoPreviewStyle"
+              @loadedmetadata="handleVideoPreviewMetadata"
+            ></video>
+          </div>
+        </ion-content>
+      </ion-modal>
     <ion-modal :is-open="showEditDialog" @did-dismiss="closeEditGalleryModal">
       <ion-header>
         <ion-toolbar>
@@ -436,7 +430,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, onBeforeUnmount, onActivated } from 'vue';
+import { ref, computed, onMounted, watch, onBeforeUnmount, onActivated, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
@@ -711,6 +705,12 @@ const videoPreviewAspectRatio = ref('16 / 9');
 const videoPreviewStyle = computed(() => ({
   '--video-preview-aspect': videoPreviewAspectRatio.value
 }));
+const videoPreviewOrientation = ref<'portrait' | 'landscape'>('landscape');
+const videoPreviewOrientationClass = computed(() =>
+  videoPreviewOrientation.value === 'portrait'
+    ? 'video-preview-player--portrait'
+    : 'video-preview-player--landscape'
+);
 const parseDateValue = (value?: string): number | null => {
   if (!value) return null;
   const parsed = Date.parse(value);
@@ -748,6 +748,21 @@ const buildTimestampFromDigits = (digits: string): number | null => {
   }
   const timestamp = Date.UTC(year, month - 1, day, hour, minute, second);
   return Number.isNaN(timestamp) ? null : timestamp;
+};
+
+const playVideoInModal = async (photo: Photo) => {
+  const src = getImageSrc(photo.filepath);
+  if (!src) return;
+  videoPreviewAspectRatio.value = '16 / 9';
+  videoPreviewOrientation.value = 'landscape';
+  videoPreviewSrc.value = src;
+  videoPreviewOpen.value = true;
+  await nextTick();
+  const videoEl = videoPreviewRef.value;
+  if (videoEl) {
+    videoEl.currentTime = 0;
+    videoEl.play().catch(() => {});
+  }
 };
 
 const tryParseTimestampFromDigits = (digits: string): number | null => {
@@ -842,6 +857,9 @@ const updateVideoPreviewAspect = () => {
   const height = video.videoHeight || video.clientHeight;
   if (width && height) {
     videoPreviewAspectRatio.value = `${width} / ${height}`;
+    videoPreviewOrientation.value = width >= height ? 'landscape' : 'portrait';
+  } else {
+    videoPreviewOrientation.value = 'landscape';
   }
 };
 
@@ -901,13 +919,19 @@ let longPressTimer: ReturnType<typeof setTimeout> | null = null;
 
 const handlePhotoClick = (photo: Photo, index: number, event: Event) => {
   event.preventDefault();
+  event.stopPropagation();
   
   // Wenn Foto selektiert ist, nichts tun (Editor wird über Button geöffnet)
   if (selectedPhoto.value?.id === photo.id) {
     return;
   }
 
-  // Öffne Lightbox (Bilder und Videos)
+  if (isVideoPhoto(photo)) {
+    void playVideoInModal(photo);
+    return;
+  }
+
+  // Öffne Lightbox (nur noch für Bilder)
   openLightbox(index);
 };
 
@@ -1035,6 +1059,7 @@ const closeVideoPreview = () => {
   videoPreviewOpen.value = false;
   videoPreviewSrc.value = null;
   videoPreviewAspectRatio.value = '16 / 9';
+  videoPreviewOrientation.value = 'landscape';
 };
 
 
@@ -1985,24 +2010,61 @@ onMounted(async () => {
 }
 
 .video-preview-container {
-  min-height: 240px;
+  min-height: 100vh;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
-  width: 100%;
+  padding: 0;
   box-sizing: border-box;
   background: #0d0d0d;
+  position: relative;
 }
 
 .video-preview-player {
   width: 100%;
-  max-width: 960px;
-  max-height: 80vh;
-  border-radius: 12px;
+  height: 100%;
+  border-radius: 0;
   background: #000;
   aspect-ratio: var(--video-preview-aspect, 16 / 9);
   object-fit: contain;
+  accent-color: var(--ion-color-primary);
+}
+.video-preview-player--portrait {
+  width: 100%;
+  height: 100%;
+}
+.video-preview-player--landscape {
+  width: 100%;
+  height: 100%;
+}
+.video-preview-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 5;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.video-preview-close:hover {
+  background: rgba(0, 0, 0, 0.75);
+  transform: translateY(-1px);
+}
+.video-preview-modal .modal-wrapper {
+  max-width: 100vw;
+  max-height: 100vh;
+  border-radius: 0;
+  overflow: hidden;
+  background: transparent;
 }
 
 .cover-picker-modal .modal-wrapper {
