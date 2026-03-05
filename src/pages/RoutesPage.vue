@@ -254,16 +254,6 @@
           </span>
           <ion-spinner v-if="speechListening" slot="end" name="crescent" />
         </ion-button>
-        <ion-button
-          v-if="plannedRoute"
-          expand="block"
-          color="success"
-          :disabled="planInProgress"
-          @click="useSpeechPlanTemplate"
-        >
-          <ion-icon slot="start" :icon="navigateOutline" />
-          {{ t('auto.route_speech_use_template') }}
-        </ion-button>
         <p v-if="speechError" class="speech-plan-error">{{ speechError }}</p>
       </ion-content>
     </ion-modal>
@@ -388,6 +378,7 @@ let speechStartMarker: L.CircleMarker | null = null;
 let speechDestinationMarker: L.CircleMarker | null = null;
 const SPEECH_PLAN_STORAGE_KEY = 'speechPlanRoute';
 const speechPlanCache = ref<LatLonPoint[] | null>(null);
+const speechPlanLaunched = ref(false);
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 type NominatimResult = { lat: string; lon: string; display_name?: string };
 const TRAVEL_MODE_CONFIGS: Array<{
@@ -587,6 +578,7 @@ const resetSpeechPlanState = () => {
   plannedRoute.value = null;
   plannedDestination.value = null;
   plannedSummary.value = null;
+  speechPlanLaunched.value = false;
 };
 
 const initializeSpeechPlanMap = () => {
@@ -731,6 +723,14 @@ const startSpeechRecognition = async () => {
   }
 };
 
+const detectSpeechTravelMode = (text: string | undefined): RouteTravelModeKey => {
+  const normalized = (text ?? '').toLowerCase();
+  if (/vespa|roller|motoren?roller|scooter/.test(normalized)) {
+    return 'motor_scooter';
+  }
+  return 'car';
+};
+
 const planRouteFromText = async (text: string) => {
   planInProgress.value = true;
   try {
@@ -767,6 +767,9 @@ const planRouteFromText = async (text: string) => {
       plannedRoute.value = [startPoint, destinationPoint];
       plannedSummary.value = null;
     }
+    if (plannedRoute.value?.length && plannedRoute.value.length > 1) {
+      await startRouteFromSpeechPlan(text);
+    }
   } finally {
     planInProgress.value = false;
   }
@@ -800,18 +803,44 @@ const requestCurrentPosition = async (): Promise<LatLonPoint> => {
   };
 };
 
-const useSpeechPlanTemplate = () => {
-  if (plannedRoute.value && plannedRoute.value.length > 1) {
-    speechPlanCache.value = plannedRoute.value.map((point) => ({
-      latitude: point.latitude,
-      longitude: point.longitude
-    }));
-  } else {
-    speechPlanCache.value = null;
+const startRouteFromSpeechPlan = async (spokenText: string) => {
+  if (speechPlanLaunched.value) return;
+  const routePoints = plannedRoute.value;
+  if (!routePoints || routePoints.length < 2) return;
+  speechPlanLaunched.value = true;
+
+  speechPlanCache.value = routePoints.map((point) => ({
+    latitude: point.latitude,
+    longitude: point.longitude
+  }));
+  const name = recognizedText.value?.trim() || t('auto.route');
+  const mode = detectSpeechTravelMode(spokenText);
+  newRouteName.value = name;
+  newRouteMode.value = mode;
+
+  try {
+    const authorId = await resolveRouteAuthorId();
+    const routeId = await db.createRoute({
+      name,
+      startTime: new Date().toISOString(),
+      isRecording: true,
+      travelMode: mode,
+      mapStyle: DEFAULT_MAP_STYLE,
+      pb_author: authorId ?? null
+    });
+    persistSpeechPlanForRoute(routeId);
+    closeSpeechPlanModal({ preserveSpeechPlan: true });
+    router.push(`/routes/${routeId}/record`);
+  } catch (error) {
+    console.error('Error starting speech route:', error);
+    const toast = await toastController.create({
+      message: t('auto.fehler_beim_starten_der_aufzeichnung'),
+      duration: 2000,
+      color: 'danger'
+    });
+    await toast.present();
+    speechPlanLaunched.value = false;
   }
-  newRouteName.value = recognizedText.value?.trim() || t('auto.route');
-  startRouteModalOpen.value = true;
-  closeSpeechPlanModal({ preserveSpeechPlan: true });
 };
 
 const persistSpeechPlanForRoute = (routeId: number) => {
