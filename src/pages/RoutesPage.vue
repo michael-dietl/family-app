@@ -231,10 +231,8 @@
           <ion-spinner name="crescent" />
           <span>{{ t('auto.route_speech_plan_pending') }}</span>
         </div>
-        <div v-if="speechPlanPreviewPath" class="speech-plan-preview">
-          <svg viewBox="0 0 280 140" preserveAspectRatio="none">
-            <path :d="speechPlanPreviewPath" />
-          </svg>
+        <div class="speech-plan-map">
+          <div ref="speechMapContainer" class="speech-plan-map-canvas"></div>
         </div>
         <div v-if="plannedRoute" class="speech-plan-summary">
           <h3>{{ t('auto.route_speech_plan_ready') }}</h3>
@@ -273,7 +271,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed, watch, nextTick } from 'vue';
+import { ref, onMounted, reactive, computed, watch, nextTick, onBeforeUnmount } from 'vue';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { useRouter } from 'vue-router';
 import { Preferences } from '@capacitor/preferences';
@@ -323,11 +321,12 @@ import {
   micOutline,
   navigateOutline
 } from 'ionicons/icons';
+import L from 'leaflet';
 import { scooterIcon } from '@/icons/scooter';
 import { db, type Route } from '@/services/database';
 import { getPocketbaseAuthorId } from '@/services/pocketbase';
 import { DEFAULT_MAP_STYLE, MAP_STYLE_CONFIGS, type MapStyle } from '@/utils/mapStyles';
-import { planRouteWithValhalla, traceRouteSummary, type ValhallaTraceSummary } from '@/services/valhalla';
+import { planRouteWithValhalla, planRouteWithValhallaRoute, traceRouteSummary, type ValhallaTraceSummary } from '@/services/valhalla';
 
 type LatLonPoint = import('@/services/positionSmoothing').LatLonPoint;
 
@@ -382,6 +381,13 @@ const geocodedDestinationLabel = ref('');
 const plannedRoute = ref<LatLonPoint[] | null>(null);
 const plannedDestination = ref<LatLonPoint | null>(null);
 const plannedSummary = ref<ValhallaTraceSummary | null>(null);
+const speechMapContainer = ref<HTMLElement | null>(null);
+let speechMap: L.Map | null = null;
+let speechRouteLayer: L.Polyline | null = null;
+let speechStartMarker: L.CircleMarker | null = null;
+let speechDestinationMarker: L.CircleMarker | null = null;
+const SPEECH_PLAN_STORAGE_KEY = 'speechPlanRoute';
+const speechPlanCache = ref<LatLonPoint[] | null>(null);
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 type NominatimResult = { lat: string; lon: string; display_name?: string };
 const TRAVEL_MODE_CONFIGS: Array<{
@@ -407,11 +413,17 @@ const mapStyleOptions = computed(() =>
   }))
 );
 
+type RouteTravelModeKey = Exclude<Route['travelMode'], undefined>;
+const MODE_TO_COSTING: Record<RouteTravelModeKey, string> = {
+  car: 'auto',
+  pedestrian: 'pedestrian',
+  bicycle: 'bicycle',
+  motor_scooter: 'motor_scooter'
+};
+
 const routePreviewPaths = ref<Record<number, string>>({});
 const PREVIEW_WIDTH = 200;
 const PREVIEW_HEIGHT = 110;
-const SPEECH_PLAN_PREVIEW_WIDTH = 280;
-const SPEECH_PLAN_PREVIEW_HEIGHT = 140;
 
 onMounted(async () => {
   await loadRoutes();
@@ -537,6 +549,7 @@ const confirmStartRoute = async () => {
       mapStyle: DEFAULT_MAP_STYLE,
       pb_author: authorId ?? null
     });
+    persistSpeechPlanForRoute(routeId);
     startRouteModalOpen.value = false;
     router.push(`/routes/${routeId}/record`);
   } catch (error) {
@@ -557,9 +570,12 @@ const openSpeechPlanModal = async () => {
   void startSpeechRecognition();
 };
 
-const closeSpeechPlanModal = () => {
+const closeSpeechPlanModal = (options?: { preserveSpeechPlan?: boolean }) => {
   speechModalOpen.value = false;
   resetSpeechPlanState();
+  if (!options?.preserveSpeechPlan) {
+    speechPlanCache.value = null;
+  }
 };
 
 const resetSpeechPlanState = () => {
@@ -572,6 +588,128 @@ const resetSpeechPlanState = () => {
   plannedDestination.value = null;
   plannedSummary.value = null;
 };
+
+const initializeSpeechPlanMap = () => {
+  if (!speechMapContainer.value || speechMap) return;
+  speechMap = L.map(speechMapContainer.value, {
+    zoomControl: true,
+    attributionControl: false
+  }).setView([48.137154, 11.576124], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19
+  }).addTo(speechMap);
+  setTimeout(() => {
+    speechMap?.invalidateSize();
+  }, 150);
+};
+
+const clearSpeechPlanMapLayers = () => {
+  if (speechRouteLayer) {
+    speechRouteLayer.remove();
+    speechRouteLayer = null;
+  }
+  if (speechStartMarker) {
+    speechStartMarker.remove();
+    speechStartMarker = null;
+  }
+  if (speechDestinationMarker) {
+    speechDestinationMarker.remove();
+    speechDestinationMarker = null;
+  }
+};
+
+const drawSpeechPlanRouteOnMap = () => {
+  if (!speechMap) return;
+  clearSpeechPlanMapLayers();
+
+  const routePoints = (plannedRoute.value ?? [])
+    .map((point) => ({
+      lat: Number(point.latitude),
+      lng: Number(point.longitude)
+    }))
+    .filter(({ lat, lng }) => Number.isFinite(lat) && Number.isFinite(lng))
+    .map(({ lat, lng }) => L.latLng(lat, lng));
+
+  if (routePoints.length > 0) {
+    const startLatLng = routePoints[0];
+    const endLatLng = routePoints[routePoints.length - 1];
+
+    speechStartMarker = L.circleMarker(startLatLng, {
+      radius: 7,
+      color: '#22c55e',
+      fillColor: '#22c55e',
+      fillOpacity: 0.9,
+      weight: 2
+    }).addTo(speechMap);
+    speechDestinationMarker = L.circleMarker(endLatLng, {
+      radius: 7,
+      color: '#ef4444',
+      fillColor: '#ef4444',
+      fillOpacity: 0.9,
+      weight: 2
+    }).addTo(speechMap);
+
+    if (routePoints.length > 1) {
+      speechRouteLayer = L.polyline(routePoints, {
+        color: '#22c55e',
+        weight: 4,
+        opacity: 0.85,
+        lineJoin: 'round'
+      }).addTo(speechMap);
+      speechMap.fitBounds(L.latLngBounds(routePoints), { padding: [30, 30] });
+    } else {
+      speechMap.setView(startLatLng, 15);
+    }
+    speechMap.invalidateSize();
+    return;
+  }
+
+  if (plannedDestination.value) {
+    const destLatLng = L.latLng(plannedDestination.value.latitude, plannedDestination.value.longitude);
+    speechDestinationMarker = L.circleMarker(destLatLng, {
+      radius: 7,
+      color: '#ef4444',
+      fillColor: '#ef4444',
+      fillOpacity: 0.9,
+      weight: 2
+    }).addTo(speechMap);
+    speechMap.setView(destLatLng, 13);
+    speechMap.invalidateSize();
+    return;
+  }
+
+  speechMap.setView([48.137154, 11.576124], 6);
+  speechMap.invalidateSize();
+};
+
+const destroySpeechPlanMap = () => {
+  clearSpeechPlanMapLayers();
+  if (speechMap) {
+    speechMap.remove();
+    speechMap = null;
+  }
+};
+
+watch(speechModalOpen, async (isOpen) => {
+  if (isOpen) {
+    await nextTick();
+    initializeSpeechPlanMap();
+    drawSpeechPlanRouteOnMap();
+  } else {
+    destroySpeechPlanMap();
+  }
+});
+
+watch([plannedRoute, plannedDestination], async () => {
+  if (!speechModalOpen.value) return;
+  await nextTick();
+  initializeSpeechPlanMap();
+  drawSpeechPlanRouteOnMap();
+});
+
+onBeforeUnmount(() => {
+  destroySpeechPlanMap();
+});
 
 const startSpeechRecognition = async () => {
   if (speechListening.value || planInProgress.value) {
@@ -604,10 +742,27 @@ const planRouteFromText = async (text: string) => {
       longitude: Number(geocode.lon)
     };
     plannedDestination.value = destinationPoint;
-    const route = await planRouteWithValhalla(startPoint, destinationPoint);
+    const modeKey = (newRouteMode.value ?? 'car') as RouteTravelModeKey;
+    const costing = MODE_TO_COSTING[modeKey];
+    const valhallaRoute = await planRouteWithValhallaRoute(startPoint, destinationPoint, {
+      costing,
+      language: (locale.value ?? 'de-DE').replace('_', '-'),
+      destinationLabel: recognizedText.value?.trim() || geocodedDestinationLabel.value || undefined,
+      units: 'kilometers',
+      narrative: true
+    });
+    let route = valhallaRoute?.path ?? null;
+    let routeSummary = valhallaRoute?.summary ?? null;
+    if (!route || route.length === 0) {
+      route = await planRouteWithValhalla(startPoint, destinationPoint, { costing });
+      routeSummary = null;
+    }
     if (route && route.length > 0) {
       plannedRoute.value = route;
-      plannedSummary.value = await traceRouteSummary(route);
+      if (!routeSummary) {
+        routeSummary = await traceRouteSummary(route, { costing });
+      }
+      plannedSummary.value = routeSummary;
     } else {
       plannedRoute.value = [startPoint, destinationPoint];
       plannedSummary.value = null;
@@ -646,9 +801,36 @@ const requestCurrentPosition = async (): Promise<LatLonPoint> => {
 };
 
 const useSpeechPlanTemplate = () => {
+  if (plannedRoute.value && plannedRoute.value.length > 1) {
+    speechPlanCache.value = plannedRoute.value.map((point) => ({
+      latitude: point.latitude,
+      longitude: point.longitude
+    }));
+  } else {
+    speechPlanCache.value = null;
+  }
   newRouteName.value = recognizedText.value?.trim() || t('auto.route');
   startRouteModalOpen.value = true;
-  closeSpeechPlanModal();
+  closeSpeechPlanModal({ preserveSpeechPlan: true });
+};
+
+const persistSpeechPlanForRoute = (routeId: number) => {
+  const storage = typeof window !== 'undefined' ? window.sessionStorage : null;
+  if (storage) {
+    if (speechPlanCache.value && speechPlanCache.value.length > 1) {
+      try {
+        storage.setItem(
+          SPEECH_PLAN_STORAGE_KEY,
+          JSON.stringify({ routeId, path: speechPlanCache.value })
+        );
+      } catch (error) {
+        console.warn('Unable to store speech plan preview', error);
+      }
+    } else {
+      storage.removeItem(SPEECH_PLAN_STORAGE_KEY);
+    }
+  }
+  speechPlanCache.value = null;
 };
 
 const transcribeSpeech = async (): Promise<string> => {
@@ -856,13 +1038,6 @@ const planSummaryDistance = computed(() => {
 const planSummaryDuration = computed(() => {
   if (!plannedSummary.value?.time) return '';
   return formatDuration(plannedSummary.value.time);
-});
-
-const speechPlanPreviewPath = computed(() => {
-  if (!plannedRoute.value || plannedRoute.value.length < 2) {
-    return '';
-  }
-  return buildSvgPathFromPoints(plannedRoute.value, SPEECH_PLAN_PREVIEW_WIDTH, SPEECH_PLAN_PREVIEW_HEIGHT);
 });
 
 const formatDate = (dateString: string): string => {
@@ -1119,29 +1294,18 @@ onMounted(async () => {
   color: var(--ion-color-medium);
 }
 
-.speech-plan-modal .speech-plan-preview {
-  height: 140px;
+.speech-plan-modal .speech-plan-map {
+  width: 100%;
+  height: 210px;
   margin-bottom: 1rem;
   border-radius: 18px;
-  background: var(--ion-color-step-80);
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--ion-color-step-90);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.12);
 }
-
-.speech-plan-modal .speech-plan-preview svg {
+.speech-plan-modal .speech-plan-map-canvas {
   width: 100%;
   height: 100%;
-}
-
-.speech-plan-modal .speech-plan-preview path {
-  stroke: #ff7a18;
-  stroke-width: 4;
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .speech-plan-modal .speech-plan-summary {

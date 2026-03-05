@@ -453,6 +453,7 @@ const TRAVEL_MODE_CONFIGS: Array<{
 let map: L.Map | null = null;
 let routeLine: L.Polyline | null = null;
 let matchedLine: L.Polyline | null = null;
+let plannedLine: L.Polyline | null = null;
 const waypointMarkers: Map<number, L.Marker> = new Map();
 let currentPositionMarker: L.Marker | null = null;
 let positionWatchInterval: number | null = null;
@@ -519,6 +520,8 @@ const valhallaMatching = ref(false);
 const hasTrackPoints = computed(() =>
   waypoints.value.filter((wp) => wp.type === 'position').length >= 3
 );
+const SPEECH_PLAN_STORAGE_KEY = 'speechPlanRoute';
+const speechPlannedShape = ref<LatLonPoint[]>([]);
 
 const SHAPABLE_WAYPOINT_TYPES: Waypoint['type'][] = ['position', 'manual', 'photo'];
 
@@ -1288,6 +1291,12 @@ watch(valhallaTrace, () => {
   drawRoute();
 }, { deep: true });
 
+watch(speechPlannedShape, () => {
+  if (map) {
+    drawRoute();
+  }
+});
+
 onUnmounted(() => {
   if (matchedLine && map) {
     map.removeLayer(matchedLine);
@@ -1350,6 +1359,43 @@ watch(() => routeData.value?.isRecording, (isRec) => {
 });
 
 
+const applySpeechPlanCacheForRoute = (targetRouteId: number) => {
+  const storage = typeof window !== 'undefined' ? window.sessionStorage : null;
+  if (!storage) return;
+  const raw = storage.getItem(SPEECH_PLAN_STORAGE_KEY);
+  if (!raw) return;
+  let consumed = false;
+  try {
+    const parsed = JSON.parse(raw) as {
+      routeId?: number;
+      path?: LatLonPoint[];
+    };
+    if (parsed.routeId !== targetRouteId || !Array.isArray(parsed.path)) {
+      return;
+    }
+    consumed = true;
+    const validPath = parsed.path
+      .map((point) => ({
+        latitude: Number(point.latitude),
+        longitude: Number(point.longitude)
+      }))
+      .filter(({ latitude, longitude }) => Number.isFinite(latitude) && Number.isFinite(longitude));
+    if (validPath.length > 1) {
+      speechPlannedShape.value = validPath;
+      if (map) {
+        drawRoute();
+      }
+    }
+  } catch (error) {
+    console.warn('Unable to read speech plan cache', error);
+    consumed = true;
+  } finally {
+    if (consumed) {
+      storage.removeItem(SPEECH_PLAN_STORAGE_KEY);
+    }
+  }
+};
+
 const loadData = async () => {
   try {
     if (!hasLoadedOnce.value) {
@@ -1368,6 +1414,7 @@ const loadData = async () => {
     }
     // Robust: isRecording immer Boolean
     route.isRecording = !!route.isRecording;
+    applySpeechPlanCacheForRoute(routeId);
     routeData.value = route;
     manualPlacementActive.value = false;
     waypointMoveTarget.value = null;
@@ -1449,6 +1496,10 @@ function drawRoute() {
     map.removeLayer(matchedLine);
     matchedLine = null;
   }
+  if (plannedLine) {
+    map.removeLayer(plannedLine);
+    plannedLine = null;
+  }
   waypointMarkers.forEach(marker => {
     if (map) map.removeLayer(marker);
   });
@@ -1476,6 +1527,16 @@ function drawRoute() {
     }).addTo(map);
   }
 
+  if (speechPlannedShape.value.length > 1) {
+    const plannedLatLngs = speechPlannedShape.value.map(p => L.latLng(p.latitude, p.longitude));
+    plannedLine = L.polyline(plannedLatLngs, {
+      color: '#ff7a18',
+      weight: 3,
+      opacity: 0.9,
+      dashArray: '8 6'
+    }).addTo(map);
+  }
+
   let viewBounds: L.LatLngBounds | null = null;
   const extendBoundsFromLayer = (layer: L.Polyline | null) => {
     if (!layer) return;
@@ -1484,6 +1545,7 @@ function drawRoute() {
   };
   extendBoundsFromLayer(routeLine);
   extendBoundsFromLayer(matchedLine);
+  extendBoundsFromLayer(plannedLine);
 
   if (viewBounds) {
     map.fitBounds(viewBounds, { padding: [50, 50] });

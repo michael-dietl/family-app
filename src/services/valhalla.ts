@@ -2,7 +2,7 @@ import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import type { LatLonPoint } from '@/services/positionSmoothing';
 
-export type ValhallaEndpoint = 'trace_route' | 'trace_attributes';
+export type ValhallaEndpoint = 'trace_route' | 'trace_attributes' | 'route';
 
 export interface ValhallaMatchOptions {
   costing?: string;
@@ -141,15 +141,20 @@ const logValhallaResponse = (value: unknown) => {
   console.info('VALHALLA_RESPONSE', stringifyForLog(value));
 };
 
+const VALHALLA_API_KEY_HEADER_VALUE = 'oHdV*vxB*!b_vi#}5U';
 const performValhallaRequest = async (baseUrl: string, endpoint: ValhallaEndpoint, payload: unknown) => {
   console.info('VALHALLA REQUEST', stringifyForLog(payload));
   const apiUrl = `${baseUrl}/${endpoint}`;
+  const requestHeaders = {
+    'Content-Type': 'application/json',
+    'X-Api-Key': VALHALLA_API_KEY_HEADER_VALUE
+  };
   let data: unknown;
   if (Capacitor.getPlatform() !== 'web' && CapacitorHttp) {
     const response = await CapacitorHttp.request({
       method: 'POST',
       url: apiUrl,
-      headers: { 'Content-Type': 'application/json' },
+      headers: requestHeaders,
       data: payload
     });
     logValhallaResponse(response.data);
@@ -160,9 +165,7 @@ const performValhallaRequest = async (baseUrl: string, endpoint: ValhallaEndpoin
   } else {
     const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: requestHeaders,
       body: JSON.stringify(payload)
     });
     const responseBody = await response.text();
@@ -373,7 +376,13 @@ export async function planRouteWithValhalla(
     if (!data) {
       return null;
     }
-    const result = data as { trip?: { legs?: Array<{ shape?: number[][] | string }> }; shape?: number[][] | string };
+    const result = data as {
+      trip?: {
+        summary?: ValhallaTraceSummary;
+        legs?: Array<{ shape?: number[][] | string; summary?: ValhallaTraceSummary }>;
+      };
+      shape?: number[][] | string;
+    };
     const legShape = result.trip?.legs?.[0]?.shape ?? result.shape;
     if (!legShape) {
       return null;
@@ -385,6 +394,79 @@ export async function planRouteWithValhalla(
     return decoded;
   } catch (error) {
     console.warn('Valhalla planning failed', error);
+    return null;
+  }
+}
+
+export interface ValhallaRouteOptions {
+  costing?: string;
+  language?: string;
+  units?: 'kilometers' | 'miles';
+  narrative?: boolean;
+  destinationLabel?: string;
+  originLabel?: string;
+}
+
+export interface ValhallaRouteResult {
+  path: LatLonPoint[];
+  summary?: ValhallaTraceSummary | null;
+}
+
+export async function planRouteWithValhallaRoute(
+  start: LatLonPoint,
+  destination: LatLonPoint,
+  options: ValhallaRouteOptions = {}
+): Promise<ValhallaRouteResult | null> {
+  const baseUrl = await loadConfiguredBaseUrl();
+  if (!baseUrl) {
+    return null;
+  }
+
+  const payload = {
+    locations: [
+      {
+        lat: start.latitude,
+        lon: start.longitude,
+        street: options.originLabel
+      },
+      {
+        lat: destination.latitude,
+        lon: destination.longitude,
+        street: options.destinationLabel
+      }
+    ],
+    costing: options.costing ?? 'auto',
+    directions_options: {
+      units: options.units ?? 'kilometers',
+      narrative: options.narrative ?? true,
+      language: options.language ?? 'de-DE'
+    }
+  };
+
+  try {
+    const data = await performValhallaRequest(baseUrl, 'route', payload);
+    if (!data) {
+      return null;
+    }
+    const result = data as {
+      trip?: {
+        summary?: ValhallaTraceSummary;
+        legs?: Array<{ shape?: number[][] | string; summary?: ValhallaTraceSummary }>;
+      };
+      shape?: number[][] | string;
+    };
+    const legShape = result.trip?.legs?.[0]?.shape ?? result.shape;
+    if (!legShape) {
+      return null;
+    }
+    const decoded = decodeValhallaShape(legShape, [start, destination]);
+    if (decoded.length === 0) {
+      return null;
+    }
+    const summary = result.trip?.summary ?? result.trip?.legs?.[0]?.summary ?? null;
+    return { path: decoded, summary };
+  } catch (error) {
+    console.warn('Valhalla route planning failed', error);
     return null;
   }
 }

@@ -42,7 +42,7 @@ const emit = defineEmits<{
 const mapContainer = ref<HTMLElement | null>(null);
 let map: L.Map | null = null;
 const markers: L.Marker[] = [];
-const galleryColors = ref<Map<number, string>>(new Map());
+const galleryInfos = ref<Map<number, { color?: string; name?: string }>>(new Map());
 
 // Filtere Fotos mit GPS-Daten
 const photosWithLocation = ref<Photo[]>([]);
@@ -70,15 +70,14 @@ const updatePhotosWithLocation = async () => {
     lng: p.longitude 
   })));
 
-  // Lade Galerie-Farben für alle Fotos
+  // Lade Galerie-Metadaten für alle Fotos
   const uniqueGalleryIds = [...new Set(props.photos.map(p => p.galleryId))];
   for (const galleryId of uniqueGalleryIds) {
-    if (!galleryColors.value.has(galleryId)) {
-      const gallery = await db.getGallery(galleryId);
-      if (gallery?.color) {
-        galleryColors.value.set(galleryId, gallery.color);
-      }
-    }
+    const gallery = await db.getGallery(galleryId);
+    galleryInfos.value.set(galleryId, {
+      color: gallery?.color,
+      name: gallery?.name
+    });
   }
 };
 
@@ -87,7 +86,7 @@ const getImageSrc = (path: string | undefined) => {
   return Capacitor.convertFileSrc(path);
 };
 
-const createPopupContent = (photo: Photo): string => {
+const createPopupContent = (photo: Photo, galleryName?: string): string => {
   let dateStr = '';
   if (photo.dateTaken) {
     const date = new Date(photo.dateTaken);
@@ -98,7 +97,7 @@ const createPopupContent = (photo: Photo): string => {
   return `
     <div class="photo-popup">
       <img class="gallery-popup-image" src="${getImageSrc(photo.filepath)}" alt="${photo.filename}" style="max-width: 200px; max-height: 150px; object-fit: cover; border-radius: 4px;">
-      <p style="margin: 8px 0 0; font-size: 12px; font-weight: 500;">${photo.filename}</p>
+      <p style="margin: 8px 0 0; font-size: 12px; font-weight: 500;">${galleryName || photo.filename}</p>
       ${dateLine}
     </div>
   `;
@@ -143,10 +142,11 @@ const initMap = async () => {
       if (photo.latitude && photo.longitude) {
         console.log('📍 Adding marker:', photo.latitude, photo.longitude);
         
-        const popupContent = createPopupContent(photo);
+        const galleryInfo = galleryInfos.value.get(photo.galleryId);
+        const popupContent = createPopupContent(photo, galleryInfo?.name);
         
         // Erstelle farbigen Marker basierend auf Galerie-Farbe
-        const galleryColor = galleryColors.value.get(photo.galleryId) || '#3880ff';
+        const galleryColor = galleryInfo?.color || '#3880ff';
         const customIcon = L.divIcon({
           className: 'custom-marker',
           html: `<div style="

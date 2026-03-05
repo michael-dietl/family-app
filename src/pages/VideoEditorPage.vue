@@ -29,6 +29,7 @@
             controls
             playsinline
             class="preview-video"
+            :style="previewVideoStyle"
           ></video>
 
           <div class="editor-controls ion-padding">
@@ -140,6 +141,19 @@ const duration = ref(0);
 const trimStart = ref(0);
 const trimEnd = ref(0);
 const quality = ref<'high' | 'medium' | 'low'>('medium');
+const videoAspectRatio = ref('16 / 9');
+const previewVideoStyle = computed(() => ({
+  '--preview-video-aspect': videoAspectRatio.value
+}));
+const updateEditorVideoAspect = () => {
+  const video = videoElement.value;
+  if (!video) return;
+  const width = video.videoWidth || video.clientWidth;
+  const height = video.videoHeight || video.clientHeight;
+  if (width && height) {
+    videoAspectRatio.value = `${width} / ${height}`;
+  }
+};
 
 onMounted(async () => {
   if (!videoSrc) {
@@ -162,6 +176,7 @@ onMounted(async () => {
       if (videoElement.value) {
         duration.value = Math.floor(videoElement.value.duration);
         trimEnd.value = duration.value;
+        updateEditorVideoAspect();
       }
     };
   }
@@ -324,7 +339,9 @@ onMounted(async () => {
 
 .preview-video {
   width: 100%;
-  max-height: 400px;
+  max-width: 100%;
+  max-height: 70vh;
+  aspect-ratio: var(--preview-video-aspect, 16 / 9);
   background: #000;
   object-fit: contain;
 }

@@ -73,6 +73,20 @@ export function useLightbox() {
     container.appendChild(playButton);
   }
 
+  const updateVideoOrientationClass = (slideNode?: Element | null) => {
+    const slideEl = slideNode?.classList?.contains('gslide')
+      ? slideNode
+      : slideNode?.closest('.gslide');
+    if (!slideEl) return;
+    const video = slideEl.querySelector('video') as HTMLVideoElement | null;
+    if (!video) {
+      slideEl.classList.remove('glightbox-video-portrait');
+      return;
+    }
+    const isPortrait = video.videoHeight > video.videoWidth;
+    slideEl.classList.toggle('glightbox-video-portrait', isPortrait);
+  };
+
   const applyVideoPreviewFrame = (slideNode?: Element | null) => {
     const video = slideNode?.querySelector('video') as HTMLVideoElement | null;
     if (!video) return;
@@ -87,10 +101,12 @@ export function useLightbox() {
     };
     if (video.readyState >= 1) {
       seekToPreview();
+      updateVideoOrientationClass(slideNode);
       return;
     }
     const onMetadata = () => {
       seekToPreview();
+      updateVideoOrientationClass(slideNode);
       video.removeEventListener('loadedmetadata', onMetadata);
     };
     video.addEventListener('loadedmetadata', onMetadata);

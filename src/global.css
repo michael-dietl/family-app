@@ -143,3 +143,35 @@ ion-textarea::part(native)::selection {
   z-index: 20;
   cursor: pointer;
 }
+
+.glightbox-container .gslide.glightbox-video-portrait .gslide-media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.glightbox-container .gslide.glightbox-video-portrait video {
+  width: auto !important;
+  height: 100% !important;
+  max-height: 80vh;
+}
+.glightbox-container .gslide.glightbox-video-portrait {
+  max-width: 60vh;
+  width: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.glightbox-container .gslide.glightbox-video-portrait .gslide-inner-content {
+  width: auto;
+  padding: 0;
+}
+.glightbox-container .gslide.glightbox-video-portrait .gslide-media {
+  max-width: 100%;
+}
+
+/* Push the video controls above the navigation bar */
+.glightbox-container .gcontrols {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 58px) !important;
+}

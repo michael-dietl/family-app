@@ -9,6 +9,9 @@
         </ion-buttons>
         <ion-title>{{ $t('auto.gallerien') }}</ion-title>
         <ion-buttons slot="end">
+          <ion-button @click="showGalleryMenu">
+            <ion-icon :icon="ellipsisVertical" />
+          </ion-button>
           <ion-button @click="openCreateDialog">
             <ion-icon :icon="add" />
           </ion-button>
@@ -38,7 +41,6 @@
           {{ t('auto.meine_gallerien') }}
         </ion-segment-button>
       </ion-segment>
-
       <!-- Loading State -->
       <div v-if="isLoading" class="loading-container">
         <ion-spinner />
@@ -52,7 +54,7 @@
       </div>
 
       <!-- No Results -->
-      <div v-else-if="filteredGalleries.length === 0" class="empty-state">
+      <div v-else-if="sortedGalleries.length === 0" class="empty-state">
         <ion-icon :icon="imagesOutline" size="large" />
         <h2>{{ t('auto.keine_treffer') }}</h2>
         <p v-if="searchQuery">
@@ -67,7 +69,7 @@
       <ion-grid v-else>
         <ion-row>
           <ion-col 
-            v-for="gallery in filteredGalleries" 
+            v-for="gallery in sortedGalleries" 
             :key="gallery.id" 
             size="6" 
             size-md="4" 
@@ -261,12 +263,11 @@ import {
   IonLabel,
   IonDatetime,
   IonToggle,
-  IonSegment,
-  IonSegmentButton,
+  actionSheetController,
   alertController,
   onIonViewWillEnter
 } from '@ionic/vue';
-import { add, close, imagesOutline, imageOutline, calendarOutline } from 'ionicons/icons';
+import { add, close, imagesOutline, imageOutline, calendarOutline, ellipsisVertical, arrowDownOutline, arrowUpOutline } from 'ionicons/icons';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Preferences } from '@capacitor/preferences';
@@ -301,6 +302,12 @@ const galleryFilterMode = ref<GalleryFilterMode>('all');
 const currentAuthorId = ref<string | null>(null);
 watch(galleryFilterMode, (mode) => {
   void Preferences.set({ key: GALLERY_FILTER_KEY, value: mode });
+});
+const GALLERY_SORT_KEY = 'gallery_sort_mode';
+type GallerySortMode = 'time' | 'name';
+const gallerySortMode = ref<GallerySortMode>('time');
+watch(gallerySortMode, (mode) => {
+  void Preferences.set({ key: GALLERY_SORT_KEY, value: mode });
 });
 const showDatePickerModal = ref(false);
 const datePickerValue = ref('');
@@ -341,36 +348,80 @@ const filteredGalleries = computed(() => {
   });
 });
 
+const getGalleryTimestamp = (gallery: (typeof galleries.value)[number]) => {
+  const raw = gallery.updated || gallery.created || '';
+  const time = new Date(raw).getTime();
+  return Number.isNaN(time) ? 0 : time;
+};
+
+const sortedGalleries = computed(() => {
+  const list = [...filteredGalleries.value];
+  if (gallerySortMode.value === 'name') {
+    return list.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
+  }
+  return list.sort((a, b) => getGalleryTimestamp(b) - getGalleryTimestamp(a));
+});
+
+const showGalleryMenu = async () => {
+  const actionSheet = await actionSheetController.create({
+    header: t('auto.gallerie_optionen'),
+    buttons: [
+      {
+        text: t('auto.sort_by_time'),
+        icon: arrowDownOutline,
+        handler: () => {
+          gallerySortMode.value = 'time';
+        }
+      },
+      {
+        text: t('auto.sort_by_name'),
+        icon: arrowUpOutline,
+        handler: () => {
+          gallerySortMode.value = 'name';
+        }
+      },
+      {
+        text: t('buttons.cancel'),
+        role: 'cancel'
+      }
+    ]
+  });
+  await actionSheet.present();
+};
+
 onMounted(async () => {
   await loadGalleries();
   await loadPhotoCounts();
   await autoSyncIfEnabled();
   await refreshGalleryFilterState();
+  await refreshGallerySortState();
 });
 
 onIonViewWillEnter(() => {
   void refreshGalleryFilterState();
+  void refreshGallerySortState();
 });
 
 const loadPhotoCounts = async () => {
   try {
     const counts: Record<number, number> = {};
     const covers: Record<number, string> = {};
-    
-    // Optimierung: Alle Counts parallel laden statt sequenziell
     const countPromises = galleries.value.map(async (gallery) => {
-      if (gallery.id) {
-        const count = await db.getPhotoCount(gallery.id);
-        counts[gallery.id] = count;
-        
-        // Cover nur laden wenn es Fotos gibt (spart unnötige DB-Abfragen)
-        if (count > 0) {
-          const preview = await db.getLatestPhotoPreview(gallery.id);
-          const coverSrc = preview?.thumbnail || preview?.filepath;
-          if (coverSrc) {
-            covers[gallery.id] = coverSrc;
-          }
-        }
+      if (!gallery.id) return;
+      const count = await db.getPhotoCount(gallery.id);
+      counts[gallery.id] = count;
+
+      let coverSrc: string | undefined;
+      if (gallery.coverPhotoId) {
+        const coverPhoto = await db.getPhoto(gallery.coverPhotoId);
+        coverSrc = coverPhoto?.thumbnail || coverPhoto?.filepath;
+      }
+      if (!coverSrc && count > 0) {
+        const preview = await db.getLatestPhotoPreview(gallery.id);
+        coverSrc = preview?.thumbnail || preview?.filepath;
+      }
+      if (coverSrc) {
+        covers[gallery.id] = coverSrc;
       }
     });
     
@@ -383,12 +434,23 @@ const loadPhotoCounts = async () => {
   }
 };
 
+watch(galleries, () => {
+  void loadPhotoCounts();
+});
+
 const refreshGalleryFilterState = async () => {
   const stored = await Preferences.get({ key: GALLERY_FILTER_KEY });
   if (stored.value === 'mine' || stored.value === 'all') {
     galleryFilterMode.value = stored.value;
   }
   currentAuthorId.value = await getPocketbaseAuthorId();
+};
+
+const refreshGallerySortState = async () => {
+  const stored = await Preferences.get({ key: GALLERY_SORT_KEY });
+  if (stored.value === 'name' || stored.value === 'time') {
+    gallerySortMode.value = stored.value;
+  }
 };
 
 const ensureAuthorId = async () => {
@@ -627,7 +689,20 @@ onMounted(async () => {
   --padding-end: 0;
 }
 
+.gallery-sort {
+  margin: 0 0 1rem;
+  border-radius: 12px;
+  padding: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+}
+
 .gallery-filter ion-segment-button {
+  font-size: 0.85rem;
+  text-transform: none;
+}
+
+.gallery-sort ion-segment-button {
   font-size: 0.85rem;
   text-transform: none;
 }

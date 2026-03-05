@@ -67,7 +67,6 @@
           </ion-segment-button>
         </ion-segment>
       </div>
-
       <!-- Loading State -->
       <div v-if="isLoading" class="loading-container">
         <ion-spinner />
@@ -100,7 +99,7 @@
         
         <ion-row>
           <ion-col 
-            v-for="(photo, index) in photos" 
+            v-for="(photo, index) in galleryPhotosForDisplay" 
             :key="photo.id" 
             size="4" 
             size-md="3" 
@@ -214,6 +213,61 @@
       @cancel="handleLocationCancel"
     />
     <ion-modal
+      :is-open="showCoverPicker"
+      css-class="cover-picker-modal"
+      @did-dismiss="closeCoverPicker"
+    >
+      <ion-header>
+        <ion-toolbar>
+          <ion-buttons slot="start">
+            <ion-button @click="closeCoverPicker">
+              <ion-icon :icon="close" />
+            </ion-button>
+          </ion-buttons>
+          <ion-title>{{ t('auto.cover_bild_waehlen') }}</ion-title>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="cover-picker-content">
+        <div v-if="galleryPhotosForDisplay.length === 0" class="cover-picker-empty">
+          <ion-icon :icon="imagesOutline" size="large" />
+          <p>{{ t('auto.keine_fotos_vorhanden') }}</p>
+        </div>
+        <ion-grid v-else class="cover-picker-grid">
+          <ion-row>
+            <ion-col
+              v-for="(photo, index) in galleryPhotosForDisplay"
+              :key="photo.id ?? photo.filename ?? index"
+              size="6"
+              size-md="4"
+              size-lg="3"
+            >
+              <div
+                class="cover-picker-card"
+                :class="{ 'cover-picker-card--selected': currentGallery?.coverPhotoId === photo.id }"
+                @click="setGalleryCoverPhoto(photo)"
+              >
+                <img
+                  :src="getPhotoPreviewSrc(photo)"
+                  :alt="photo.filename || t('auto.cover_aktuell')"
+                  loading="lazy"
+                />
+                <span v-if="currentGallery?.coverPhotoId === photo.id" class="cover-picker-badge">
+                  <ion-icon :icon="checkmarkCircle" />
+                  {{ t('auto.cover_aktuell') }}
+                </span>
+                <div
+                  v-if="coverSelectionLoading && coverSelectionTarget === photo.id"
+                  class="cover-picker-spinner"
+                >
+                  <ion-spinner />
+                </div>
+              </div>
+            </ion-col>
+          </ion-row>
+        </ion-grid>
+      </ion-content>
+    </ion-modal>
+    <ion-modal
       :is-open="videoPreviewOpen"
       @did-dismiss="closeVideoPreview"
       class="video-preview-modal"
@@ -240,6 +294,8 @@
             autoplay
             playsinline
             class="video-preview-player"
+            :style="videoPreviewStyle"
+            @loadedmetadata="handleVideoPreviewMetadata"
           ></video>
         </div>
       </ion-content>
@@ -409,15 +465,18 @@ import {
   IonFab,
   IonFabButton,
   actionSheetController,
-  alertController
+  alertController,
+  toastController
 } from '@ionic/vue';
 import {
   add,
+  options,
   ellipsisVertical,
   cameraOutline,
   camera,
   image,
   images,
+  imagesOutline,
   gridOutline,
   mapOutline,
   calendarOutline,
@@ -435,6 +494,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Filesystem } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
 import { useGallery } from '@/composables/useGallery';
 import { usePhoto } from '@/composables/usePhoto';
 import { useLightbox } from '@/composables/useLightbox';
@@ -564,6 +624,39 @@ const getImageSrc = (path: string | undefined) => {
   return Capacitor.convertFileSrc(path);
 };
 
+const GALLERY_PHOTO_SORT_PREFIX = 'gallery_photo_sort_mode_';
+const PHOTO_SORT_MODES: PhotoSortMode[] = [
+  'name_asc',
+  'name_desc',
+  'time_desc',
+  'time_asc',
+  'size_desc',
+  'size_asc'
+];
+
+const getPhotoSortPreferenceKey = (galleryId: number) => `${GALLERY_PHOTO_SORT_PREFIX}${galleryId}`;
+
+const restorePhotoSortPreference = async (galleryId: number) => {
+  try {
+    const { value } = await Preferences.get({ key: getPhotoSortPreferenceKey(galleryId) });
+    if (value && PHOTO_SORT_MODES.includes(value as PhotoSortMode)) {
+      photoSortMode.value = value as PhotoSortMode;
+    }
+  } catch (error) {
+    console.warn('Unable to restore gallery photo sort mode', error);
+  }
+};
+
+const persistPhotoSortPreference = async (mode: PhotoSortMode) => {
+  const galleryId = currentGallery.value?.id;
+  if (!galleryId) return;
+  try {
+    await Preferences.set({ key: getPhotoSortPreferenceKey(galleryId), value: mode });
+  } catch (error) {
+    console.warn('Unable to persist gallery photo sort mode', error);
+  }
+};
+
 const preparePhotoForEditor = async (path: string | undefined): Promise<string | null> => {
   const dataUrl = await readSharedStorageFileAsDataUrl(path);
   if (dataUrl) return dataUrl;
@@ -599,6 +692,210 @@ const photoBeingEdited = ref<Photo | null>(null);
 const videoPreviewOpen = ref(false);
 const videoPreviewSrc = ref<string | null>(null);
 const videoPreviewRef = ref<HTMLVideoElement | null>(null);
+type PhotoSortMode =
+  | 'name_asc'
+  | 'name_desc'
+  | 'time_desc'
+  | 'time_asc'
+  | 'size_desc'
+  | 'size_asc';
+const photoSortMode = ref<PhotoSortMode>('time_desc');
+const setPhotoSortMode = (mode: PhotoSortMode) => {
+  photoSortMode.value = mode;
+  void persistPhotoSortPreference(mode);
+};
+const showCoverPicker = ref(false);
+const coverSelectionLoading = ref(false);
+const coverSelectionTarget = ref<number | null>(null);
+const videoPreviewAspectRatio = ref('16 / 9');
+const videoPreviewStyle = computed(() => ({
+  '--video-preview-aspect': videoPreviewAspectRatio.value
+}));
+const parseDateValue = (value?: string): number | null => {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const buildTimestampFromDigits = (digits: string): number | null => {
+  if (digits.length < 8) return null;
+  const year = Number(digits.slice(0, 4));
+  const month = Number(digits.slice(4, 6));
+  const day = Number(digits.slice(6, 8));
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(month) ||
+    Number.isNaN(day) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return null;
+  }
+  const hour = digits.length >= 10 ? Number(digits.slice(8, 10)) : 0;
+  const minute = digits.length >= 12 ? Number(digits.slice(10, 12)) : 0;
+  const second = digits.length >= 14 ? Number(digits.slice(12, 14)) : 0;
+  if (
+    Number.isNaN(hour) ||
+    Number.isNaN(minute) ||
+    Number.isNaN(second) ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  ) {
+    return null;
+  }
+  const timestamp = Date.UTC(year, month - 1, day, hour, minute, second);
+  return Number.isNaN(timestamp) ? null : timestamp;
+};
+
+const tryParseTimestampFromDigits = (digits: string): number | null => {
+  const candidateLengths = [14, 12, 10, 8];
+  for (const len of candidateLengths) {
+    if (digits.length < len) continue;
+    const candidate = digits.slice(0, len);
+    const timestamp = buildTimestampFromDigits(candidate);
+    if (timestamp !== null) {
+      return timestamp;
+    }
+  }
+  return null;
+};
+
+const extractTimestampFromFilename = (filename?: string): number | null => {
+  if (!filename) return null;
+  const digitsOnly = filename.replace(/\D/g, '');
+  if (digitsOnly.length >= 8) {
+    const timestamp = tryParseTimestampFromDigits(digitsOnly);
+    if (timestamp !== null) {
+      return timestamp;
+    }
+  }
+  const segments = filename.match(/\d+/g);
+  if (!segments) return null;
+  for (const segment of segments) {
+    const timestamp = tryParseTimestampFromDigits(segment);
+    if (timestamp !== null) {
+      return timestamp;
+    }
+  }
+  return null;
+};
+
+const getPhotoSortTimestamp = (photo: Photo) => {
+  const fromFilename = extractTimestampFromFilename(photo.filename);
+  if (fromFilename !== null) {
+    return fromFilename;
+  }
+  const fromExif = parseDateValue(photo.dateTaken);
+  if (fromExif !== null) {
+    return fromExif;
+  }
+  const fromCreated = parseDateValue(photo.created);
+  if (fromCreated !== null) {
+    return fromCreated;
+  }
+  const fromUpdated = parseDateValue(photo.updated);
+  if (fromUpdated !== null) {
+    return fromUpdated;
+  }
+  return 0;
+};
+
+const getPhotoFilenameSortValue = (photo: Photo) => (photo.filename || '').toLowerCase();
+const getPhotoFilesize = (photo: Photo) => (typeof photo.filesize === 'number' ? photo.filesize : 0);
+
+const compareNameAsc = (a: Photo, b: Photo) =>
+  getPhotoFilenameSortValue(a).localeCompare(getPhotoFilenameSortValue(b), undefined, {
+    sensitivity: 'base'
+  });
+const compareTimestamp = (a: Photo, b: Photo) => getPhotoSortTimestamp(a) - getPhotoSortTimestamp(b);
+const compareSize = (a: Photo, b: Photo) => getPhotoFilesize(a) - getPhotoFilesize(b);
+
+const galleryPhotosForDisplay = computed(() => {
+  const list = [...photos.value];
+  return list.sort((a, b) => {
+    switch (photoSortMode.value) {
+      case 'name_asc':
+        return compareNameAsc(a, b);
+      case 'name_desc':
+        return compareNameAsc(b, a);
+      case 'time_asc':
+        return compareTimestamp(a, b);
+      case 'time_desc':
+        return compareTimestamp(b, a);
+      case 'size_asc':
+        return compareSize(a, b);
+      case 'size_desc':
+        return compareSize(b, a);
+      default:
+        return 0;
+    }
+  });
+});
+
+const updateVideoPreviewAspect = () => {
+  const video = videoPreviewRef.value;
+  if (!video) return;
+  const width = video.videoWidth || video.clientWidth;
+  const height = video.videoHeight || video.clientHeight;
+  if (width && height) {
+    videoPreviewAspectRatio.value = `${width} / ${height}`;
+  }
+};
+
+const handleVideoPreviewMetadata = () => {
+  updateVideoPreviewAspect();
+};
+
+const closeCoverPicker = () => {
+  showCoverPicker.value = false;
+};
+
+const openCoverPicker = async () => {
+  if (photos.value.length === 0) {
+    const toast = await toastController.create({
+      message: t('auto.keine_fotos_vorhanden'),
+      duration: 2000,
+      color: 'warning'
+    });
+    await toast.present();
+    return;
+  }
+  showCoverPicker.value = true;
+};
+
+const setGalleryCoverPhoto = async (photo: Photo) => {
+  if (coverSelectionLoading.value || !currentGallery.value?.id || !photo.id) return;
+  coverSelectionTarget.value = photo.id;
+  coverSelectionLoading.value = true;
+  try {
+    await updateGallery(currentGallery.value.id, {
+      coverPhotoId: photo.id
+    });
+    await loadGallery(currentGallery.value.id);
+    cacheBuster.value = Date.now();
+    const toast = await toastController.create({
+      message: t('auto.cover_ausgewaehlt'),
+      duration: 2000,
+      color: 'success'
+    });
+    await toast.present();
+    showCoverPicker.value = false;
+  } catch (error) {
+    console.error('Error setting cover photo:', error);
+    const toast = await toastController.create({
+      message: t('auto.cover_auswahl_fehlgeschlagen'),
+      duration: 3000,
+      color: 'danger'
+    });
+    await toast.present();
+  } finally {
+    coverSelectionLoading.value = false;
+    coverSelectionTarget.value = null;
+  }
+};
 
 let longPressTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -737,6 +1034,7 @@ const closeVideoPreview = () => {
   }
   videoPreviewOpen.value = false;
   videoPreviewSrc.value = null;
+  videoPreviewAspectRatio.value = '16 / 9';
 };
 
 
@@ -787,12 +1085,14 @@ onActivated(async () => {
 // Initialisiere Lightbox wenn Fotos geladen sind
 
 // Lightbox initialisieren und WakeLock an Lightbox-Status koppeln
-watch(photos, (newPhotos) => {
-  if (newPhotos.length > 0) {
-    setTimeout(() => {
-      initLightbox('#photo-gallery', newPhotos);
-    }, 100);
+watch(galleryPhotosForDisplay, (newPhotos) => {
+  if (newPhotos.length === 0) {
+    destroyLightbox();
+    return;
   }
+  setTimeout(() => {
+    initLightbox('#photo-gallery', newPhotos);
+  }, 100);
 }, { immediate: true });
 
 watch([isLightboxOpen, autoplayActive], ([open, auto]) => {
@@ -808,6 +1108,16 @@ watch(currentGallery, (gallery) => {
     populateEditFields();
   }
 }, { immediate: true });
+
+watch(
+  () => currentGallery.value?.id,
+  async (galleryId) => {
+    if (galleryId) {
+      await restorePhotoSortPreference(galleryId);
+    }
+  },
+  { immediate: true }
+);
 
 onBeforeUnmount(() => {
   destroyLightbox();
@@ -1011,10 +1321,57 @@ const handleAddMultiplePhotos = async () => {
   }
 };
 
+const showSortOptions = async () => {
+  const actionSheet = await actionSheetController.create({
+    header: t('auto.sortieren_nach'),
+    buttons: [
+      {
+        text: t('auto.sort_filename_az'),
+        handler: () => setPhotoSortMode('name_asc')
+      },
+      {
+        text: t('auto.sort_filename_za'),
+        handler: () => setPhotoSortMode('name_desc')
+      },
+      {
+        text: t('auto.sort_modified_new_to_old'),
+        handler: () => setPhotoSortMode('time_desc')
+      },
+      {
+        text: t('auto.sort_modified_old_to_new'),
+        handler: () => setPhotoSortMode('time_asc')
+      },
+      {
+        text: t('auto.sort_size_large_to_small'),
+        handler: () => setPhotoSortMode('size_desc')
+      },
+      {
+        text: t('auto.sort_size_small_to_large'),
+        handler: () => setPhotoSortMode('size_asc')
+      },
+      {
+        text: t('buttons.cancel'),
+        role: 'cancel'
+      }
+    ]
+  });
+  await actionSheet.present();
+};
+
 const showGalleryMenu = async () => {
   const actionSheet = await actionSheetController.create({
     header: t('auto.gallerie_optionen'),
     buttons: [
+      {
+        text: t('auto.sortieren_nach'),
+        icon: options,
+        handler: showSortOptions
+      },
+      {
+        text: currentGallery.value?.coverPhotoId ? t('auto.cover_bild_aktualisieren') : t('auto.cover_bild_waehlen'),
+        icon: image,
+        handler: openCoverPicker
+      },
       {
         text: t('auto.gallerie_bearbeiten'),
         icon: pencilOutline,
@@ -1118,7 +1475,10 @@ const openSelectedEditor = () => {
 };
 
 const openPhoto = (index: number) => {
-  openLightbox(index);
+  const photo = photos.value[index];
+  if (!photo) return;
+  const sortedIndex = galleryPhotosForDisplay.value.findIndex(p => p.id === photo.id);
+  openLightbox(sortedIndex >= 0 ? sortedIndex : index);
 };
 
 const getVideoPoster = (photoId: number | undefined) => {
@@ -1312,6 +1672,16 @@ onMounted(async () => {
 
 .view-toggle ion-segment {
   max-width: 400px;
+  margin: 0 auto;
+}
+
+.photo-sorter {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.photo-sorter ion-segment {
+  max-width: 360px;
   margin: 0 auto;
 }
 
@@ -1620,20 +1990,97 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
   box-sizing: border-box;
   background: #0d0d0d;
 }
 
 .video-preview-player {
-  width: 100vw;
-  height: 100vh;
-  max-width: 100vw;
-  max-height: 100vh;
-  border-radius: 0;
+  width: 100%;
+  max-width: 960px;
+  max-height: 80vh;
+  border-radius: 12px;
   background: #000;
+  aspect-ratio: var(--video-preview-aspect, 16 / 9);
   object-fit: contain;
+}
+
+.cover-picker-modal .modal-wrapper {
+  max-width: 95vw;
+  max-height: 85vh;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.cover-picker-content {
+  --background: var(--ion-color-light);
+  padding-top: 0;
+}
+
+.cover-picker-empty {
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: var(--ion-color-medium);
+}
+
+.cover-picker-grid {
+  padding: 1rem;
+}
+
+.cover-picker-card {
+  position: relative;
+  height: 140px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--ion-color-light);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+}
+
+.cover-picker-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cover-picker-card--selected {
+  outline: 2px solid var(--ion-color-primary);
+  outline-offset: -2px;
+}
+
+.cover-picker-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  text-transform: uppercase;
+}
+
+.cover-picker-spinner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.cover-picker-spinner ion-spinner {
+  --color: var(--ion-color-light);
+  width: 36px;
+  height: 36px;
 }
 </style>
 

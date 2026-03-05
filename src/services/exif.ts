@@ -6,9 +6,7 @@
  * Basiert auf der funktionierenden Implementierung aus dem Wine-Modul.
  */
 
-import * as ExifReader from 'exifreader'; // Corrected import
-import * as exifr from 'exifr'; // Added import for exifr library
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem } from '@capacitor/filesystem';
 // child_process is only available in Node environments — do not import at top-level
 
 /**
@@ -68,10 +66,30 @@ function isValidGPS(lat?: number, lng?: number): boolean {
  * @param filePath - Bild als Datei-URI
  * @returns GPS-Koordinaten oder undefined
  */
+type ExifReaderModule = typeof import('exifreader');
+type ExifrModule = typeof import('exifr');
+
+let cachedExifReader: ExifReaderModule | null = null;
+const getExifReader = async (): Promise<ExifReaderModule> => {
+  if (!cachedExifReader) {
+    cachedExifReader = await import('exifreader');
+  }
+  return cachedExifReader;
+};
+
+let cachedExifr: ExifrModule | null = null;
+const getExifr = async (): Promise<ExifrModule> => {
+  if (!cachedExifr) {
+    cachedExifr = await import('exifr');
+  }
+  return cachedExifr;
+};
+
 export async function extractGPSFromImage(source: string | ArrayBuffer): Promise<GPSCoordinates | undefined> {
   const logSource = typeof source === 'string' ? source : 'ArrayBuffer';
   try {
-    const exifData = await exifr.parse(source, { gps: true });
+    const exifrModule = await getExifr();
+    const exifData = await exifrModule.parse(source, { gps: true });
 
     if (exifData && exifData.latitude && exifData.longitude) {
       return {
@@ -105,6 +123,7 @@ export async function extractExifFromImage(arrayBuffer: ArrayBuffer): Promise<Ex
     
     // Test 1: ExifReader (aktuell)
     console.log('📚 Testing ExifReader...');
+    const ExifReader = await getExifReader();
     const tags = ExifReader.load(arrayBuffer, { expanded: true });
     console.log('   - Has GPS section:', !!tags.gps);
     if (tags.gps) {
@@ -114,7 +133,8 @@ export async function extractExifFromImage(arrayBuffer: ArrayBuffer): Promise<Ex
     // Test 2: exifr (alternative)
     console.log('📚 Testing exifr...');
     try {
-      const exifrOutput = await exifr.parse(arrayBuffer, {
+      const exifrModule = await getExifr();
+      const exifrOutput = await exifrModule.parse(arrayBuffer, {
         gps: true,
         tiff: true,
         exif: true,
