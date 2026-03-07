@@ -380,10 +380,6 @@ const showGalleryMenu = async () => {
           gallerySortMode.value = 'name';
         }
       },
-      {
-        text: t('buttons.cancel'),
-        role: 'cancel'
-      }
     ]
   });
   await actionSheet.present();

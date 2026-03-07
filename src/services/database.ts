@@ -119,6 +119,7 @@ export interface Route {
   travelMode?: 'car' | 'pedestrian' | 'bicycle' | 'motor_scooter';
   mapStyle?: MapStyle;
   isRecording: boolean;
+  showOnMapAndTimeline?: boolean;
   created: string;
   updated: string;
   pb_author?: string | null;
@@ -644,6 +645,7 @@ class DatabaseService {
         travelMode TEXT NOT NULL DEFAULT 'car',
         mapStyle TEXT NOT NULL DEFAULT 'street',
         isRecording INTEGER DEFAULT 1,
+        showOnMapAndTimeline INTEGER NOT NULL DEFAULT 1,
         created TEXT NOT NULL,
         updated TEXT NOT NULL
       );
@@ -942,6 +944,7 @@ class DatabaseService {
     await ensureColumn('routes', 'updated', 'ALTER TABLE routes ADD COLUMN updated TEXT;');
     await ensureColumn('routes', 'travelMode', `ALTER TABLE routes ADD COLUMN travelMode TEXT NOT NULL DEFAULT 'car';`);
     await ensureColumn('routes', 'mapStyle', `ALTER TABLE routes ADD COLUMN mapStyle TEXT NOT NULL DEFAULT 'street';`);
+    await ensureColumn('routes', 'showOnMapAndTimeline', 'ALTER TABLE routes ADD COLUMN showOnMapAndTimeline INTEGER NOT NULL DEFAULT 1;');
     await ensureColumn('waypoints', 'foreignID', 'ALTER TABLE waypoints ADD COLUMN foreignID TEXT;');
     await ensureColumn('waypoints', 'updated', 'ALTER TABLE waypoints ADD COLUMN updated TEXT;');
     await ensureColumn('waypoints', 'valLatitude', 'ALTER TABLE waypoints ADD COLUMN valLatitude REAL;');
@@ -1696,8 +1699,8 @@ class DatabaseService {
     const now = new Date().toISOString();
     const updated = route.updated ?? now;
     const sql = `
-      INSERT INTO routes (foreignID, pb_author, name, description, startTime, endTime, distance, duration, travelMode, mapStyle, isRecording, created, updated)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      INSERT INTO routes (foreignID, pb_author, name, description, startTime, endTime, distance, duration, travelMode, mapStyle, isRecording, showOnMapAndTimeline, created, updated)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
     
     const result = await this.db.run(sql, [
@@ -1712,6 +1715,7 @@ class DatabaseService {
       route.travelMode || 'car',
       route.mapStyle || 'street',
       route.isRecording ? 1 : 0,
+      route.showOnMapAndTimeline === false ? 0 : 1,
       now,
       updated
     ]);
@@ -1731,7 +1735,8 @@ class DatabaseService {
       ...row,
       isRecording: row.isRecording === 1,
       travelMode: row.travelMode || 'car',
-      mapStyle: row.mapStyle || 'street'
+      mapStyle: row.mapStyle || 'street',
+      showOnMapAndTimeline: row.showOnMapAndTimeline === 0 ? false : true
     }));
   }
 
@@ -1750,7 +1755,8 @@ class DatabaseService {
       ...row,
       isRecording: row.isRecording === 1,
       travelMode: row.travelMode || 'car',
-      mapStyle: row.mapStyle || 'street'
+      mapStyle: row.mapStyle || 'street',
+      showOnMapAndTimeline: row.showOnMapAndTimeline === 0 ? false : true
     };
   }
 
@@ -1767,7 +1773,7 @@ class DatabaseService {
       
       fields.push(`${key} = ?`);
       
-      if (key === 'isRecording') {
+      if (key === 'isRecording' || key === 'showOnMapAndTimeline') {
         values.push(value ? 1 : 0);
       } else {
         values.push(value ?? null);

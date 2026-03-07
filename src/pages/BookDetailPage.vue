@@ -409,7 +409,6 @@ const showRatingPicker = async () => {
       { label: 'Keine Bewertung', type: 'radio', value: 0, checked: !book.value.rating }
     ],
     buttons: [
-      { text: 'Abbrechen', role: 'cancel' },
       {
         text: 'OK',
         handler: async (rating) => {
@@ -452,7 +451,6 @@ const showQuantityPicker = async () => {
       }
     ],
     buttons: [
-      { text: 'Abbrechen', role: 'cancel' },
       {
         text: 'OK',
         handler: async (data) => {

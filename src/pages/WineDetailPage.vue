@@ -907,7 +907,6 @@ const confirmDeleteCurrentLightboxPhoto = async () => {
     header: 'Foto löschen?',
     message: 'Dieses Foto wird dauerhaft entfernt.',
     buttons: [
-      { text: 'Abbrechen', role: 'cancel' },
       {
         text: 'Löschen',
         role: 'destructive',
@@ -1182,10 +1181,6 @@ const showOptions = async () => {
             header: 'Wein löschen?',
             message: 'Möchtest du diesen Wein wirklich löschen?',
             buttons: [
-              {
-                text: 'Abbrechen',
-                role: 'cancel'
-              },
               {
                 text: 'Löschen',
                 role: 'destructive',

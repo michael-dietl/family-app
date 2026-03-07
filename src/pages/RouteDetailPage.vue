@@ -313,6 +313,10 @@
               <ion-radio slot="end" :value="option.value" />
             </ion-item>
           </ion-radio-group>
+          <ion-item>
+            <ion-label>{{ t('auto.auf_karte_und_zeitachse_anzeigen') }}</ion-label>
+            <ion-toggle slot="end" v-model="routeEditForm.showOnMapAndTimeline" />
+          </ion-item>
         </ion-list>
       </ion-content>
     </ion-modal>
@@ -346,6 +350,7 @@ import {
   IonTextarea,
   IonRadioGroup,
   IonRadio,
+  IonToggle,
   actionSheetController,
   alertController,
   toastController
@@ -409,7 +414,8 @@ const editRouteModalOpen = ref(false);
 const routeEditForm = reactive({
   name: '',
   description: '',
-  travelMode: 'car' as RouteData['travelMode']
+  travelMode: 'car' as RouteData['travelMode'],
+  showOnMapAndTimeline: true
 });
 const travelModeOptions = computed(() =>
   TRAVEL_MODE_CONFIGS.map((config) => ({
@@ -1772,10 +1778,6 @@ const showOptionsMenu = async () => {
           deleteRoute();
         }
       },
-      {
-        text: t('auto.abbrechen'),
-        role: 'cancel'
-      }
     ]
   });
   await actionSheet.present();
@@ -1788,6 +1790,7 @@ const openEditRouteModal = () => {
   routeEditForm.name = routeData.value.name;
   routeEditForm.description = routeData.value.description ?? '';
   routeEditForm.travelMode = routeData.value.travelMode ?? 'car';
+  routeEditForm.showOnMapAndTimeline = routeData.value.showOnMapAndTimeline !== false;
   editRouteModalOpen.value = true;
 };
 
@@ -1802,7 +1805,8 @@ const saveRouteEdits = async () => {
   const updates: Partial<RouteData> = {
     name,
     description: routeEditForm.description.trim() || undefined,
-    travelMode: routeEditForm.travelMode
+    travelMode: routeEditForm.travelMode,
+    showOnMapAndTimeline: routeEditForm.showOnMapAndTimeline
   };
   await db.updateRoute(routeId, updates);
   await loadData();

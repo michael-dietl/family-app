@@ -156,7 +156,6 @@ const confirmDelete = async (id: number) => {
     header: 'Liste löschen?',
     message: 'Alle Einträge dieser Liste werden ebenfalls gelöscht.',
     buttons: [
-      { text: 'Abbrechen', role: 'cancel' },
       {
         text: 'Löschen',
         role: 'destructive',

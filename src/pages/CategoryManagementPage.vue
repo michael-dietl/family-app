@@ -101,7 +101,6 @@ const createCategory = async () => {
       }
     ],
     buttons: [
-      { text: 'Abbrechen', role: 'cancel' },
       {
         text: 'Erstellen',
         handler: async (data: any) => {
@@ -165,7 +164,6 @@ const editCategory = async (category: BookCategory) => {
       }
     ],
     buttons: [
-      { text: 'Abbrechen', role: 'cancel' },
       {
         text: 'Speichern',
         handler: async (data: any) => {
@@ -216,7 +214,6 @@ const confirmDeleteCategory = async (category: BookCategory) => {
     header: 'Kategorie löschen?',
     message: `Möchtest du "${category.name}" wirklich löschen?`,
     buttons: [
-      { text: 'Abbrechen', role: 'cancel' },
       {
         text: 'Löschen',
         role: 'destructive',

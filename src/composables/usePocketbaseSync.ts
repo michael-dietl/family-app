@@ -354,6 +354,7 @@ const buildRoutePayload = (route: Route) => ({
   duration: route.duration ?? null,
   travelMode: route.travelMode || 'car',
   isRecording: Boolean(route.isRecording),
+  showOnMapAndTimeline: route.showOnMapAndTimeline ?? true,
   updated: route.updated
 });
 
@@ -2052,6 +2053,7 @@ export function usePocketbaseSync() {
               duration: remote.duration ?? undefined,
               travelMode: remote.travelMode ?? undefined,
               isRecording: Boolean(remote.isRecording),
+              showOnMapAndTimeline: remote.showOnMapAndTimeline ?? true,
               foreignID: remote.id,
               updated: remote.updated
             });
@@ -2082,6 +2084,7 @@ export function usePocketbaseSync() {
           duration: remote.duration ?? undefined,
           travelMode: remote.travelMode ?? undefined,
           isRecording: Boolean(remote.isRecording),
+          showOnMapAndTimeline: remote.showOnMapAndTimeline ?? true,
           foreignID: remote.id,
           updated: remote.updated
         });

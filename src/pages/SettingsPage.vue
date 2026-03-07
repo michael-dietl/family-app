@@ -139,12 +139,6 @@
               <ion-icon v-else :icon="lockClosed" />
               {{ $t('auto.anmelden') }}
             </ion-button>
-
-            <ion-button expand="block" color="primary" @click="handleBookSync" :disabled="isSyncing">
-              <ion-spinner v-if="isSyncing" />
-              <ion-icon v-else :icon="flash" />
-              {{ $t('auto.bücher_synchronisieren') }}
-            </ion-button>
           </div>
 
           <!-- Connection Status -->
@@ -477,10 +471,12 @@ const testValhallaConnection = async () => {
 
   isValhallaTesting.value = true;
   valhallaStatus.value = null;
+  const VALHALLA_API_KEY_HEADER_VALUE = 'oHdV*vxB*!b_vi#}5U';
   try {
     const response = await fetch(buildValhallaHealthUrl(settings.value.valhallaUrl), {
       headers: {
-        Accept: 'application/json'
+        Accept: 'application/json',
+        'X-Api-Key': VALHALLA_API_KEY_HEADER_VALUE
       }
     });
     if (!response.ok) {

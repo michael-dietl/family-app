@@ -524,6 +524,7 @@ const timelineGalleries = computed(() => {
 
 const timelineRoutes = computed(() => {
   return routes.value
+    .filter(route => route.showOnMapAndTimeline !== false)
     .map(route => {
       const start = route.startTime || route.created;
       const end = route.endTime || route.startTime || route.created;
