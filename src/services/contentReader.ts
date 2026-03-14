@@ -49,4 +49,25 @@ export async function copyContentUriToFile(uri: string, relativePath: string): P
   }
 }
 
-export default { readContentUri, getContentUriMeta, copyContentUriToFile };
+export async function getContentUriGps(
+  uri: string
+): Promise<{ latitude?: number; longitude?: number; source?: string } | null> {
+  try {
+    const win = window as any;
+    if (win && win.ContentReaderNative && typeof win.ContentReaderNative.getContentUriGps === 'function') {
+      const payload = win.ContentReaderNative.getContentUriGps(uri);
+      if (!payload) return null;
+      try {
+        return JSON.parse(payload);
+      } catch (parseError) {
+        console.warn('ContentReaderNative gps parse failed:', parseError);
+      }
+    }
+    return null;
+  } catch (e) {
+    console.warn('ContentReaderNative gps failed:', e);
+    return null;
+  }
+}
+
+export default { readContentUri, getContentUriMeta, copyContentUriToFile, getContentUriGps };

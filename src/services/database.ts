@@ -125,6 +125,24 @@ export interface Route {
   pb_author?: string | null;
 }
 
+export interface StoryMap {
+  id?: number;
+  foreignID?: string;
+  pb_author?: string | null;
+  routeId: number;
+  title: string;
+  description?: string;
+  startTime: string;
+  endTime?: string;
+  distance?: number;
+  duration?: number;
+  travelMode?: Route['travelMode'];
+  isPublished?: boolean;
+  coverImagePath?: string;
+  created: string;
+  updated: string;
+}
+
 export interface User {
   id?: number;
   foreignID: string;
@@ -263,6 +281,50 @@ export interface DeletedEntry {
   created: string;
 }
 
+const VIDEO_MIME_PREFIX = 'video/';
+const IMAGE_MIME_PREFIX = 'image/';
+const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'webm', 'mkv', 'avi', '3gp', 'm4v']);
+
+const getLowercaseExtension = (filename?: string | null): string => {
+  if (!filename) return '';
+  const clean = filename.split('?')[0].split('#')[0];
+  const parts = clean.split('.');
+  if (parts.length < 2) return '';
+  return (parts.pop() || '').toLowerCase();
+};
+
+const normalizePhotoFromStorage = (photo: Photo): Photo => {
+  const mime = (photo.mimeType || '').toLowerCase();
+  const extFromName = getLowercaseExtension(photo.filename || photo.filepath || '');
+
+  let normalizedIsVideo = Boolean(photo.isVideo);
+  if (mime.startsWith(IMAGE_MIME_PREFIX)) {
+    normalizedIsVideo = false;
+  } else if (mime.startsWith(VIDEO_MIME_PREFIX)) {
+    normalizedIsVideo = true;
+  } else if (VIDEO_EXTENSIONS.has(extFromName)) {
+    normalizedIsVideo = true;
+  }
+
+  if (normalizedIsVideo === Boolean(photo.isVideo)) {
+    return photo;
+  }
+
+  return {
+    ...photo,
+    isVideo: normalizedIsVideo
+  };
+};
+
+const hasUsableGps = (lat?: number | null, lng?: number | null): lat is number => {
+  if (lat == null || lng == null) return false;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  if (lat < -90 || lat > 90) return false;
+  if (lng < -180 || lng > 180) return false;
+  if (Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001) return false;
+  return true;
+};
+
 type CreationParams<T extends { updated: string }> = Omit<T, 'id' | 'created' | 'updated'> & Partial<Pick<T, 'updated'>>;
 
 // In-Memory Storage für Web-Development
@@ -353,6 +415,24 @@ class InMemoryStorage {
 
   getPhotoCount(galleryId: number): number {
     return this.photos.filter(p => p.galleryId === galleryId).length;
+  }
+
+  findPhotoGpsByHints(filePaths: string[], fileNames: string[]): { latitude: number; longitude: number; photoId: number } | null {
+    const normalizedPaths = new Set(filePaths.map((entry) => entry.trim()).filter(Boolean));
+    const normalizedNames = new Set(fileNames.map((entry) => entry.trim()).filter(Boolean));
+
+    const candidates = this.photos
+      .filter((photo) => {
+        const pathMatch = normalizedPaths.size > 0
+          && ((photo.filepath && normalizedPaths.has(photo.filepath)) || (photo.storagePath && normalizedPaths.has(photo.storagePath)));
+        const nameMatch = normalizedNames.size > 0 && photo.filename && normalizedNames.has(photo.filename);
+        return (pathMatch || nameMatch) && hasUsableGps(photo.latitude, photo.longitude);
+      })
+      .sort((a, b) => new Date(b.updated || b.created).getTime() - new Date(a.updated || a.created).getTime());
+
+    const best = candidates[0];
+    if (!best?.id || best.latitude == null || best.longitude == null) return null;
+    return { latitude: best.latitude, longitude: best.longitude, photoId: best.id };
   }
 
   createTimelineEvent(event: CreationParams<TimelineEvent>): number {
@@ -496,6 +576,85 @@ class DatabaseService {
 
   private getLocalDatabaseFileName(): string {
     return `${this.dbName}${this.sqliteSuffix}`;
+  }
+
+  async backupToSharedStorage(reason = 'manual'): Promise<string | null> {
+    if (this.useInMemory || !Capacitor.isNativePlatform()) return null;
+    if (!this.isInitialized) await this.initialize();
+
+    const sourcePath = `databases/${this.getLocalDatabaseFileName()}`;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const safeReason = reason.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const backupFileName = `${this.dbName}-backup-${safeReason}-${timestamp}.${this.sqliteSuffix}`;
+    const targetFolder = 'db';
+    const latestTargetPath = buildSharedStoragePath(targetFolder, this.getLocalDatabaseFileName());
+    const timestampTargetPath = buildSharedStoragePath(targetFolder, backupFileName);
+
+    try {
+      const externalDirectory = getSharedStorageDirectory();
+      await ensureDirectoryExists(externalDirectory, buildSharedStoragePath(targetFolder));
+      await ensureDirectoryExists(Directory.Documents, buildSharedStoragePath(targetFolder));
+      let data: string | Blob | null | undefined;
+      try {
+        const result = await Filesystem.readFile({
+          directory: Directory.Data,
+          path: sourcePath
+        });
+        data = result.data;
+      } catch (readError) {
+        console.warn('MOBIDB read from databases/ failed, trying direct filename', { sourcePath, readError });
+        const fallbackResult = await Filesystem.readFile({
+          directory: Directory.Data,
+          path: this.getLocalDatabaseFileName()
+        });
+        data = fallbackResult.data;
+      }
+
+      if (!data) return null;
+
+      const externalLatestWrite = await Filesystem.writeFile({
+        directory: externalDirectory,
+        path: latestTargetPath,
+        data,
+        recursive: true
+      });
+
+      const externalTimestampWrite = await Filesystem.writeFile({
+        directory: externalDirectory,
+        path: timestampTargetPath,
+        data,
+        recursive: true
+      });
+
+      const documentsLatestWrite = await Filesystem.writeFile({
+        directory: Directory.Documents,
+        path: latestTargetPath,
+        data,
+        recursive: true
+      });
+
+      const documentsTimestampWrite = await Filesystem.writeFile({
+        directory: Directory.Documents,
+        path: timestampTargetPath,
+        data,
+        recursive: true
+      });
+
+      console.log('MOBIDB backup success', {
+        reason,
+        latestTargetPath,
+        timestampTargetPath,
+        sourcePath,
+        externalLatestUri: externalLatestWrite.uri,
+        externalTimestampUri: externalTimestampWrite.uri,
+        documentsLatestUri: documentsLatestWrite.uri,
+        documentsTimestampUri: documentsTimestampWrite.uri
+      });
+      return latestTargetPath;
+    } catch (error) {
+      console.warn('Could not create sqlite backup in shared storage', { reason, error });
+      return null;
+    }
   }
 
   private async mirrorDatabaseToSharedStorage(): Promise<void> {
@@ -680,6 +839,30 @@ class DatabaseService {
     `;
     const routeAuthorIndex = `
       CREATE INDEX IF NOT EXISTS idx_routes_pb_author ON routes(pb_author);
+    `;
+    const storyMapsTable = `
+      CREATE TABLE IF NOT EXISTS story_maps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        foreignID TEXT,
+        pb_author TEXT,
+        routeId INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        startTime TEXT NOT NULL,
+        endTime TEXT,
+        distance REAL,
+        duration INTEGER,
+        travelMode TEXT,
+        isPublished INTEGER DEFAULT 0,
+        coverImagePath TEXT,
+        created TEXT NOT NULL,
+        updated TEXT NOT NULL,
+        FOREIGN KEY (routeId) REFERENCES routes(id) ON DELETE CASCADE
+      );
+    `;
+    const storyMapIndexes = `
+      CREATE INDEX IF NOT EXISTS idx_story_maps_route ON story_maps(routeId);
+      CREATE INDEX IF NOT EXISTS idx_story_maps_pb_author ON story_maps(pb_author);
     `;
     // Weine Tabelle
     const winesTable = `
@@ -889,6 +1072,8 @@ class DatabaseService {
     await this.db.execute(waypointsTable);
     await this.db.execute(routeIndexes);
     await this.db.execute(routeAuthorIndex);
+    await this.db.execute(storyMapsTable);
+    await this.db.execute(storyMapIndexes);
     await this.db.execute(winesTable);
     await this.db.execute(wineIndexes);
     await this.db.execute(winePhotosTable);
@@ -1296,8 +1481,8 @@ class DatabaseService {
       photo.filesize || null,
       photo.mimeType || null,
       photo.isVideo ? 1 : 0,
-      photo.latitude || null,
-      photo.longitude || null,
+      photo.latitude ?? null,
+      photo.longitude ?? null,
       photo.dateTaken || null,
       photo.camera || null,
       photo.lens || null,
@@ -1323,8 +1508,8 @@ class DatabaseService {
 
     const sql = 'SELECT * FROM photos WHERE galleryId = ? ORDER BY dateTaken DESC, created DESC;';
     const result = await this.db.query(sql, [galleryId]);
-    
-    return result.values as Photo[] || [];
+    const rows = (result.values as Photo[] || []).map(normalizePhotoFromStorage);
+    return rows;
   }
 
   async getLatestPhotoPreview(galleryId: number): Promise<PhotoPreview | null> {
@@ -1358,8 +1543,9 @@ class DatabaseService {
 
     const sql = 'SELECT * FROM photos WHERE id = ?;';
     const result = await this.db.query(sql, [id]);
-    
-    return result.values?.[0] as Photo || null;
+    const row = result.values?.[0] as Photo | undefined;
+    if (!row) return null;
+    return normalizePhotoFromStorage(row);
   }
 
   async updatePhoto(id: number, updates: Partial<Photo>): Promise<void> {
@@ -1397,6 +1583,46 @@ class DatabaseService {
     if (updates.filesize !== undefined) {
       fields.push('filesize = ?');
       values.push(updates.filesize);
+    }
+    if (updates.latitude !== undefined) {
+      fields.push('latitude = ?');
+      values.push(updates.latitude ?? null);
+    }
+    if (updates.longitude !== undefined) {
+      fields.push('longitude = ?');
+      values.push(updates.longitude ?? null);
+    }
+    if (updates.dateTaken !== undefined) {
+      fields.push('dateTaken = ?');
+      values.push(updates.dateTaken ?? null);
+    }
+    if (updates.camera !== undefined) {
+      fields.push('camera = ?');
+      values.push(updates.camera ?? null);
+    }
+    if (updates.lens !== undefined) {
+      fields.push('lens = ?');
+      values.push(updates.lens ?? null);
+    }
+    if (updates.focalLength !== undefined) {
+      fields.push('focalLength = ?');
+      values.push(updates.focalLength ?? null);
+    }
+    if (updates.aperture !== undefined) {
+      fields.push('aperture = ?');
+      values.push(updates.aperture ?? null);
+    }
+    if (updates.shutterSpeed !== undefined) {
+      fields.push('shutterSpeed = ?');
+      values.push(updates.shutterSpeed ?? null);
+    }
+    if (updates.iso !== undefined) {
+      fields.push('iso = ?');
+      values.push(updates.iso ?? null);
+    }
+    if (updates.isVideo !== undefined) {
+      fields.push('isVideo = ?');
+      values.push(updates.isVideo ? 1 : 0);
     }
     if (updates.foreignID !== undefined) {
       fields.push('foreignID = ?');
@@ -1442,6 +1668,64 @@ class DatabaseService {
     const result = await this.db.query(sql, [galleryId]);
     
     return result.values?.[0]?.count || 0;
+  }
+
+  async findPhotoGpsByHints(filePaths: string[], fileNames: string[]): Promise<{ latitude: number; longitude: number; photoId: number } | null> {
+    if (!this.isInitialized) await this.initialize();
+
+    const normalizedPaths = Array.from(new Set(filePaths.map((entry) => entry.trim()).filter(Boolean)));
+    const normalizedNames = Array.from(new Set(fileNames.map((entry) => entry.trim()).filter(Boolean)));
+
+    if (normalizedPaths.length === 0 && normalizedNames.length === 0) {
+      return null;
+    }
+
+    if (this.useInMemory) {
+      return this.inMemory.findPhotoGpsByHints(normalizedPaths, normalizedNames);
+    }
+
+    if (!this.db) throw new Error('Database not initialized');
+
+    const whereParts: string[] = [];
+    const values: Array<string | number> = [];
+
+    if (normalizedPaths.length > 0) {
+      const placeholders = normalizedPaths.map(() => '?').join(', ');
+      whereParts.push(`(filepath IN (${placeholders}) OR storagePath IN (${placeholders}))`);
+      values.push(...normalizedPaths, ...normalizedPaths);
+    }
+
+    if (normalizedNames.length > 0) {
+      const placeholders = normalizedNames.map(() => '?').join(', ');
+      whereParts.push(`filename IN (${placeholders})`);
+      values.push(...normalizedNames);
+    }
+
+    if (whereParts.length === 0) return null;
+
+    const sql = `
+      SELECT id, latitude, longitude, updated, created
+      FROM photos
+      WHERE (${whereParts.join(' OR ')})
+        AND latitude IS NOT NULL
+        AND longitude IS NOT NULL
+      ORDER BY datetime(updated) DESC, datetime(created) DESC
+      LIMIT 10;
+    `;
+
+    const result = await this.db.query(sql, values);
+    const rows = result.values || [];
+
+    for (const row of rows) {
+      const latitude = typeof row.latitude === 'number' ? row.latitude : Number(row.latitude);
+      const longitude = typeof row.longitude === 'number' ? row.longitude : Number(row.longitude);
+      if (!hasUsableGps(latitude, longitude)) continue;
+      const photoId = typeof row.id === 'number' ? row.id : Number(row.id);
+      if (!Number.isFinite(photoId)) continue;
+      return { latitude, longitude, photoId };
+    }
+
+    return null;
   }
 
   async close(): Promise<void> {
@@ -1813,6 +2097,111 @@ class DatabaseService {
     const sql = 'DELETE FROM routes WHERE id = ?;';
     await this.db.run(sql, [id]);
     await this.queueDeletion('routes', id);
+  }
+
+  async createStoryMap(storyMap: CreationParams<StoryMap>): Promise<number> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) throw new Error('Story maps not supported in web mode');
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const updated = storyMap.updated ?? now;
+    const sql = `
+      INSERT INTO story_maps (
+        foreignID, pb_author, routeId, title, description, startTime, endTime,
+        distance, duration, travelMode, isPublished, coverImagePath, created, updated
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    `;
+
+    const result = await this.db.run(sql, [
+      storyMap.foreignID || null,
+      storyMap.pb_author || null,
+      storyMap.routeId,
+      storyMap.title,
+      storyMap.description || null,
+      storyMap.startTime,
+      storyMap.endTime || null,
+      storyMap.distance ?? null,
+      storyMap.duration ?? null,
+      storyMap.travelMode || null,
+      storyMap.isPublished ? 1 : 0,
+      storyMap.coverImagePath || null,
+      now,
+      updated
+    ]);
+
+    return result.changes?.lastId || 0;
+  }
+
+  async getStoryMaps(): Promise<StoryMap[]> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return [];
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'SELECT * FROM story_maps ORDER BY updated DESC;';
+    const result = await this.db.query(sql);
+    return (result.values || []).map((row: any) => ({
+      ...row,
+      isPublished: row.isPublished === 1,
+      travelMode: row.travelMode || undefined,
+      coverImagePath: row.coverImagePath || undefined
+    }));
+  }
+
+  async getStoryMapByRoute(routeId: number): Promise<StoryMap | null> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return null;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'SELECT * FROM story_maps WHERE routeId = ? LIMIT 1;';
+    const result = await this.db.query(sql, [routeId]);
+    const row = result.values?.[0];
+    if (!row) return null;
+    return {
+      ...row,
+      isPublished: row.isPublished === 1,
+      travelMode: row.travelMode || undefined,
+      coverImagePath: row.coverImagePath || undefined
+    };
+  }
+
+  async updateStoryMap(id: number, updates: Partial<StoryMap>): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (key === 'id' || key === 'created' || key === 'updated') return;
+      fields.push(`${key} = ?`);
+      if (key === 'isPublished') {
+        values.push(value ? 1 : 0);
+      } else {
+        values.push(value ?? null);
+      }
+    });
+
+    if (fields.length === 0) return;
+
+    const updated = updates.updated ?? new Date().toISOString();
+    fields.push('updated = ?');
+    values.push(updated);
+
+    values.push(id);
+    const sql = `UPDATE story_maps SET ${fields.join(', ')} WHERE id = ?;`;
+    await this.db.run(sql, values);
+  }
+
+  async deleteStoryMap(id: number): Promise<void> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'DELETE FROM story_maps WHERE id = ?;';
+    await this.db.run(sql, [id]);
+    await this.queueDeletion('story_maps', id);
   }
 
   async upsertUser(user: CreationParams<User> & { foreignID: string }): Promise<number> {
@@ -2363,6 +2752,22 @@ class DatabaseService {
       ...row,
       completed: row.completed === 1
     }));
+  }
+
+  async getShoppingItem(id: number): Promise<ShoppingItem | null> {
+    if (!this.isInitialized) await this.initialize();
+    if (this.useInMemory) return null;
+    if (!this.db) throw new Error('Database not initialized');
+
+    const sql = 'SELECT * FROM shopping_items WHERE id = ?;';
+    const result = await this.db.query(sql, [id]);
+    const row = (result.values || [])[0];
+    if (!row) return null;
+
+    return {
+      ...row,
+      completed: row.completed === 1
+    };
   }
 
   async updateShoppingItem(id: number, updates: Partial<ShoppingItem>): Promise<void> {

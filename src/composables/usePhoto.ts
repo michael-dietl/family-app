@@ -5,12 +5,35 @@ import { Geolocation } from '@capacitor/geolocation'; // Retained for route trac
 import { Capacitor } from '@capacitor/core';
 import { db, type Photo } from '@/services/database';
 import { extractExifFromUri, extractGPSFromCameraExif, extractExifFromImage } from '@/services/exif';
-import { copyContentUriToFile, getContentUriMeta, readContentUri } from '@/services/contentReader';
+import { copyContentUriToFile, getContentUriGps, getContentUriMeta, readContentUri } from '@/services/contentReader';
 import { buildSharedStoragePath, getSharedStorageDirectory } from '@/services/storagePaths';
 
 const videoExtensions = ['mp4', 'mov', 'webm', 'mkv', 'avi', '3gp', 'm4v'];
 const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'tiff'];
 const MAX_EXIF_FALLBACK_BYTES = 20 * 1024 * 1024;
+
+const logGpsMobi = (message: string, payload?: Record<string, unknown>) => {
+  if (!payload) {
+    console.log(`GPSMOBI ${message}`);
+    return;
+  }
+  let serialized = '';
+  try {
+    serialized = JSON.stringify(payload);
+  } catch {
+    serialized = String(payload);
+  }
+  console.log(`GPSMOBI ${message} ${serialized}`);
+};
+
+const isUsableCoordinatePair = (lat?: number | null, lng?: number | null): boolean => {
+  if (lat == null || lng == null) return false;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  if (Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001) return false;
+  if (lat < -90 || lat > 90) return false;
+  if (lng < -180 || lng > 180) return false;
+  return true;
+};
 
 const getExtensionFromUri = (uri: string) => {
   if (!uri) return '';
@@ -35,6 +58,14 @@ const getExtensionFromName = (name?: string) => {
   const parts = clean.split('.');
   if (parts.length <= 1) return '';
   return parts.pop()?.toLowerCase() || '';
+};
+
+const getFilenameFromUri = (uri?: string) => {
+  if (!uri) return '';
+  const clean = uri.split('?')[0].split('#')[0];
+  const slashIndex = clean.lastIndexOf('/');
+  if (slashIndex === -1) return clean;
+  return clean.slice(slashIndex + 1);
 };
 
 const normalizeVideoExtension = (ext?: string) => {
@@ -410,17 +441,23 @@ export function usePhoto() {
       let arrayBufferForExif: ArrayBuffer | undefined;
       
       // Versuche EXIF aus URI zu extrahieren (funktioniert bei Android content:// URIs)
-      if (!cameraExifData && photoUri.startsWith('content://')) {
-        console.log('📸 Detected Android content:// URI, trying direct EXIF extraction...');
+      if (photoUri.startsWith('content://') || photoUri.startsWith('file://')) {
+        console.log('📸 Native URI detected, trying direct EXIF extraction from URI...');
         try {
           exifData = await extractExifFromUri(photoUri);
           console.log('   ✅ EXIF extracted from URI:', {
-            hasGPS: !!(exifData.latitude && exifData.longitude),
+            hasGPS: exifData.latitude != null && exifData.longitude != null,
             latitude: exifData.latitude,
             longitude: exifData.longitude
           });
-        } catch (error) {
-          console.warn('⚠️ Could not extract EXIF from URI:', error);
+          logGpsMobi('uri exif', {
+            hasGPS: exifData.latitude != null && exifData.longitude != null,
+            latitude: exifData.latitude ?? null,
+            longitude: exifData.longitude ?? null,
+            uri: photoUri
+          });
+        } catch (err) {
+          console.warn('⚠️ Could not extract EXIF from URI:', err);
         }
       }
       
@@ -434,9 +471,15 @@ export function usePhoto() {
           console.warn('⚠️ Could not read content meta:', metaError);
         }
       }
-      const inferredIsVideo = isUriLikelyVideo(photoUri) || isVideoFromMeta(contentMeta);
+      const uriExt = normalizeVideoExtension(getExtensionFromUri(photoUri));
+      const metaExtForDetection = normalizeVideoExtension(getExtensionFromName(contentMeta?.displayName));
+      const metaSaysVideo = Boolean(contentMeta?.mimeType?.startsWith('video/'))
+        || videoExtensions.includes(metaExtForDetection)
+        || videoExtensions.includes(uriExt);
+      const inferredIsVideo = metaSaysVideo || isUriLikelyVideo(photoUri) || isVideoFromMeta(contentMeta);
 
-      const shouldLoadBlob = !(Capacitor.getPlatform() !== 'web' && inferredIsVideo && photoUri.startsWith('content://'));
+      // Skip blob loading only for clearly-detected videos on native content:// URIs.
+      const shouldLoadBlob = !(Capacitor.getPlatform() !== 'web' && metaSaysVideo && photoUri.startsWith('content://'));
       if (shouldLoadBlob) {
         if (base64Data && !inferredIsVideo) {
           // base64Data is raw base64 without data: prefix
@@ -468,24 +511,43 @@ export function usePhoto() {
 
       const sniffedMime = blob ? await guessMimeFromBlob(blob) : undefined;
       let mimeType = contentMeta?.mimeType || blob?.type || sniffedMime || (inferredIsVideo ? 'video/mp4' : 'image/jpeg');
-      let isVideo = inferredIsVideo || (mimeType ? mimeType.startsWith('video/') : false);
+      const mimeSaysVideo = Boolean(mimeType && mimeType.startsWith('video/'));
+      const mimeSaysImage = Boolean(mimeType && mimeType.startsWith('image/'));
+      const extSaysVideo = videoExtensions.includes(metaExtForDetection) || videoExtensions.includes(uriExt);
+      const extSaysImage = imageExtensions.includes(getExtensionFromName(contentMeta?.displayName).toLowerCase())
+        || imageExtensions.includes(getExtensionFromUri(photoUri).toLowerCase());
+
+      // Prefer explicit MIME/ext signals to avoid false-positive video classification.
+      let isVideo = mimeSaysVideo || extSaysVideo || (inferredIsVideo && !mimeSaysImage && !extSaysImage);
 
       console.log('🖼️ Blob loaded:', { type: blob?.type, size: blob?.size, isVideo, mimeType });
 
       // 2. Falls noch keine EXIF-Daten, versuche aus Blob
-      if (!isVideo && blob && !exifData.latitude && !exifData.longitude) {
+      if (!isVideo && blob && (exifData.latitude == null || exifData.longitude == null)) {
         console.log('📸 No GPS from URI, trying to extract from blob...');
         const arrayBuffer = await blob.arrayBuffer();
         arrayBufferForExif = arrayBuffer;
         const blobExifData = await extractExifFromImage(arrayBuffer);
         // Merge EXIF-Daten (blob kann andere Infos haben wie Kamera, etc.)
         exifData = { ...blobExifData, ...exifData };
+        if (exifData.latitude == null && blobExifData.latitude != null) {
+          exifData.latitude = blobExifData.latitude;
+        }
+        if (exifData.longitude == null && blobExifData.longitude != null) {
+          exifData.longitude = blobExifData.longitude;
+        }
         console.log('   - Extracted EXIF from blob:', {
-          hasGPS: !!(exifData.latitude && exifData.longitude),
+          hasGPS: exifData.latitude != null && exifData.longitude != null,
           latitude: exifData.latitude,
           longitude: exifData.longitude,
           dateTaken: exifData.dateTaken,
           camera: exifData.camera
+        });
+        logGpsMobi('blob exif', {
+          hasGPS: exifData.latitude != null && exifData.longitude != null,
+          latitude: exifData.latitude ?? null,
+          longitude: exifData.longitude ?? null,
+          uri: photoUri
         });
 
         // 2b. Fallback: Wenn noch immer keine GPS-Daten vorhanden sind und wir eine content:// URI haben,
@@ -501,7 +563,7 @@ export function usePhoto() {
           && looksLikeImage
           && (contentMeta?.size ? contentMeta.size <= MAX_EXIF_FALLBACK_BYTES : false);
 
-        if (!exifData.latitude && allowContentExifFallback) {
+        if ((exifData.latitude == null || exifData.longitude == null) && allowContentExifFallback) {
           try {
             console.log('🔁 Trying native ContentReader fallback for original bytes...');
             const res = await readContentUri(photoUri);
@@ -509,14 +571,51 @@ export function usePhoto() {
               const ab = base64ToArrayBuffer(res.data);
               const fallbackExif = await extractExifFromImage(ab);
               exifData = { ...fallbackExif, ...exifData };
+              if (exifData.latitude == null && fallbackExif.latitude != null) {
+                exifData.latitude = fallbackExif.latitude;
+              }
+              if (exifData.longitude == null && fallbackExif.longitude != null) {
+                exifData.longitude = fallbackExif.longitude;
+              }
               console.log('   - Extracted EXIF from native content bytes:', {
-                hasGPS: !!(exifData.latitude && exifData.longitude),
+                hasGPS: exifData.latitude != null && exifData.longitude != null,
                 latitude: exifData.latitude,
                 longitude: exifData.longitude
+              });
+              logGpsMobi('native content exif', {
+                hasGPS: exifData.latitude != null && exifData.longitude != null,
+                latitude: exifData.latitude ?? null,
+                longitude: exifData.longitude ?? null,
+                uri: photoUri
               });
             }
           } catch (nativeErr) {
             console.warn('⚠️ Native ContentReader fallback failed:', nativeErr);
+          }
+        }
+
+        if ((exifData.latitude == null || exifData.longitude == null) && photoUri.startsWith('content://')) {
+          try {
+            const nativeGps = await getContentUriGps(photoUri);
+            if (
+              nativeGps
+              && Number.isFinite(nativeGps.latitude)
+              && Number.isFinite(nativeGps.longitude)
+              && Math.abs(nativeGps.latitude as number) <= 90
+              && Math.abs(nativeGps.longitude as number) <= 180
+              && !(Math.abs(nativeGps.latitude as number) < 0.000001 && Math.abs(nativeGps.longitude as number) < 0.000001)
+            ) {
+              exifData.latitude = nativeGps.latitude as number;
+              exifData.longitude = nativeGps.longitude as number;
+              logGpsMobi('native content gps fallback', {
+                latitude: exifData.latitude,
+                longitude: exifData.longitude,
+                source: nativeGps.source || 'unknown',
+                uri: photoUri
+              });
+            }
+          } catch (nativeGpsError) {
+            console.warn('⚠️ Native ContentReader GPS fallback failed:', nativeGpsError);
           }
         }
       }
@@ -547,10 +646,45 @@ export function usePhoto() {
         //   }
         // }
         
-        if (hasImageGPS) {
+        if (!hasImageGPS && !manualLocation) {
+          const pathHints = [photoUri];
+          if (photoUri.startsWith('file://')) {
+            pathHints.push(photoUri.replace('file://', ''));
+          }
+
+          const filenameHints = [
+            contentMeta?.displayName,
+            getFilenameFromUri(photoUri),
+            filename
+          ].filter((entry): entry is string => Boolean(entry && entry.trim()));
+
+          const dbGps = await db.findPhotoGpsByHints(pathHints, filenameHints);
+          if (dbGps) {
+            exifData.latitude = dbGps.latitude;
+            exifData.longitude = dbGps.longitude;
+            logGpsMobi('reused DB GPS', {
+              latitude: exifData.latitude,
+              longitude: exifData.longitude,
+              sourcePhotoId: dbGps.photoId,
+              uri: photoUri,
+              filenameHints
+            });
+          }
+        }
+
+        const hasFinalGps = (exifData.latitude !== undefined && exifData.latitude !== null)
+          && (exifData.longitude !== undefined && exifData.longitude !== null);
+
+        if (hasFinalGps) {
           console.log('✅ Using GPS from image EXIF - no fallback needed');
+          logGpsMobi('selected image GPS', {
+            latitude: exifData.latitude ?? null,
+            longitude: exifData.longitude ?? null,
+            uri: photoUri
+          });
         } else if (!manualLocation) {
           console.log('⚠️ No GPS in image and no manual location provided');
+          logGpsMobi('no GPS available', { uri: photoUri });
         }
 
         // Überschreibe mit Camera API EXIF falls vorhanden (für frische Fotos)
@@ -604,6 +738,11 @@ export function usePhoto() {
           console.log('📍 Using manual location (overrides all):', manualLocation);
           exifData.latitude = manualLocation.latitude;
           exifData.longitude = manualLocation.longitude;
+          logGpsMobi('manual GPS override', {
+            latitude: exifData.latitude ?? null,
+            longitude: exifData.longitude ?? null,
+            uri: photoUri
+          });
         }
         
         console.log('📊 Final EXIF data:', exifData);
@@ -640,7 +779,7 @@ export function usePhoto() {
       let nativeStoragePath: string | undefined;
       
       let usedNativeCopy = false;
-      if (isNative && isVideo && photoUri.startsWith('content://')) {
+      if (isNative && photoUri.startsWith('content://')) {
         try {
           const targetPath = buildSharedStoragePath('galleries', galleryId.toString(), finalFilename);
           const copiedPath = await copyContentUriToFile(photoUri, targetPath);
@@ -649,11 +788,34 @@ export function usePhoto() {
             nativeStoragePath = copiedPath;
             usedNativeCopy = true;
             if (!mimeType) {
-              mimeType = getVideoMimeFromExtension(videoExt);
+              mimeType = isVideo ? getVideoMimeFromExtension(videoExt) : 'image/jpeg';
+            }
+
+            // Re-run EXIF extraction from the copied original file.
+            // This is the authoritative source after native copy and should be preferred for GPS.
+            if (!isVideo) {
+              try {
+                const copiedExif = await extractExifFromUri(copiedPath);
+
+                if (isUsableCoordinatePair(copiedExif.latitude ?? null, copiedExif.longitude ?? null)) {
+                  exifData.latitude = copiedExif.latitude;
+                  exifData.longitude = copiedExif.longitude;
+                  logGpsMobi('copied file GPS selected', {
+                    latitude: exifData.latitude ?? null,
+                    longitude: exifData.longitude ?? null,
+                    copiedPath
+                  });
+                }
+
+                // Keep existing values where copied EXIF has no data, but fill all other metadata from copied file.
+                exifData = { ...copiedExif, ...exifData };
+              } catch (copyExifError) {
+                console.warn('⚠️ EXIF extraction from copied file failed:', copyExifError);
+              }
             }
           }
         } catch (copyError) {
-          console.warn('⚠️ Native video copy failed, falling back to base64 write:', copyError);
+          console.warn('⚠️ Native content copy failed, falling back to base64 write:', copyError);
         }
       }
 
@@ -763,7 +925,15 @@ export function usePhoto() {
         thumbnailStored: thumbnailPath ? 'yes' : 'no'
       }));
 
-      console.log('✅ Media saved successfully with ID:', photoId, '- GPS in DB:', !!exifData.latitude && !!exifData.longitude);
+      console.log('✅ Media saved successfully with ID:', photoId, '- GPS in DB:', exifData.latitude != null && exifData.longitude != null);
+      logGpsMobi('saved media gps', {
+        photoId,
+        galleryId,
+        hasGPS: exifData.latitude != null && exifData.longitude != null,
+        latitude: exifData.latitude ?? null,
+        longitude: exifData.longitude ?? null,
+        filepath: filePath
+      });
       return photoId;
     } catch (error) {
       console.error('❌ Error saving media:', error);

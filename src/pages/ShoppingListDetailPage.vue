@@ -8,6 +8,13 @@
         </ion-buttons>
         <ion-title>{{ currentList?.name || 'Einkaufsliste' }}</ion-title>
         <ion-buttons slot="end">
+          <ion-button fill="clear" @click="shareShoppingList" :disabled="pendingShoppingItems.length === 0">
+            <ion-icon slot="icon-only" :icon="shareSocialOutline" />
+          </ion-button>
+          <ion-button fill="clear" @click="startShoppingSpeechInput" :disabled="speechListening">
+            <ion-spinner v-if="speechListening" name="crescent" />
+            <ion-icon v-else slot="icon-only" :icon="micOutline" />
+          </ion-button>
           <ion-button fill="clear" @click="openEditListModal">
             <ion-icon slot="icon-only" :icon="createOutline" />
           </ion-button>
@@ -111,9 +118,10 @@ import { useRoute } from 'vue-router';
 import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons,
   IonBackButton, IonList, IonItem, IonLabel, IonCheckbox, IonInput,
-  IonButton, IonIcon, IonSpinner, IonSegment, IonSegmentButton, IonReorderGroup, IonReorder
+  IonButton, IonIcon, IonSpinner, IonSegment, IonSegmentButton, IonReorderGroup, IonReorder,
+  toastController
 } from '@ionic/vue';
-import { add, cartOutline, trashOutline, createOutline } from 'ionicons/icons';
+import { add, cartOutline, trashOutline, createOutline, micOutline, shareSocialOutline } from 'ionicons/icons';
 import { useShoppingList } from '@/composables/useShoppingList';
 import { type ShoppingItem } from '@/services/database';
 import type { ItemReorderEventDetail } from '@ionic/core';
@@ -146,6 +154,28 @@ const newItemName = ref('');
 const newItemQuantity = ref<number | undefined>();
 const showEditListModal = ref(false);
 const editListName = ref('');
+const speechListening = ref(false);
+
+const numberWords: Record<string, number> = {
+  null: 0,
+  ein: 1,
+  eins: 1,
+  eine: 1,
+  einen: 1,
+  zwei: 2,
+  drei: 3,
+  vier: 4,
+  fuenf: 5,
+  fünf: 5,
+  sechs: 6,
+  sieben: 7,
+  acht: 8,
+  neun: 9,
+  zehn: 10,
+  elf: 11,
+  zwoelf: 12,
+  zwölf: 12
+};
 
 onMounted(async () => {
   await loadList(listId);
@@ -158,6 +188,198 @@ const handleAddItem = async () => {
   await createItem(listId, newItemName.value.trim(), newItemQuantity.value);
   newItemName.value = '';
   newItemQuantity.value = undefined;
+};
+
+const parseQuantityFromSpoken = (input: string): number | undefined => {
+  const normalized = input.trim().toLowerCase();
+  if (!normalized) return undefined;
+
+  const numericMatch = normalized.match(/[-+]?\d+[\d.,]*/);
+  if (numericMatch?.[0]) {
+    const parsed = Number(numericMatch[0].replace(',', '.'));
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed;
+    }
+  }
+
+  const token = normalized.split(/\s+/)[0];
+  if (token in numberWords) {
+    return numberWords[token];
+  }
+
+  return undefined;
+};
+
+const splitNameAndQuantityFromSpeech = (transcript: string): { name: string; quantity?: number } => {
+  const cleaned = transcript.trim().replace(/\s+/g, ' ');
+  if (!cleaned) return { name: '' };
+
+  const markerMatch = cleaned.match(/\b(?:anzahl|x|mal|stück|stueck|stücke|stuecke|stk)\b/i);
+  if (markerMatch?.index !== undefined) {
+    const markerStart = markerMatch.index;
+    const markerEnd = markerStart + markerMatch[0].length;
+    const name = cleaned.slice(0, markerStart).trim();
+    const quantity = parseQuantityFromSpoken(cleaned.slice(markerEnd).trim());
+    return { name, quantity };
+  }
+
+  // Fallback: allow "Produkt 2" / "Produkt zwei" without explicit marker.
+  const trailingQtyMatch = cleaned.match(/^(.*?)(?:\s+)([-+]?\d+[\d.,]*|ein|eins|eine|einen|zwei|drei|vier|fuenf|fünf|sechs|sieben|acht|neun|zehn|elf|zwoelf|zwölf)$/i);
+  if (trailingQtyMatch) {
+    const name = trailingQtyMatch[1].trim();
+    const quantity = parseQuantityFromSpoken(trailingQtyMatch[2]);
+    return { name, quantity };
+  }
+
+  // Fallback: allow "2 Tomaten" / "zwei Tomaten".
+  const leadingQtyMatch = cleaned.match(/^([-+]?\d+[\d.,]*|ein|eins|eine|einen|zwei|drei|vier|fuenf|fünf|sechs|sieben|acht|neun|zehn|elf|zwoelf|zwölf)(?:\s+)(.+)$/i);
+  if (leadingQtyMatch) {
+    const quantity = parseQuantityFromSpoken(leadingQtyMatch[1]);
+    const name = leadingQtyMatch[2].trim();
+    return { name, quantity };
+  }
+
+  return { name: cleaned };
+};
+
+const buildShoppingShareText = (): string => {
+  const title = currentList.value?.name?.trim() || 'Einkaufsliste';
+  const lines = pendingShoppingItems.value.map((item) => {
+    const quantity = item.quantity ? `${item.quantity}x ` : '';
+    return `• ${quantity}${item.name}`;
+  });
+
+  return [`${title} (offen)`, '', ...lines].join('\n').trim();
+};
+
+const shareShoppingList = async () => {
+  const text = buildShoppingShareText();
+  if (!text) return;
+
+  try {
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+      await navigator.share({
+        title: currentList.value?.name || 'Einkaufsliste',
+        text
+      });
+      return;
+    }
+  } catch (error) {
+    const abortError = (error as { name?: string })?.name === 'AbortError';
+    if (abortError) {
+      return;
+    }
+  }
+
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+  const openedWindow = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+
+  const fallbackToast = await toastController.create({
+    message: openedWindow ? 'WhatsApp-Freigabe geöffnet.' : 'Teilen nicht verfügbar.',
+    duration: 1800,
+    color: openedWindow ? 'success' : 'medium',
+    position: 'bottom'
+  });
+  await fallbackToast.present();
+};
+
+const transcribeSpeech = async (): Promise<string> => {
+  const plugin = (window as any).plugins?.speechRecognition;
+  const language = (navigator.language || 'de-DE').replace('_', '-');
+
+  if (plugin && typeof plugin.startListening === 'function') {
+    const hasPermission = await new Promise<boolean>((resolve) =>
+      plugin.hasPermission((result: boolean) => resolve(result), () => resolve(false))
+    );
+
+    if (!hasPermission) {
+      await new Promise<void>((resolve, reject) => plugin.requestPermission(resolve, reject));
+    }
+
+    const matches: string[] = await new Promise((resolve, reject) => {
+      plugin.startListening(
+        (results: string[]) => resolve(results),
+        (error: unknown) => reject(error),
+        {
+          language,
+          matches: 1,
+          showPopup: true,
+          showPartial: false
+        }
+      );
+    });
+
+    return (matches[0] ?? '').trim();
+  }
+
+  const WebSpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+  if (!WebSpeechRecognition) {
+    throw new Error('Spracherkennung wird auf diesem Gerät nicht unterstützt.');
+  }
+
+  return new Promise<string>((resolve, reject) => {
+    const recognition = new WebSpeechRecognition();
+    recognition.lang = language;
+    recognition.maxAlternatives = 1;
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.onresult = (event: any) => {
+      recognition.stop();
+      const spoken = event.results?.[0]?.[0]?.transcript?.trim() ?? '';
+      resolve(spoken);
+    };
+    recognition.onerror = (event: any) => {
+      recognition.stop();
+      reject(new Error(event.error || 'Spracherkennung fehlgeschlagen.'));
+    };
+    recognition.start();
+  });
+};
+
+const startShoppingSpeechInput = async () => {
+  if (speechListening.value) return;
+  speechListening.value = true;
+
+  try {
+    const transcript = await transcribeSpeech();
+    if (!transcript) {
+      const emptyToast = await toastController.create({
+        message: 'Keine Sprache erkannt.',
+        duration: 1800,
+        color: 'medium',
+        position: 'bottom'
+      });
+      await emptyToast.present();
+      return;
+    }
+
+    const parsed = splitNameAndQuantityFromSpeech(transcript);
+    if (parsed.name) {
+      newItemName.value = parsed.name;
+    }
+    newItemQuantity.value = parsed.quantity;
+
+    const successToast = await toastController.create({
+      message: parsed.quantity !== undefined
+        ? `Erkannt: ${parsed.name} (${parsed.quantity})`
+        : `Erkannt: ${parsed.name}`,
+      duration: 2000,
+      color: 'success',
+      position: 'bottom'
+    });
+    await successToast.present();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Spracherkennung fehlgeschlagen.';
+    const errorToast = await toastController.create({
+      message,
+      duration: 2200,
+      color: 'danger',
+      position: 'bottom'
+    });
+    await errorToast.present();
+  } finally {
+    speechListening.value = false;
+  }
 };
 
 const handleToggleShoppingItem = async (item: ShoppingItem) => {

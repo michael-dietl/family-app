@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import { db, type TodoList, type TodoItem, type TodoPhoto } from '@/services/database';
+import { syncNewTodoItemEntry, syncNewTodoListEntry } from '@/services/pocketbaseTodoShoppingSync';
 import { Filesystem } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
@@ -167,6 +168,7 @@ export function useTodoList() {
   const createList = async (name: string): Promise<number> => {
     const id = await db.createTodoList({ name });
     await loadLists();
+    void syncNewTodoListEntry(id);
     return id;
   };
 
@@ -200,6 +202,7 @@ export function useTodoList() {
       photoPath: photoPath || null
     } as any);
     await loadItems(listId);
+    void syncNewTodoItemEntry(id);
     return id;
   };
 

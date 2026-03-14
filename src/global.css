@@ -137,9 +137,10 @@ ion-textarea::part(native)::selection {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 18px 32px rgba(255, 122, 0, 0.35);
   color: #fff;
   border: 0;
+  outline: none !important;      /* Entfernt weißen Fokus-Rand */
+  box-shadow: none !important;   /* Falls Browser einen Fokus-Schatten setzt */
   z-index: 20;
   cursor: pointer;
 }

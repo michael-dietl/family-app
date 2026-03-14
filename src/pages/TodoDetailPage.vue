@@ -8,6 +8,10 @@
         </ion-buttons>
         <ion-title>{{ currentList?.name || 'ToDo' }}</ion-title>
         <ion-buttons slot="end">
+          <ion-button fill="clear" @click="startTodoSpeechInput" :disabled="speechListening">
+            <ion-spinner v-if="speechListening" name="crescent" />
+            <ion-icon v-else slot="icon-only" :icon="micOutline" />
+          </ion-button>
           <ion-button fill="clear" @click="openEditListModal">
             <ion-icon slot="icon-only" :icon="createOutline" />
           </ion-button>
@@ -246,7 +250,8 @@ import {
   IonCheckbox,
   IonModal,
   IonReorderGroup,
-  IonReorder
+  IonReorder,
+  toastController
 } from '@ionic/vue';
 import {
   checkboxOutline,
@@ -254,7 +259,8 @@ import {
   images,
   trashOutline,
   calendarOutline,
-  createOutline
+  createOutline,
+  micOutline
 } from 'ionicons/icons';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -299,6 +305,7 @@ const editingItemId = ref<number | null>(null);
 const showEditListModal = ref(false);
 const editListName = ref('');
 const isEditing = computed(() => editingItemId.value !== null);
+const speechListening = ref(false);
 
 const formatSimpleDate = (value?: string | null) => {
   if (!value) return '';
@@ -448,6 +455,101 @@ const handleAddItem = async () => {
     editingItemId.value = null;
   } catch (err) {
     console.error('Error creating todo item:', err);
+  }
+};
+
+const transcribeSpeech = async (): Promise<string> => {
+  const plugin = (window as any).plugins?.speechRecognition;
+  const language = (navigator.language || 'de-DE').replace('_', '-');
+
+  if (plugin && typeof plugin.startListening === 'function') {
+    const hasPermission = await new Promise<boolean>((resolve) =>
+      plugin.hasPermission((result: boolean) => resolve(result), () => resolve(false))
+    );
+
+    if (!hasPermission) {
+      await new Promise<void>((resolve, reject) => plugin.requestPermission(resolve, reject));
+    }
+
+    const matches: string[] = await new Promise((resolve, reject) => {
+      plugin.startListening(
+        (results: string[]) => resolve(results),
+        (error: unknown) => reject(error),
+        {
+          language,
+          matches: 1,
+          showPopup: true,
+          showPartial: false
+        }
+      );
+    });
+
+    return (matches[0] ?? '').trim();
+  }
+
+  const WebSpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+  if (!WebSpeechRecognition) {
+    throw new Error('Spracherkennung wird auf diesem Gerät nicht unterstützt.');
+  }
+
+  return new Promise<string>((resolve, reject) => {
+    const recognition = new WebSpeechRecognition();
+    recognition.lang = language;
+    recognition.maxAlternatives = 1;
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.onresult = (event: any) => {
+      recognition.stop();
+      const transcript = event.results?.[0]?.[0]?.transcript?.trim() ?? '';
+      resolve(transcript);
+    };
+    recognition.onerror = (event: any) => {
+      recognition.stop();
+      reject(new Error(event.error || 'Spracherkennung fehlgeschlagen.'));
+    };
+    recognition.start();
+  });
+};
+
+const startTodoSpeechInput = async () => {
+  if (speechListening.value) return;
+  speechListening.value = true;
+
+  try {
+    const transcript = await transcribeSpeech();
+    if (!transcript) {
+      const emptyToast = await toastController.create({
+        message: 'Keine Sprache erkannt.',
+        duration: 1800,
+        color: 'medium',
+        position: 'bottom'
+      });
+      await emptyToast.present();
+      return;
+    }
+
+    newItemTitle.value = newItemTitle.value.trim().length > 0
+      ? `${newItemTitle.value.trim()} ${transcript}`
+      : transcript;
+
+    const toast = await toastController.create({
+      message: 'Spracheingabe übernommen.',
+      duration: 1600,
+      color: 'success',
+      position: 'bottom'
+    });
+    await toast.present();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Spracherkennung fehlgeschlagen.';
+    const toast = await toastController.create({
+      message,
+      duration: 2200,
+      color: 'danger',
+      position: 'bottom'
+    });
+    await toast.present();
+  } finally {
+    speechListening.value = false;
   }
 };
 

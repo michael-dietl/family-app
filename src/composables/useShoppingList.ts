@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import { db, type ShoppingList, type ShoppingItem } from '@/services/database';
+import { syncNewShoppingItemEntry, syncNewShoppingListEntry } from '@/services/pocketbaseTodoShoppingSync';
 
 export function useShoppingList() {
   const lists = ref<ShoppingList[]>([]);
@@ -43,6 +44,7 @@ export function useShoppingList() {
   const createList = async (name: string): Promise<number> => {
     const id = await db.createShoppingList({ name });
     await loadLists();
+    void syncNewShoppingListEntry(id);
     return id;
   };
 
@@ -67,6 +69,7 @@ export function useShoppingList() {
       completed: false
     });
     await loadItems(listId);
+    void syncNewShoppingItemEntry(id);
     return id;
   };
 

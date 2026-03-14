@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { Capacitor } from '@capacitor/core';
 import { pocketbase, getPocketbaseAuthorId, setPocketbaseAuthorId } from '@/services/pocketbase';
-import { db, type Gallery, type Photo, type Book, type BookCategory, type ShoppingList, type ShoppingItem, type TodoList, type TodoItem, type Route, type Waypoint, type Wine, type WinePhoto, type WineCategory } from '@/services/database';
+import { db, type Gallery, type Photo, type Book, type BookCategory, type ShoppingList, type ShoppingItem, type TodoList, type TodoItem, type Route, type StoryMap, type Waypoint, type Wine, type WinePhoto, type WineCategory } from '@/services/database';
 import { Preferences } from '@capacitor/preferences';
 import { toastController } from '@ionic/vue';
 import type { UnsubscribeFunc } from 'pocketbase';
@@ -16,6 +16,7 @@ import {
   updateSyncProgress
 } from '@/services/backgroundSyncService';
 import { ensurePocketbaseNotificationSubscription } from '@/services/pushNotificationService';
+import { extractExifFromUri } from '@/services/exif';
 
 const REMOTE_HTTP_RE = /^https?:\/\//i;
 const isRemoteHttpUrl = (value?: string) => Boolean(value && REMOTE_HTTP_RE.test(value));
@@ -128,10 +129,49 @@ const parseNumberValue = (value?: unknown): number | undefined => {
   return undefined;
 };
 
+const parseBooleanValue = (value: unknown): boolean => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return false;
+    if (['false', '0', 'no', 'off', 'null', 'undefined'].includes(normalized)) return false;
+    if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  }
+  return Boolean(value);
+};
+
 const buildGeoPoint = (latitude?: number | null, longitude?: number | null) => {
   if (latitude == null || longitude == null) return null;
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
   return { lon: longitude, lat: latitude };
+};
+
+const toCoordinateString = (value?: number | string | null): string | null => {
+  const numeric = toFiniteNumber(value);
+  if (numeric == null) return null;
+  return String(numeric);
+};
+
+const toFiniteNumber = (value: unknown): number | null => {
+  if (value == null) return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') {
+    const normalized = value.trim().replace(',', '.');
+    if (!normalized) return null;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const hasUsableCoordinates = (latitude?: number | string | null, longitude?: number | string | null): boolean => {
+  const lat = toFiniteNumber(latitude);
+  const lng = toFiniteNumber(longitude);
+  if (lat == null || lng == null) return false;
+  // Treat 0/0 as missing in this app context to allow corrective backfill.
+  if (Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001) return false;
+  return true;
 };
 
 const ensureGeoPoint = (latitude?: number | null, longitude?: number | null) => {
@@ -181,10 +221,11 @@ const extractCoordinatesFromRecord = (
   const valLocation = parseGeoPointValue(record.val_location ?? record.valLocation);
   const locationValue = record.location ?? record.geo ?? record.position;
   const parsedLocation = locationValue ? parseGeoPointValue(locationValue) : {};
-  const fallbackLatitude = parseNumberValue(record.latitude ?? record.lat);
-  const fallbackLongitude = parseNumberValue(record.longitude ?? record.lng);
-  const latitude = parsedLocation.latitude ?? fallbackLatitude ?? valLocation.latitude;
-  const longitude = parsedLocation.longitude ?? fallbackLongitude ?? valLocation.longitude;
+  const fallbackLatitude = parseNumberValue(record.latitude ?? record.lat ?? record.lang ?? record.latidude);
+  const fallbackLongitude = parseNumberValue(record.longitude ?? record.lng ?? record.long ?? record.longidude);
+  // Trust explicit numeric fields first; location payloads may differ by backend format.
+  const latitude = fallbackLatitude ?? parsedLocation.latitude ?? valLocation.latitude;
+  const longitude = fallbackLongitude ?? parsedLocation.longitude ?? valLocation.longitude;
   const valLatitude = valLocation.latitude ?? latitude;
   const valLongitude = valLocation.longitude ?? longitude;
   return { latitude, longitude, valLatitude, valLongitude };
@@ -226,6 +267,7 @@ const defaultRealtimeCollections: CollectionSubscriptionConfig[] = [
   { collection: 'todoLists', label: 'ToDo-Listen' },
   { collection: 'todoItems', label: 'ToDo-Items' },
   { collection: 'todoPhotos', label: 'ToDo-Fotos' },
+  { collection: 'story_maps', label: 'Story Map' },
   { collection: 'routes', label: 'Routen' },
   { collection: 'waypoints', label: 'Wegpunkte' }
 ];
@@ -285,6 +327,13 @@ const buildPhotoPayload = (photo: Photo) => ({
   filesize: photo.filesize ?? null,
   mimeType: photo.mimeType || null,
   isVideo: Boolean(photo.isVideo),
+  // Some PocketBase schemas store coordinates as strings (latitude/longitude, lat/lng, long/lang).
+  latitude: toCoordinateString(photo.latitude ?? null),
+  longitude: toCoordinateString(photo.longitude ?? null),
+  lat: toCoordinateString(photo.latitude ?? null),
+  lng: toCoordinateString(photo.longitude ?? null),
+  long: toCoordinateString(photo.longitude ?? null),
+  lang: toCoordinateString(photo.latitude ?? null),
   location: buildGeoPoint(photo.latitude ?? null, photo.longitude ?? null),
   dateTaken: photo.dateTaken || null,
   camera: photo.camera || null,
@@ -358,6 +407,22 @@ const buildRoutePayload = (route: Route) => ({
   updated: route.updated
 });
 
+const buildStoryMapPayload = (storyMap: StoryMap) => ({
+  foreignID: storyMap.id,
+  pb_author: storyMap.pb_author || null,
+  routeId: storyMap.routeId,
+  title: storyMap.title,
+  description: storyMap.description || '',
+  startTime: storyMap.startTime,
+  endTime: storyMap.endTime ?? null,
+  distance: storyMap.distance ?? null,
+  duration: storyMap.duration ?? null,
+  travelMode: storyMap.travelMode || 'car',
+  isPublished: Boolean(storyMap.isPublished),
+  coverImagePath: storyMap.coverImagePath || null,
+  updated: storyMap.updated
+});
+
 const resolveRemoteRouteName = (name?: string, startTime?: string): string => {
   if (name && name.trim().length > 0) {
     return name;
@@ -369,6 +434,13 @@ const resolveRemoteRouteName = (name?: string, startTime?: string): string => {
     }
   }
   return 'Route';
+};
+
+const resolveRemoteStoryMapTitle = (title?: string): string => {
+  if (title && title.trim().length > 0) {
+    return title;
+  }
+  return 'Story Map';
 };
 
 
@@ -739,13 +811,116 @@ export function usePocketbaseSync() {
   };
 
   // Photos Sync
-  const syncPhotos = async (): Promise<void> => {
+  const loadAllLocalPhotos = async (galleryId?: number): Promise<Photo[]> => {
+    if (galleryId && Number.isFinite(galleryId) && galleryId > 0) {
+      return db.getPhotosByGallery(galleryId);
+    }
+
     const galleries = await db.getGalleries();
     const localPhotos: Photo[] = [];
+
     for (const gallery of galleries) {
-      const photosInGallery = await db.getPhotosByGallery(gallery.id!);
+      if (!gallery.id) continue;
+      const photosInGallery = await db.getPhotosByGallery(gallery.id);
       localPhotos.push(...photosInGallery);
     }
+
+    return localPhotos;
+  };
+
+  const backfillPhotoCoordinatesAndSync = async (galleryId?: number): Promise<{ scanned: number; updated: number; failed: number; withoutGps: number }> => {
+    const localPhotos = await loadAllLocalPhotos(galleryId);
+    const candidates = localPhotos.filter(photo => {
+      if (!photo.id) return false;
+      if (photo.isVideo) return false;
+      if (hasUsableCoordinates(photo.latitude, photo.longitude)) return false;
+      return Boolean(photo.filepath || photo.storagePath);
+    });
+
+    if (candidates.length === 0) {
+      logSyncInfo('No photo coordinate backfill candidates found, running photo sync anyway', { galleryId: galleryId ?? null });
+      await syncPhotos();
+      return { scanned: 0, updated: 0, failed: 0, withoutGps: 0 };
+    }
+
+    showSyncProgress('Foto-EXIF-Backfill', candidates.length);
+    let updated = 0;
+    let failed = 0;
+    let withoutGps = 0;
+    let processed = 0;
+
+    try {
+      logSyncInfo(`Starting EXIF backfill for ${candidates.length} photos`, { galleryId: galleryId ?? null });
+
+      for (const photo of candidates) {
+        const photoId = photo.id;
+        if (!photoId) {
+          failed++;
+          processed++;
+          updateSyncProgress(processed);
+          continue;
+        }
+
+        const sourceCandidates = [photo.storagePath, photo.filepath]
+          .filter((value): value is string => Boolean(value))
+          .filter((value) => !/^https?:\/\//i.test(value));
+        if (sourceCandidates.length === 0) {
+          failed++;
+          logSyncWarn('Skipping backfill photo without local source', {
+            photoId,
+            storagePath: photo.storagePath,
+            filepath: photo.filepath
+          });
+          processed++;
+          updateSyncProgress(processed);
+          continue;
+        }
+
+        try {
+          let resolvedLatitude: number | undefined;
+          let resolvedLongitude: number | undefined;
+
+          for (const sourcePath of sourceCandidates) {
+            const exifData = await extractExifFromUri(sourcePath);
+            if (hasUsableCoordinates(exifData.latitude, exifData.longitude)) {
+              resolvedLatitude = exifData.latitude ?? undefined;
+              resolvedLongitude = exifData.longitude ?? undefined;
+              break;
+            }
+          }
+
+          if (hasUsableCoordinates(resolvedLatitude, resolvedLongitude)) {
+            await db.updatePhoto(photoId, {
+              latitude: resolvedLatitude,
+              longitude: resolvedLongitude
+            });
+            updated++;
+          } else {
+            withoutGps++;
+            logSyncInfo('EXIF backfill found no usable coordinates', {
+              photoId,
+              sourceCandidates
+            });
+          }
+        } catch (error) {
+          failed++;
+          logSyncWarn('EXIF backfill failed for photo', { photoId, sourceCandidates, error });
+        } finally {
+          processed++;
+          updateSyncProgress(processed);
+        }
+      }
+    } finally {
+      hideSyncProgress();
+    }
+
+    logSyncInfo(`EXIF backfill finished (updated=${updated}, withoutGps=${withoutGps}, failed=${failed}, scanned=${candidates.length})`);
+    await syncPhotos();
+    return { scanned: candidates.length, updated, failed, withoutGps };
+  };
+
+  const syncPhotos = async (): Promise<void> => {
+    const localPhotos = await loadAllLocalPhotos();
 
     showSyncProgress('Fotos', localPhotos.length);
     await authenticateUserIfNeeded();
@@ -802,6 +977,14 @@ export function usePocketbaseSync() {
           } else if (remoteTs > localTs) {
             const galleryId = Number(remote.galleryId) || photo.galleryId;
             const remoteCoords = extractCoordinatesFromRecord(remote);
+            const remoteIsVideo = parseBooleanValue(remote.isVideo);
+            const mergedLatitude = hasUsableCoordinates(remoteCoords.latitude ?? null, remoteCoords.longitude ?? null)
+              ? (remoteCoords.latitude ?? photo.latitude)
+              : photo.latitude;
+            const mergedLongitude = hasUsableCoordinates(remoteCoords.latitude ?? null, remoteCoords.longitude ?? null)
+              ? (remoteCoords.longitude ?? photo.longitude)
+              : photo.longitude;
+
             await db.updatePhoto(photo.id!, {
               galleryId,
               filename: remote.filename || photo.filename,
@@ -809,9 +992,9 @@ export function usePocketbaseSync() {
               height: remote.height ?? photo.height,
               filesize: remote.filesize ?? photo.filesize,
               mimeType: remote.mimeType || photo.mimeType,
-              isVideo: Boolean(remote.isVideo) || Boolean(photo.isVideo),
-              latitude: remoteCoords.latitude ?? photo.latitude,
-              longitude: remoteCoords.longitude ?? photo.longitude,
+              isVideo: remoteIsVideo || Boolean(photo.isVideo),
+              latitude: mergedLatitude,
+              longitude: mergedLongitude,
               dateTaken: remote.dateTaken || photo.dateTaken,
               camera: remote.camera || photo.camera,
               lens: remote.lens || photo.lens,
@@ -822,11 +1005,24 @@ export function usePocketbaseSync() {
               foreignID: remote.id,
               updated: remote.updated
             });
-          } else if (photo.foreignID !== remote.id) {
-            await db.updatePhoto(photo.id!, {
-              foreignID: remote.id,
-              updated: photo.updated
-            });
+          } else {
+            // Equal timestamps: still heal remote records that are missing coordinates.
+            const remoteCoords = extractCoordinatesFromRecord(remote);
+            const localHasCoords = hasUsableCoordinates(photo.latitude ?? null, photo.longitude ?? null);
+            const remoteHasCoords = hasUsableCoordinates(remoteCoords.latitude ?? null, remoteCoords.longitude ?? null);
+
+            if (localHasCoords && !remoteHasCoords) {
+              const updatedRemote = await pb.collection('photos').update(remote.id, attachAuthorToPayload(buildPhotoPayload(photo), authorId));
+              await db.updatePhoto(photo.id!, {
+                foreignID: updatedRemote.id,
+                updated: updatedRemote.updated
+              });
+            } else if (photo.foreignID !== remote.id) {
+              await db.updatePhoto(photo.id!, {
+                foreignID: remote.id,
+                updated: photo.updated
+              });
+            }
           }
         }
 
@@ -2104,6 +2300,135 @@ export function usePocketbaseSync() {
     }
   };
 
+  const syncStoryMaps = async (): Promise<void> => {
+    const localStoryMaps = await db.getStoryMaps();
+    showSyncProgress('Story Maps', localStoryMaps.length);
+    await authenticateUserIfNeeded();
+    const pb = pocketbase.getInstance();
+    if (!pb || !pocketbase.isAuthenticated()) {
+      hideSyncProgress();
+      return;
+    }
+
+    const authorId = await resolveAuthorIdForSync();
+
+    try {
+      logSyncInfo('🔄 Syncing story maps...');
+      const remoteStoryMaps = await pb.collection('story_maps').getFullList({ sort: '-updated' });
+      const remoteById = new Map<string, any>();
+      const remoteByForeignId = new Map<number, any>();
+      for (const remote of remoteStoryMaps) {
+        remoteById.set(remote.id, remote);
+        const localId = parseLocalIdFromForeign(remote.foreignID);
+        if (localId) {
+          remoteByForeignId.set(localId, remote);
+        }
+      }
+
+      const handledRemoteIds = new Set<string>();
+      let processed = 0;
+      for (const storyMap of localStoryMaps) {
+        if (!storyMap.id) continue;
+        const storyMapId = storyMap.id;
+
+        let remote = storyMap.foreignID ? remoteById.get(storyMap.foreignID) : undefined;
+        if (!remote) {
+          remote = remoteByForeignId.get(storyMapId);
+        }
+
+        if (!remote) {
+          const created = await pb.collection('story_maps').create(attachAuthorToPayload(buildStoryMapPayload(storyMap), authorId));
+          handledRemoteIds.add(created.id);
+          await db.updateStoryMap(storyMapId, {
+            foreignID: created.id,
+            updated: storyMap.updated
+          });
+        } else {
+          handledRemoteIds.add(remote.id);
+          const localTs = parseTimestamp(storyMap.updated);
+          const remoteTs = parseTimestamp(remote.updated);
+          if (localTs > remoteTs) {
+            const updatedRemote = await pb.collection('story_maps').update(remote.id, attachAuthorToPayload(buildStoryMapPayload(storyMap), authorId));
+            await db.updateStoryMap(storyMapId, {
+              foreignID: updatedRemote.id,
+              updated: storyMap.updated
+            });
+          } else if (remoteTs > localTs) {
+            const referencedRouteId = parseLocalIdFromForeign(remote.routeId);
+            if (!referencedRouteId) {
+              logSyncWarn('Remote story map references unknown route, skipping', { remoteId: remote.id, routeId: remote.routeId });
+            } else {
+              await db.updateStoryMap(storyMapId, {
+                routeId: referencedRouteId,
+                title: resolveRemoteStoryMapTitle(remote.title),
+                description: remote.description ?? undefined,
+                startTime: remote.startTime ?? storyMap.startTime,
+                endTime: remote.endTime ?? undefined,
+                distance: remote.distance ?? undefined,
+                duration: remote.duration ?? undefined,
+                travelMode: remote.travelMode ?? undefined,
+                isPublished: Boolean(remote.isPublished),
+                coverImagePath: remote.coverImagePath ?? undefined,
+                foreignID: remote.id,
+                updated: remote.updated
+              });
+            }
+          } else if (storyMap.foreignID !== remote.id) {
+            await db.updateStoryMap(storyMapId, {
+              foreignID: remote.id,
+              updated: remote.updated
+            });
+          }
+        }
+
+        processed++;
+        updateSyncProgress(processed);
+      }
+
+      for (const remote of remoteStoryMaps) {
+        if (handledRemoteIds.has(remote.id)) continue;
+        const localId = parseLocalIdFromForeign(remote.foreignID);
+        const alreadyExists = localId ? localStoryMaps.some((item) => item.id === localId) : false;
+        if (alreadyExists) continue;
+
+        const referencedRouteId = parseLocalIdFromForeign(remote.routeId);
+        if (!referencedRouteId) {
+          logSyncWarn('Remote story map references unknown route, skipping', { remoteId: remote.id, routeId: remote.routeId });
+          continue;
+        }
+
+        const now = new Date().toISOString();
+        const newLocalId = await db.createStoryMap({
+          routeId: referencedRouteId,
+          title: resolveRemoteStoryMapTitle(remote.title),
+          description: remote.description ?? undefined,
+          startTime: remote.startTime ?? now,
+          endTime: remote.endTime ?? undefined,
+          distance: remote.distance ?? undefined,
+          duration: remote.duration ?? undefined,
+          travelMode: remote.travelMode ?? undefined,
+          isPublished: Boolean(remote.isPublished),
+          coverImagePath: remote.coverImagePath ?? undefined,
+          foreignID: remote.id,
+          updated: remote.updated ?? now,
+          pb_author: remote.pb_author ?? null
+        });
+
+        await pb.collection('story_maps').update(remote.id, {
+          foreignID: newLocalId,
+          updated: remote.updated ?? now
+        });
+      }
+
+      logSyncInfo('✅ Story maps synced');
+    } catch (error) {
+      logSyncError('Story map sync error', error);
+      throw error;
+    } finally {
+      hideSyncProgress();
+    }
+  };
+
   const syncWaypoints = async (): Promise<void> => {
     const localRoutes = await db.getRoutes();
     const localRoutesById = new Map<number, Route>();
@@ -2290,20 +2615,23 @@ export function usePocketbaseSync() {
     const pb = pocketbase.getInstance();
     if (!pb) return false;
 
+    // Backward compatibility for stale pending deletion entries.
+    const resolvedCollectionName = collectionName === 'story_map' ? 'story_maps' : collectionName;
+
     try {
       const filter = `foreignID = "${localId}"`;
-      const remoteRecords = await pb.collection(collectionName).getFullList({ sort: '-updated', filter });
+      const remoteRecords = await pb.collection(resolvedCollectionName).getFullList({ sort: '-updated', filter });
       if (!remoteRecords || remoteRecords.length === 0) {
         return true;
       }
 
       for (const remote of remoteRecords) {
-        await pb.collection(collectionName).delete(remote.id);
+        await pb.collection(resolvedCollectionName).delete(remote.id);
       }
 
       return true;
     } catch (error) {
-      logSyncWarn(`Failed to delete remote ${collectionName} ${localId}`, error);
+      logSyncWarn(`Failed to delete remote ${resolvedCollectionName} ${localId}`, error);
       return false;
     }
   };
@@ -2352,6 +2680,7 @@ export function usePocketbaseSync() {
     await syncTodoLists();
     await syncTodoItems();
     await syncRoutes();
+    await syncStoryMaps();
     await syncWaypoints();
     
     await saveLastSyncTime();
@@ -2438,6 +2767,7 @@ export function usePocketbaseSync() {
     isSyncing,
     lastSyncTime,
     syncGalleries,
+    backfillPhotoCoordinatesAndSync,
     syncPhotos,
     syncBookCategories,
     syncBooks,

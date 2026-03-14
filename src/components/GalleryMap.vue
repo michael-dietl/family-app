@@ -47,6 +47,24 @@ const galleryInfos = ref<Map<number, { color?: string; name?: string }>>(new Map
 // Filtere Fotos mit GPS-Daten
 const photosWithLocation = ref<Photo[]>([]);
 
+const toFiniteNumber = (value: unknown): number | null => {
+  if (value == null) return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') {
+    const parsed = Number(value.trim().replace(',', '.'));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const hasUsableCoordinates = (lat?: number | string | null, lng?: number | string | null): boolean => {
+  const normalizedLat = toFiniteNumber(lat);
+  const normalizedLng = toFiniteNumber(lng);
+  if (normalizedLat == null || normalizedLng == null) return false;
+  if (Math.abs(normalizedLat) < 0.000001 && Math.abs(normalizedLng) < 0.000001) return false;
+  return true;
+};
+
 const updatePhotosWithLocation = async () => {
   console.log('🗺️ updatePhotosWithLocation called');
   console.log('🗺️ Total photos:', props.photos.length);
@@ -56,11 +74,11 @@ const updatePhotosWithLocation = async () => {
     isVideo: p.isVideo,
     lat: p.latitude, 
     lng: p.longitude,
-    hasGPS: p.latitude != null && p.longitude != null
+    hasGPS: hasUsableCoordinates(p.latitude ?? null, p.longitude ?? null)
   })));
   
   photosWithLocation.value = props.photos.filter(
-    photo => !photo.isVideo && photo.latitude != null && photo.longitude != null
+    photo => !photo.isVideo && hasUsableCoordinates(photo.latitude ?? null, photo.longitude ?? null)
   );
   console.log('📍 Photos with location:', photosWithLocation.value.length);
   console.log('Photos with GPS:', photosWithLocation.value.map(p => ({ 
@@ -139,8 +157,10 @@ const initMap = async () => {
     const bounds: L.LatLngBoundsExpression = [];
     
     photosWithLocation.value.forEach((photo) => {
-      if (photo.latitude && photo.longitude) {
-        console.log('📍 Adding marker:', photo.latitude, photo.longitude);
+      const latitude = toFiniteNumber(photo.latitude);
+      const longitude = toFiniteNumber(photo.longitude);
+      if (latitude != null && longitude != null) {
+        console.log('📍 Adding marker:', latitude, longitude);
         
         const galleryInfo = galleryInfos.value.get(photo.galleryId);
         const popupContent = createPopupContent(photo, galleryInfo?.name);
@@ -163,7 +183,7 @@ const initMap = async () => {
           popupAnchor: [0, -24]
         });
         
-        const marker = L.marker([photo.latitude, photo.longitude], { icon: customIcon })
+        const marker = L.marker([latitude, longitude], { icon: customIcon })
           .addTo(map!)
           .bindPopup(popupContent);
 
@@ -182,7 +202,7 @@ const initMap = async () => {
         });
 
         markers.push(marker);
-        bounds.push([photo.latitude, photo.longitude]);
+        bounds.push([latitude, longitude]);
       }
     });
 

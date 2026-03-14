@@ -1738,6 +1738,56 @@ const centerOnWaypoint = (waypoint: Waypoint) => {
   }
 };
 
+  const saveRouteAsStoryMap = async () => {
+    if (!routeData.value) return;
+    try {
+      const existing = await db.getStoryMapByRoute(routeId);
+      const computedDistance = routeData.value.distance ?? (routeData.value.isRecording ? trackingDistance.value : undefined);
+      const computedDuration = routeData.value.duration ?? (routeData.value.isRecording ? trackingDuration.value : undefined);
+      const payload = {
+        routeId,
+        title: routeData.value.name,
+        description: routeData.value.description ?? undefined,
+        startTime: routeData.value.startTime,
+        endTime: routeData.value.endTime ?? undefined,
+        distance: computedDistance ?? undefined,
+        duration: computedDuration ?? undefined,
+        travelMode: routeData.value.travelMode ?? undefined,
+        isPublished: false
+      };
+
+      if (existing?.id) {
+        await db.updateStoryMap(existing.id, {
+          ...payload,
+          updated: new Date().toISOString()
+        });
+        const toast = await toastController.create({
+          message: t('auto.story_map_aktualisiert'),
+          duration: 2000,
+          color: 'success'
+        });
+        await toast.present();
+        return;
+      }
+
+      await db.createStoryMap(payload);
+      const toast = await toastController.create({
+        message: t('auto.story_map_gespeichert'),
+        duration: 2000,
+        color: 'success'
+      });
+      await toast.present();
+    } catch (error) {
+      console.error('Story map save failed', error);
+      const toast = await toastController.create({
+        message: t('auto.story_map_speichern_fehler'),
+        duration: 2000,
+        color: 'danger'
+      });
+      await toast.present();
+    }
+  };
+
 const showOptionsMenu = async () => {
   const actionSheet = await actionSheetController.create({
     header: t('auto.route_optionen'),
@@ -1761,6 +1811,13 @@ const showOptionsMenu = async () => {
         icon: cameraOutline,
         handler: () => {
           addPhotoWaypoint();
+        }
+      },
+      {
+        text: t('auto.story_map_speichern'),
+        icon: addOutline,
+        handler: () => {
+          void saveRouteAsStoryMap();
         }
       },
       {

@@ -12,6 +12,14 @@
           </div>
         </ion-title>
         <ion-buttons slot="end">
+          <ion-button
+            v-if="pocketbaseUrl"
+            @click="manualBackfillAndSync"
+            :disabled="isSyncing"
+            title="GPS aus EXIF nachtragen und Fotos synchronisieren"
+          >
+            <ion-icon :icon="locateOutline" />
+          </ion-button>
           <ion-button v-if="pocketbaseUrl" @click="manualSync" :disabled="isSyncing">
             <ion-spinner v-if="isSyncing" />
             <ion-icon v-else :icon="syncOutline" />
@@ -35,7 +43,7 @@
           <ion-item button @click="navigateTo('/gallery')" lines="full">
             <ion-icon :icon="imagesOutline" slot="start" color="primary" class="feature-icon" />
             <ion-label>
-              <h2>{{ $t('auto.galerien') }}</h2>
+              <h2>Moments</h2>
               <p>{{ $t('auto.fotos_und_videos_verwalten') }}</p>
             </ion-label>
             <ion-icon :icon="chevronForward" slot="end" />
@@ -134,6 +142,7 @@ import {
   wineOutline,
   bookOutline,
   navigateOutline,
+  locateOutline,
   chevronForward,
   syncOutline,
   cartOutline,
@@ -153,7 +162,7 @@ import '../global.css';
 const router = useRouter();
 const pocketbaseUrl = ref('');
 const isConnected = ref(false);
-const { isSyncing, syncAll, syncProgress } = usePocketbaseSync();
+const { isSyncing, syncAll, backfillPhotoCoordinatesAndSync, syncProgress } = usePocketbaseSync();
 
 onMounted(async () => {
   await loadSettings();
@@ -224,6 +233,29 @@ const manualSync = async () => {
     const toast = await toastController.create({
       message: 'Synchronisation fehlgeschlagen',
       duration: 2000,
+      color: 'danger',
+      position: 'bottom'
+    });
+    await toast.present();
+  }
+};
+
+const manualBackfillAndSync = async () => {
+  try {
+    const result = await backfillPhotoCoordinatesAndSync();
+    const toast = await toastController.create({
+      message: `Backfill fertig: geprüft ${result.scanned}, aktualisiert ${result.updated}, ohne GPS ${result.withoutGps}, Fehler ${result.failed}`,
+      duration: 3000,
+      color: 'success',
+      position: 'bottom'
+    });
+    await toast.present();
+    await checkConnection();
+  } catch (error) {
+    console.error('Backfill+Sync error:', error);
+    const toast = await toastController.create({
+      message: 'Backfill/Synchronisation fehlgeschlagen',
+      duration: 2500,
       color: 'danger',
       position: 'bottom'
     });

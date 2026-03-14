@@ -1,6 +1,7 @@
 <template>
   <ion-app>
     <ion-router-outlet />
+    <global-speech-input-button />
   </ion-app>
 </template>
 
@@ -11,10 +12,22 @@ import { db } from '@/services/database';
 import router from './router';
 import { alertController, toastController } from '@ionic/vue';
 import { App as CapacitorApp } from '@capacitor/app';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { NavigationBar } from '@capgo/capacitor-navigation-bar';
 import i18n from '@/i18n/i18n';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import GlobalSpeechInputButton from '@/components/GlobalSpeechInputButton.vue';
+
+const appListeners: PluginListenerHandle[] = [];
+
+const runDatabaseBackup = async (reason: string) => {
+  try {
+    console.log('MOBIDB backup trigger', { reason });
+    await db.backupToSharedStorage(reason);
+  } catch (error) {
+    console.warn(`MOBIDB backup failed (${reason})`, error);
+  }
+};
 
 const handleHardwareBack = (ev: any) => {
   ev.detail.register(0, async (proceed: any) => {
@@ -94,6 +107,23 @@ onMounted(async () => {
   await safeStatusBarCall(() => StatusBar.setStyle({ style: Style.Dark }));
   document.addEventListener('ionBackButton', handleHardwareBack as EventListener);
 
+  if (Capacitor.isNativePlatform()) {
+    await db.initialize().catch((error) => console.warn('Database init on app mount failed', error));
+    void runDatabaseBackup('startup');
+
+    const appStateHandle = await CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+      if (!isActive) {
+        void runDatabaseBackup('appstate-inactive');
+      }
+    });
+    appListeners.push(appStateHandle);
+
+    const pauseHandle = await CapacitorApp.addListener('pause', () => {
+      void runDatabaseBackup('pause');
+    });
+    appListeners.push(pauseHandle);
+  }
+
   try {
     await NavigationBar.setNavigationBarColor({
       color: '#FFFFFF',
@@ -105,4 +135,10 @@ onMounted(async () => {
 });
 
 onUnmounted(() => document.removeEventListener('ionBackButton', handleHardwareBack as EventListener));
+onUnmounted(() => {
+  while (appListeners.length > 0) {
+    const listener = appListeners.pop();
+    listener?.remove();
+  }
+});
 </script>

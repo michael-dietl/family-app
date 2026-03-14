@@ -23,7 +23,7 @@
         </div>
         
         <div class="action-buttons">
-          <ion-button expand="block" @click="confirmLocation" color="primary">
+          <ion-button expand="block" @click="confirmLocation" color="primary" :disabled="!canConfirm">
             <ion-icon slot="start" :icon="checkmarkOutline"></ion-icon>
             {{ $t('auto.standort_übernehmen') }}
           </ion-button>
@@ -44,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { computed, ref, watch, onMounted } from 'vue';
 import {
   IonModal,
   IonHeader,
@@ -76,15 +76,65 @@ const mapContainer = ref<HTMLElement>();
 let map: L.Map | null = null;
 let marker: L.Marker | null = null;
 
-const selectedLat = ref(props.initialLat || 48.1372); // Default: München
-const selectedLng = ref(props.initialLng || 11.5755);
+const FALLBACK_LAT = 48.1372;
+const FALLBACK_LNG = 11.5755;
+
+const hasValidCoordinates = (lat?: number, lng?: number): lat is number => {
+  if (lat == null || lng == null) return false;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  if (lat < -90 || lat > 90) return false;
+  if (lng < -180 || lng > 180) return false;
+  return true;
+};
+
+const selectedLat = ref(FALLBACK_LAT);
+const selectedLng = ref(FALLBACK_LNG);
 const isLoadingLocation = ref(false);
+const locationResolved = ref(false);
+const userAdjustedLocation = ref(false);
+const canConfirm = computed(() => locationResolved.value || userAdjustedLocation.value);
+
+const syncMapToSelectedLocation = () => {
+  if (!map || !marker) return;
+  const target: L.LatLngExpression = [selectedLat.value, selectedLng.value];
+  map.setView(target, 13);
+  marker.setLatLng(target);
+};
+
+const resolveInitialLocation = async () => {
+  userAdjustedLocation.value = false;
+
+  if (hasValidCoordinates(props.initialLat, props.initialLng)) {
+    selectedLat.value = props.initialLat!;
+    selectedLng.value = props.initialLng!;
+    locationResolved.value = true;
+    return;
+  }
+
+  try {
+    const position = await Geolocation.getCurrentPosition();
+    selectedLat.value = position.coords.latitude;
+    selectedLng.value = position.coords.longitude;
+    locationResolved.value = true;
+  } catch (error) {
+    console.warn('Could not resolve current location for picker, fallback to default center.', error);
+    selectedLat.value = FALLBACK_LAT;
+    selectedLng.value = FALLBACK_LNG;
+    locationResolved.value = false;
+  }
+};
 
 onMounted(() => {
   // Map wird erst initialisiert wenn Modal geöffnet wird
-  watch(() => props.isOpen, (isOpen) => {
-    if (isOpen && mapContainer.value && !map) {
+  watch(() => props.isOpen, async (isOpen) => {
+    if (!isOpen) return;
+
+    await resolveInitialLocation();
+
+    if (mapContainer.value && !map) {
       initMap();
+    } else {
+      syncMapToSelectedLocation();
     }
   }, { immediate: true });
 });
@@ -119,6 +169,8 @@ const initMap = () => {
     const pos = marker!.getLatLng();
     selectedLat.value = pos.lat;
     selectedLng.value = pos.lng;
+    userAdjustedLocation.value = true;
+    locationResolved.value = true;
   });
 
   // Map auf Klick: Marker bewegen
@@ -126,6 +178,8 @@ const initMap = () => {
     selectedLat.value = e.latlng.lat;
     selectedLng.value = e.latlng.lng;
     marker?.setLatLng(e.latlng);
+    userAdjustedLocation.value = true;
+    locationResolved.value = true;
   });
 };
 
@@ -135,6 +189,8 @@ const useCurrentLocation = async () => {
     const position = await Geolocation.getCurrentPosition();
     selectedLat.value = position.coords.latitude;
     selectedLng.value = position.coords.longitude;
+    userAdjustedLocation.value = true;
+    locationResolved.value = true;
     
     if (map && marker) {
       map.setView([selectedLat.value, selectedLng.value], 13);
@@ -148,6 +204,7 @@ const useCurrentLocation = async () => {
 };
 
 const confirmLocation = () => {
+  if (!canConfirm.value) return;
   emit('confirm', selectedLat.value, selectedLng.value);
 };
 </script>

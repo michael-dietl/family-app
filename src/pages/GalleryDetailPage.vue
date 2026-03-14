@@ -209,6 +209,8 @@
     <!-- Location Picker Modal -->
     <LocationPickerModal 
       :is-open="showLocationPicker"
+      :initial-lat="pendingPhotoData?.cameraExifData?.latitude"
+      :initial-lng="pendingPhotoData?.cameraExifData?.longitude"
       @confirm="handleLocationConfirm"
       @cancel="handleLocationCancel"
     />
@@ -460,7 +462,8 @@ import {
   IonFabButton,
   actionSheetController,
   alertController,
-  toastController
+  toastController,
+  loadingController
 } from '@ionic/vue';
 import {
   add,
@@ -481,7 +484,8 @@ import {
   closeCircle,
   close,
   checkmarkCircle,
-  pencilOutline
+  pencilOutline,
+  locateOutline
 } from 'ionicons/icons';
 import { CameraSource } from '@capacitor/camera';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -493,6 +497,7 @@ import { useGallery } from '@/composables/useGallery';
 import { usePhoto } from '@/composables/usePhoto';
 import { useLightbox } from '@/composables/useLightbox';
 import { useWakeLock } from '@/composables/useWakeLock';
+import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 import { extractExifFromImage } from '@/services/exif';
 import GalleryMap from '@/components/GalleryMap.vue';
 import LocationPickerModal from '@/components/LocationPickerModal.vue';
@@ -518,6 +523,7 @@ const { currentGallery, photos, isLoading, loadGallery, deleteGallery, updateGal
 const { takePhoto, pickSinglePhoto, pickMultiplePhotos, savePhoto, saveMultiplePhotos, deletePhoto: removePhoto, isProcessing, extractExifData } = usePhoto();
 const { initLightbox, openLightbox, destroyLightbox, startAutoplay, stopAutoplay, autoplayActive, isLightboxOpen } = useLightbox();
 const { activate: activateWakeLock, deactivate: deactivateWakeLock } = useWakeLock();
+const { backfillPhotoCoordinatesAndSync } = usePocketbaseSync();
 
 const uploadProgress = ref({ current: 0, total: 0 });
 const currentView = ref<'grid' | 'map'>('grid');
@@ -606,6 +612,44 @@ const cancelEndDatePicker = () => {
 const clearEndDate = () => {
   editGalleryEndDate.value = '';
   showEndDateModal.value = false;
+};
+
+const runGpsBackfillFromGalleryMenu = async () => {
+  const loading = await loadingController.create({
+    message: 'GPS-Daten werden aus EXIF nachgetragen...',
+    spinner: 'crescent',
+    backdropDismiss: false
+  });
+  await loading.present();
+
+  try {
+    const galleryId = Number(route.params.id);
+    const result = await backfillPhotoCoordinatesAndSync(
+      Number.isFinite(galleryId) && galleryId > 0 ? galleryId : undefined
+    );
+    if (Number.isFinite(galleryId) && galleryId > 0) {
+      await loadGallery(galleryId);
+    }
+
+    const toast = await toastController.create({
+      message: `GPS nachgetragen: ${result.updated}/${result.scanned} (ohne GPS: ${result.withoutGps}, Fehler: ${result.failed})`,
+      duration: 2400,
+      color: result.updated > 0 ? 'success' : 'medium',
+      position: 'bottom'
+    });
+    await toast.present();
+  } catch (error) {
+    console.error('GPS backfill failed:', error);
+    const toast = await toastController.create({
+      message: 'GPS-Nachtrag fehlgeschlagen',
+      duration: 2400,
+      color: 'danger',
+      position: 'bottom'
+    });
+    await toast.present();
+  } finally {
+    await loading.dismiss();
+  }
 };
 
 const videoExtensions = ['mp4', 'mov', 'webm', 'mkv', 'avi', '3gp', 'm4v'];
@@ -753,16 +797,19 @@ const buildTimestampFromDigits = (digits: string): number | null => {
 const playVideoInModal = async (photo: Photo) => {
   const src = getImageSrc(photo.filepath);
   if (!src) return;
-  videoPreviewAspectRatio.value = '16 / 9';
-  videoPreviewOrientation.value = 'landscape';
+
   videoPreviewSrc.value = src;
   videoPreviewOpen.value = true;
+
   await nextTick();
-  const videoEl = videoPreviewRef.value;
-  if (videoEl) {
-    videoEl.currentTime = 0;
-    videoEl.play().catch(() => {});
-  }
+  const video = videoPreviewRef.value;
+  if (!video) return;
+
+  video.muted = false;
+  video.preload = "metadata";
+  video.playsInline = true;
+  video.currentTime = 0;
+  await video.play().catch(() => {});
 };
 
 const tryParseTimestampFromDigits = (digits: string): number | null => {
@@ -1403,6 +1450,13 @@ const showGalleryMenu = async () => {
         handler: openEditGalleryModal
       },
       {
+        text: 'GPS aus EXIF nachtragen',
+        icon: locateOutline,
+        handler: () => {
+          void runGpsBackfillFromGalleryMenu();
+        }
+      },
+      {
         text: t('auto.gallerie_löschen'),
         role: 'destructive',
         icon: trashOutline,
@@ -1977,12 +2031,17 @@ onMounted(async () => {
   transform: translate(-50%, -50%);
   pointer-events: auto;
   cursor: pointer;
-  background: #ffffff;
-  border-radius: 50%;
-  padding: 10px;
+  background: #ffffff;        /* Weiß bleibt */
+  width: 32px;                /* kleiner als Icon */
+  height: 32px;               /* kleiner als Icon */
+  border-radius: 50%;         /* Rund, optional */
+  padding: 0;                 /* Kein zusätzliches Padding */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 10;
   box-shadow: 0 16px 32px rgba(0, 0, 0, 0.25);
-  opacity: 0.5;
+  opacity: 1;                 /* wichtig: Icon bleibt sichtbar */
 }
 
 .video-overlay ion-icon {

@@ -33,13 +33,7 @@ export default {
       web: 'In-Memory',
       native: 'Native'
     },
-    storageInfo: 'SQLite ({mode})',
-    toasts: {
-      pocketbase_not_configured: 'PocketBase is not configured!',
-      auth_failed: 'Automatic login failed – please check your credentials.',
-      sync_success: 'Books synchronized successfully!',
-      sync_error: 'Failed to synchronize books'
-    }
+    storageInfo: 'SQLite ({mode})'
   },
   languageNames: {
     de: 'Deutsch',
@@ -395,6 +389,10 @@ export default {
     "classname_waypoint_marker_waypoint_photo_break_case_video_ic": "';\n        className = 'waypoint-marker waypoint-photo';\n        break;\n      case 'video':\n        iconHtml = '",
     "classname_waypoint_marker_waypoint_video_break_case_manual_i": "';\n        className = 'waypoint-marker waypoint-video';\n        break;\n      case 'manual':\n        iconHtml = '",
     "route_nicht_gefunden": "Route nicht gefunden",
+    "story_map_speichern": "Save as Story Map",
+    "story_map_gespeichert": "Story Map saved",
+    "story_map_aktualisiert": "Story Map updated",
+    "story_map_speichern_fehler": "Story Map could not be saved",
     "waypoint_marker_waypoint_photo": "waypoint-marker waypoint-photo",
     "waypoint_marker_waypoint_video": "waypoint-marker waypoint-video",
     "waypoint_marker_waypoint_manual": "waypoint-marker waypoint-manual",
@@ -705,6 +703,16 @@ export default {
     "ready_to_create_an_app": "Ready to create an app?",
     "start_with_ionic": "Start with Ionic",
     "ui_components": "UI Components",
+    video_studio: "Video Studio",
+    video_studio_description: "Cut clips, Story Maps and highlights inside a lightweight video workspace.",
+    video_studio_add_clip: "Add clip",
+    video_studio_mark_ready: "Mark ready",
+    video_studio_remove_clip: "Remove clip",
+    video_studio_auto_edit_running: "Auto edit running…",
+    video_studio_auto_edit_ready: "Auto edit ready",
+    video_studio_start_auto_edit: "Start auto edit",
+    video_studio_reapply: "Reapply auto edit",
+    total_duration: "Total duration",
     timeline_title: "Timeline",
     timeline_gallery_hint: "Galleries with start and end dates appear here.",
     timeline_manual_events: "Manual entries",

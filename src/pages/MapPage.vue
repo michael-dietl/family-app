@@ -48,11 +48,14 @@ import {
   IonButton,
   IonIcon,
   IonSpinner,
-  actionSheetController
+  actionSheetController,
+  toastController,
+  loadingController
 } from '@ionic/vue';
 import { mapOutline, filterOutline } from 'ionicons/icons';
 import { Capacitor } from '@capacitor/core';
 import { db, type Photo, type Wine } from '@/services/database';
+import { usePocketbaseSync } from '@/composables/usePocketbaseSync';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -87,6 +90,26 @@ const markers = ref<MapMarker[]>([]);
 const showPhotos = ref(true);
 const showWines = ref(true);
 const galleryMeta = ref<Map<number, { color: string; name: string }>>(new Map());
+const backfillInProgress = ref(false);
+const { backfillPhotoCoordinatesAndSync } = usePocketbaseSync();
+
+const toFiniteNumber = (value: unknown): number | null => {
+  if (value == null) return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') {
+    const parsed = Number(value.trim().replace(',', '.'));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const hasUsableCoordinates = (lat?: number | string | null, lng?: number | string | null): boolean => {
+  const normalizedLat = toFiniteNumber(lat);
+  const normalizedLng = toFiniteNumber(lng);
+  if (normalizedLat == null || normalizedLng == null) return false;
+  if (Math.abs(normalizedLat) < 0.000001 && Math.abs(normalizedLng) < 0.000001) return false;
+  return true;
+};
 
 const getImageSrc = (path: string | undefined) => {
   if (!path) return '';
@@ -136,14 +159,17 @@ const loadMarkers = async () => {
       const photos = photoArrays.flat();
       
       photos.forEach(photo => {
-        if (photo.latitude && photo.longitude && !photo.isVideo) {
-          allMarkers.push({
-            type: 'photo',
-            latitude: photo.latitude,
-            longitude: photo.longitude,
-            data: photo
-          });
+        const latitude = toFiniteNumber(photo.latitude);
+        const longitude = toFiniteNumber(photo.longitude);
+        if (!hasUsableCoordinates(latitude, longitude) || photo.isVideo || latitude === null || longitude === null) {
+          return;
         }
+        allMarkers.push({
+          type: 'photo',
+          latitude,
+          longitude,
+          data: photo
+        });
       });
     }
     
@@ -151,14 +177,17 @@ const loadMarkers = async () => {
     if (showWines.value) {
       const wines = await db.getWines();
       wines.forEach(wine => {
-        if (wine.latitude && wine.longitude) {
-          allMarkers.push({
-            type: 'wine',
-            latitude: wine.latitude,
-            longitude: wine.longitude,
-            data: wine
-          });
+        const latitude = toFiniteNumber(wine.latitude);
+        const longitude = toFiniteNumber(wine.longitude);
+        if (!hasUsableCoordinates(latitude, longitude) || latitude === null || longitude === null) {
+          return;
         }
+        allMarkers.push({
+          type: 'wine',
+          latitude,
+          longitude,
+          data: wine
+        });
       });
     }
     
@@ -222,7 +251,7 @@ const initMap = async (centerLat?: number, centerLng?: number, zoomLevel = 6) =>
 };
 
 const addPhotoMarker = (photo: Photo, bounds: L.LatLngTuple[]) => {
-  if (!map || !photo.latitude || !photo.longitude) return;
+  if (!map || photo.latitude == null || photo.longitude == null) return;
   // Use gallery color when available
   const galleryInfo = galleryMeta.value.get(photo.galleryId);
   const galleryColor = galleryInfo?.color || '#3880ff';
@@ -283,7 +312,7 @@ const addPhotoMarker = (photo: Photo, bounds: L.LatLngTuple[]) => {
 };
 
 const addWineMarker = (wine: Wine, bounds: L.LatLngTuple[]) => {
-  if (!map || !wine.latitude || !wine.longitude) return;
+  if (!map || wine.latitude == null || wine.longitude == null) return;
 
   // Weinreben-Icon
   const wineIcon = L.divIcon({
@@ -339,6 +368,44 @@ const destroyMap = () => {
   }
 };
 
+const runGpsBackfill = async () => {
+  if (backfillInProgress.value) return;
+  backfillInProgress.value = true;
+  const loading = await loadingController.create({
+    message: 'GPS-Daten werden aus EXIF nachgetragen...',
+    spinner: 'crescent',
+    backdropDismiss: false
+  });
+  await loading.present();
+
+  try {
+    const result = await backfillPhotoCoordinatesAndSync();
+    destroyMap();
+    await loadMarkers();
+    await initMap();
+
+    const toast = await toastController.create({
+      message: `GPS nachgetragen: ${result.updated}/${result.scanned} (ohne GPS: ${result.withoutGps}, Fehler: ${result.failed})`,
+      duration: 2400,
+      color: result.updated > 0 ? 'success' : 'medium',
+      position: 'bottom'
+    });
+    await toast.present();
+  } catch (error) {
+    console.error('GPS backfill failed:', error);
+    const toast = await toastController.create({
+      message: 'GPS-Nachtrag fehlgeschlagen',
+      duration: 2400,
+      color: 'danger',
+      position: 'bottom'
+    });
+    await toast.present();
+  } finally {
+    await loading.dismiss();
+    backfillInProgress.value = false;
+  }
+};
+
 const showFilterOptions = async () => {
   const actionSheet = await actionSheetController.create({
     header: t('auto.anzeigen'),
@@ -360,6 +427,16 @@ const showFilterOptions = async () => {
           await loadMarkers();
           await initMap();
         }
+      },
+      {
+        text: backfillInProgress.value ? 'GPS-Nachtrag läuft…' : 'GPS aus EXIF nachtragen',
+        handler: async () => {
+          await runGpsBackfill();
+        }
+      },
+      {
+        text: t('auto.abbrechen'),
+        role: 'cancel'
       }
     ]
   });

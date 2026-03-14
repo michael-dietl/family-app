@@ -82,9 +82,8 @@
                 <!-- Gallery name (max 2 Zeilen) and photo count badge -->
               </div>
               <ion-card-header>
-                <ion-card-title>{{ gallery.name }}</ion-card-title>
-                <br/>
-                <ion-card-subtitle>
+                <ion-card-title class="gallery-title">{{ gallery.name }}</ion-card-title>
+                <ion-card-subtitle class="gallery-subtitle">
                   <ion-icon :icon="imageOutline" />
                   {{ photoCount(gallery.id ?? 0) }} {{ t('auto.fotos') }}
                   <span
@@ -119,6 +118,15 @@
               :placeholder="t('auto.z_b_urlaub_2026')"
               autocapitalize="sentences"
             />
+            <ion-button
+              slot="end"
+              fill="clear"
+              @click="startGallerySpeechInput('name')"
+              :disabled="Boolean(speechListeningField)"
+            >
+              <ion-spinner v-if="speechListeningField === 'name'" name="crescent" />
+              <ion-icon v-else :icon="micOutline" />
+            </ion-button>
           </ion-item>
           <ion-item>
             <ion-textarea 
@@ -129,6 +137,15 @@
               :placeholder="t('auto.beschreibe_deine_gallerie')"
               autocapitalize="sentences"
             />
+            <ion-button
+              slot="end"
+              fill="clear"
+              @click="startGallerySpeechInput('description')"
+              :disabled="Boolean(speechListeningField)"
+            >
+              <ion-spinner v-if="speechListeningField === 'description'" name="crescent" />
+              <ion-icon v-else :icon="micOutline" />
+            </ion-button>
           </ion-item>
           
           <!-- Farbauswahl -->
@@ -184,9 +201,11 @@
           <ion-button 
             expand="block" 
             @click="handleCreateGallery"
-            :disabled="!newGalleryName"
+            :disabled="!newGalleryName || isCreatingGallery"
+            :strong="!isCreatingGallery"
             class="ion-margin-top"
           >
+            <ion-spinner v-if="isCreatingGallery" name="crescent" class="create-spinner" />
             {{ $t('auto.erstellen') }}
           </ion-button>
         </ion-content>
@@ -265,9 +284,10 @@ import {
   IonToggle,
   actionSheetController,
   alertController,
+  toastController,
   onIonViewWillEnter
 } from '@ionic/vue';
-import { add, close, imagesOutline, imageOutline, calendarOutline, ellipsisVertical, arrowDownOutline, arrowUpOutline } from 'ionicons/icons';
+import { add, close, imagesOutline, imageOutline, calendarOutline, ellipsisVertical, arrowDownOutline, arrowUpOutline, micOutline } from 'ionicons/icons';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Preferences } from '@capacitor/preferences';
@@ -277,6 +297,7 @@ import { db } from '@/services/database';
 import { getPocketbaseAuthorId } from '@/services/pocketbase';
 
 type GalleryDateField = 'start' | 'end';
+type GallerySpeechField = 'name' | 'description';
 
 const router = useRouter();
 const { t, locale } = useI18n();
@@ -287,6 +308,7 @@ const { galleries, isLoading, loadGalleries, createGallery } = useGallery();
 const { autoSyncIfEnabled } = usePocketbaseSync();
 
 const showCreateDialog = ref(false);
+const isCreatingGallery = ref(false);
 const newGalleryName = ref('');
 const newGalleryDescription = ref('');
 const newGalleryColor = ref('#3880ff'); // Ionic Blue als Standard
@@ -312,6 +334,7 @@ watch(gallerySortMode, (mode) => {
 const showDatePickerModal = ref(false);
 const datePickerValue = ref('');
 const datePickerTarget = ref<GalleryDateField>('start');
+const speechListeningField = ref<GallerySpeechField | null>(null);
 
 // Vordefinierte Farben für schnelle Auswahl
 const presetColors = [
@@ -333,11 +356,10 @@ const presetColors = [
 ];
 
 const filteredGalleries = computed(() => {
-  const baseList = galleryFilterMode.value === 'mine' && currentAuthorId.value
+  const mineFilterActive = galleryFilterMode.value === 'mine' && Boolean(currentAuthorId.value);
+  const baseList = mineFilterActive
     ? galleries.value.filter(gallery => gallery.pb_author === currentAuthorId.value)
-    : galleryFilterMode.value === 'mine'
-      ? []
-      : galleries.value;
+    : galleries.value;
 
   const query = searchQuery.value.trim().toLowerCase();
   if (!query) return baseList;
@@ -391,11 +413,17 @@ onMounted(async () => {
   await autoSyncIfEnabled();
   await refreshGalleryFilterState();
   await refreshGallerySortState();
+  await ensureGalleryListVisible();
 });
 
 onIonViewWillEnter(() => {
-  void refreshGalleryFilterState();
-  void refreshGallerySortState();
+  void (async () => {
+    await refreshGalleryFilterState();
+    await refreshGallerySortState();
+    await loadGalleries();
+    await loadPhotoCounts();
+    await ensureGalleryListVisible();
+  })();
 });
 
 const loadPhotoCounts = async () => {
@@ -446,6 +474,18 @@ const refreshGallerySortState = async () => {
   const stored = await Preferences.get({ key: GALLERY_SORT_KEY });
   if (stored.value === 'name' || stored.value === 'time') {
     gallerySortMode.value = stored.value;
+  }
+};
+
+const ensureGalleryListVisible = async () => {
+  if (galleryFilterMode.value !== 'mine') return;
+  if (galleries.value.length === 0) return;
+  const mineCount = currentAuthorId.value
+    ? galleries.value.filter(gallery => gallery.pb_author === currentAuthorId.value).length
+    : 0;
+  if (mineCount === 0) {
+    galleryFilterMode.value = 'all';
+    await Preferences.set({ key: GALLERY_FILTER_KEY, value: 'all' });
   }
 };
 
@@ -509,9 +549,12 @@ const resetCreateDialogFields = () => {
   newGalleryStartDate.value = '';
   newGalleryEndDate.value = '';
   newGalleryShowOnMap.value = true;
+  datePickerValue.value = '';
+  datePickerTarget.value = 'start';
 };
 
 const closeCreateDialog = () => {
+  showDatePickerModal.value = false;
   showCreateDialog.value = false;
 };
 
@@ -520,14 +563,116 @@ const openCreateDialog = () => {
   showCreateDialog.value = true;
 };
 
-const handleCreateGallery = async () => {
-  if (!newGalleryName.value) return;
+const transcribeSpeech = async (): Promise<string> => {
+  const plugin = (window as any).plugins?.speechRecognition;
+  const language = (navigator.language || 'de-DE').replace('_', '-');
+
+  if (plugin && typeof plugin.startListening === 'function') {
+    const hasPermission = await new Promise<boolean>((resolve) =>
+      plugin.hasPermission((result: boolean) => resolve(result), () => resolve(false))
+    );
+
+    if (!hasPermission) {
+      await new Promise<void>((resolve, reject) => plugin.requestPermission(resolve, reject));
+    }
+
+    const matches: string[] = await new Promise((resolve, reject) => {
+      plugin.startListening(
+        (results: string[]) => resolve(results),
+        (error: unknown) => reject(error),
+        {
+          language,
+          matches: 1,
+          showPopup: true,
+          showPartial: false
+        }
+      );
+    });
+
+    return (matches[0] ?? '').trim();
+  }
+
+  const WebSpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+  if (!WebSpeechRecognition) {
+    throw new Error('Spracherkennung wird auf diesem Gerät nicht unterstützt.');
+  }
+
+  return new Promise<string>((resolve, reject) => {
+    const recognition = new WebSpeechRecognition();
+    recognition.lang = language;
+    recognition.maxAlternatives = 1;
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.onresult = (event: any) => {
+      recognition.stop();
+      const transcript = event.results?.[0]?.[0]?.transcript?.trim() ?? '';
+      resolve(transcript);
+    };
+    recognition.onerror = (event: any) => {
+      recognition.stop();
+      reject(new Error(event.error || 'Spracherkennung fehlgeschlagen.'));
+    };
+    recognition.start();
+  });
+};
+
+const startGallerySpeechInput = async (field: GallerySpeechField) => {
+  if (speechListeningField.value) return;
+  speechListeningField.value = field;
 
   try {
+    const transcript = await transcribeSpeech();
+    if (!transcript) {
+      const toast = await toastController.create({
+        message: 'Keine Sprache erkannt.',
+        duration: 1800,
+        color: 'medium',
+        position: 'bottom'
+      });
+      await toast.present();
+      return;
+    }
+
+    if (field === 'name') {
+      newGalleryName.value = newGalleryName.value.trim().length > 0
+        ? `${newGalleryName.value.trim()} ${transcript}`
+        : transcript;
+    } else {
+      newGalleryDescription.value = newGalleryDescription.value.trim().length > 0
+        ? `${newGalleryDescription.value.trim()} ${transcript}`
+        : transcript;
+    }
+
+    const successToast = await toastController.create({
+      message: 'Spracheingabe übernommen.',
+      duration: 1500,
+      color: 'success',
+      position: 'bottom'
+    });
+    await successToast.present();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Spracherkennung fehlgeschlagen.';
+    const toast = await toastController.create({
+      message,
+      duration: 2200,
+      color: 'danger',
+      position: 'bottom'
+    });
+    await toast.present();
+  } finally {
+    speechListeningField.value = null;
+  }
+};
+
+const handleCreateGallery = async () => {
+  const trimmedName = newGalleryName.value.trim();
+  if (!trimmedName || isCreatingGallery.value) return;
+
+  isCreatingGallery.value = true;
+  try {
     const authorId = await ensureAuthorId();
-    // Galerie erstellen (lädt automatisch die Galerie-Liste neu in useGallery)
-    await createGallery(
-      newGalleryName.value,
+    const createdGalleryId = await createGallery(
+      trimmedName,
       newGalleryDescription.value,
       newGalleryColor.value,
       newGalleryStartDate.value || undefined,
@@ -535,16 +680,28 @@ const handleCreateGallery = async () => {
       newGalleryShowOnMap.value,
       authorId
     );
-    
-    // Photo counts laden (verwendet die aktualisierte galleries-Liste aus useGallery)
-    await loadPhotoCounts();
-    
-    // Dialog schließen und Felder zurücksetzen (mit nextTick für proper state update)
+
     closeCreateDialog();
-    await nextTick();
     resetCreateDialogFields();
-    
-    console.log('✅ Galerie erfolgreich erstellt, Dialog geschlossen und Liste aktualisiert');
+    searchQuery.value = '';
+
+    // Keep refresh close to the historical working flow.
+    await refreshGalleryFilterState();
+    await loadPhotoCounts();
+    await ensureGalleryListVisible();
+
+    const createdGallery = galleries.value.find(gallery => gallery.id === createdGalleryId);
+    const createdVisibleInMine = Boolean(
+      createdGallery &&
+      createdGallery.pb_author &&
+      currentAuthorId.value &&
+      createdGallery.pb_author === currentAuthorId.value
+    );
+
+    if (galleryFilterMode.value === 'mine' && !createdVisibleInMine) {
+      galleryFilterMode.value = 'all';
+      await Preferences.set({ key: GALLERY_FILTER_KEY, value: 'all' });
+    }
   } catch (error) {
     console.error('Create gallery error:', error);
     const alert = await alertController.create({
@@ -553,6 +710,8 @@ const handleCreateGallery = async () => {
       buttons: ['OK']
     });
     await alert.present();
+  } finally {
+    isCreatingGallery.value = false;
   }
 };
 
@@ -668,6 +827,19 @@ onMounted(async () => {
   font-size: 14px;
 }
 
+.gallery-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.2;
+  min-height: calc(1.2em * 2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
 .gallery-label-count {
   background: rgba(255,255,255,0.12);
   padding: 4px 8px;
@@ -706,12 +878,50 @@ onMounted(async () => {
 ion-card {
   margin: 0;
   cursor: pointer;
+  height: 100%;
+  min-height: 238px;
+  display: flex;
+  flex-direction: column;
+}
+
+ion-card-header {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.4rem;
+  min-height: 84px;
+}
+
+@media (min-width: 768px) {
+  ion-card {
+    min-height: 252px;
+  }
+
+  ion-card-header {
+    min-height: 88px;
+  }
+}
+
+@media (min-width: 1200px) {
+  ion-card {
+    min-height: 266px;
+  }
+
+  ion-card-header {
+    min-height: 92px;
+  }
 }
 
 ion-card-subtitle {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+}
+
+.gallery-subtitle {
+  min-height: 1.1rem;
+  line-height: 1.1rem;
+  white-space: nowrap;
 }
 
 ion-card-subtitle ion-icon {
@@ -814,6 +1024,10 @@ ion-card-subtitle ion-icon {
 
 .modal-actions {
   margin-top: 1rem;
+}
+
+.create-spinner {
+  margin-right: 0.45rem;
 }
 
 :deep(.half-modal .modal-wrapper) {
